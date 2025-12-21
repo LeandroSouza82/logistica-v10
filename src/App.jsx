@@ -41,6 +41,39 @@ function App() {
     }
   }, []);
 
+  // Estados para gerenciar envio de rotas e notificações
+  const [enviando, setEnviando] = useState(false);
+  const [notificacao, setNotificacao] = useState(null);
+
+  // Som de notificação para feedback ao gestor
+  const tocarSom = () => {
+    try {
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      audio.play();
+    } catch (e) {
+      // falha silenciosa se o navegador bloquear áudio automático
+      console.warn('Não foi possível reproduzir o som:', e);
+    }
+  };
+
+  // Função que simula a otimização e envio de rotas aos motoristas online
+  const enviarRotas = async () => {
+    if (enviando) return;
+    setEnviando(true);
+    setNotificacao('Enviando rotas otimizadas...');
+    tocarSom();
+
+    // Simular chamada assíncrona ao servidor para calcular/entregar rotas
+    setTimeout(() => {
+      const agora = new Date().toISOString();
+      setMotoristas(prev => prev.map(m => m.status === 'online' ? { ...m, rotaEnviadaEm: agora } : m));
+      setNotificacao('Rotas enviadas com sucesso! ✅');
+
+      // esconda a notificação após alguns segundos
+      setTimeout(() => setNotificacao(null), 4000);
+      setEnviando(false);
+    }, 1500);
+  };
   return (
     <div style={styles.container}>
       {/* SIDEBAR SOFISTICADA */}
@@ -61,8 +94,14 @@ function App() {
           <>
             <header style={styles.header}>
               <h1>Visão Geral do Gestor</h1>
-              <button style={styles.btnPrincipal}>OTIMIZAR ROTAS AGORA</button>
-            </header>
+              <button
+                onClick={enviarRotas}
+                disabled={enviando}
+                style={{ ...styles.btnPrincipal, opacity: enviando ? 0.6 : 1, cursor: enviando ? 'not-allowed' : 'pointer' }}
+              >
+                {enviando ? 'ENVIANDO...' : 'ENVIAR ROTAS OTIMIZADAS'}
+              </button>
+            </header> 
 
             <section style={styles.gridCards}>
               <div style={styles.card}><span style={styles.cardLabel}>Faturamento Corridas</span><h2 style={styles.cardValue}>R$ 1.875.000,00</h2></div>
@@ -124,6 +163,11 @@ function App() {
             </table>
           </section>
         )}
+      {notificacao && (
+        <div style={styles.notificacaoPop} role="status">
+          {notificacao}
+        </div>
+      )}
       </main>
     </div>
   );
@@ -148,7 +192,8 @@ const styles = {
   listaMotoristas: { backgroundColor: '#1e293b', padding: '25px', borderRadius: '15px', border: '1px solid #334155' },
   table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
   tableHead: { borderBottom: '2px solid #334155', color: '#94a3b8', fontSize: '13px' },
-  tableRow: { borderBottom: '1px solid #334155', height: '60px' }
+  tableRow: { borderBottom: '1px solid #334155', height: '60px' },
+  notificacaoPop: { position: 'fixed', top: '20px', right: '20px', backgroundColor: '#00ff88', color: '#000', padding: '12px 20px', borderRadius: '8px', fontWeight: '700', boxShadow: '0 10px 15px rgba(0,0,0,0.25)', zIndex: 9999 }
 };
 
 export default App;
