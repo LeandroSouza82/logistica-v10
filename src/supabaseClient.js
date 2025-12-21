@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Substitua com os dados que aparecem em Project API keys no seu Supabase
-const supabaseUrl = 'sb_secret_5s0cRIIAlUCiADhLkpwMlw_WXYFQcGO'
-const supabaseKey = 'sb_secret_LelyAvQvQugDfKy2fNiClg_kaLa5kZQ'
+// Use variáveis de ambiente (Vite) para evitar expor chaves em código-fonte
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('VITE_SUPABASE_URL ou VITE_SUPABASE_ANON_KEY não definidos. Configure .env.local com as credenciais do Supabase.');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
