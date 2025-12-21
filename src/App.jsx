@@ -1,4 +1,4 @@
-export default App;import React, { useState, useEffect } from 'react';
+export default App; import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import { supabase } from './supabaseClient';
 import 'leaflet/dist/leaflet.css';
@@ -87,26 +87,26 @@ function App() {
     <div style={styles.container}>
       {/* LADO ESQUERDO: INPUTS DO GESTOR */}
       <aside style={styles.sidebar}>
-        <h2 style={{color: '#38bdf8'}}>Logística-v2 Gestor</h2>
-        
+        <h2 style={{ color: '#38bdf8' }}>Logística-v2 Gestor</h2>
+
         <form onSubmit={criarPedido} style={styles.form}>
           <h3>📍 Novo Pedido/Retirada</h3>
-          <input placeholder="Nome do Cliente" value={novoPedido.cliente} onChange={e => setNovoPedido({...novoPedido, cliente: e.target.value})} style={styles.input} required />
-          <input placeholder="Endereço Completo" value={novoPedido.endereco} onChange={e => setNovoPedido({...novoPedido, endereco: e.target.value})} style={styles.input} required />
-          <select value={novoPedido.motorista} onChange={e => setNovoPedido({...novoPedido, motorista: e.target.value})} style={styles.input} required>
+          <input placeholder="Nome do Cliente" value={novoPedido.cliente} onChange={e => setNovoPedido({ ...novoPedido, cliente: e.target.value })} style={styles.input} required />
+          <input placeholder="Endereço Completo" value={novoPedido.endereco} onChange={e => setNovoPedido({ ...novoPedido, endereco: e.target.value })} style={styles.input} required />
+          <select value={novoPedido.motorista} onChange={e => setNovoPedido({ ...novoPedido, motorista: e.target.value })} style={styles.input} required>
             <option value="">Selecione o Motorista</option>
             {motoristas.map(m => <option key={m.id} value={m.nome}>{m.nome}</option>)}
           </select>
-          <textarea placeholder="Recado para o motorista" value={novoPedido.recado} onChange={e => setNovoPedido({...novoPedido, recado: e.target.value})} style={styles.input} />
+          <textarea placeholder="Recado para o motorista" value={novoPedido.recado} onChange={e => setNovoPedido({ ...novoPedido, recado: e.target.value })} style={styles.input} />
           <button type="submit" style={styles.btnEnviar}>ADICIONAR À ROTA</button>
         </form>
 
         <div style={styles.lista}>
           <h3>📋 Rota Atual (Otimizada)</h3>
           {entregas.map((ent, i) => (
-            <div key={ent.id} style={{...styles.cardEntrega, opacity: ent.status === 'Concluído' || ent.status === 'Finalizado' ? 0.5 : 1}}>
+            <div key={ent.id} style={{ ...styles.cardEntrega, opacity: ent.status === 'Concluído' || ent.status === 'Finalizado' ? 0.5 : 1 }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontWeight: '700' }}>{i+1}º - {ent.cliente}</span>
+                <span style={{ fontWeight: '700' }}>{i + 1}º - {ent.cliente}</span>
                 <small style={{ color: '#94a3b8' }}>{ent.endereco || ''} {ent.motorista ? `• ${ent.motorista}` : ''}</small>
               </div>
 
@@ -144,7 +144,7 @@ function App() {
 
       {/* LADO DIREITO: MAPA COM ZOOM DINÂMICO */}
       <main style={styles.main}>
-        <MapContainer center={[-23.55, -46.63]} zoom={12} style={{height: '100%', borderRadius: '15px'}}>
+        <MapContainer center={[-23.55, -46.63]} zoom={12} style={{ height: '100%', borderRadius: '15px' }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {/* Aqui entrariam os marcadores das entregas baseados no endereço convertido em lat/lng */}
         </MapContainer>
