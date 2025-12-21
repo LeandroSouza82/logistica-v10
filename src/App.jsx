@@ -1,4 +1,4 @@
-export default App; import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import { supabase } from './supabaseClient';
 import 'leaflet/dist/leaflet.css';
