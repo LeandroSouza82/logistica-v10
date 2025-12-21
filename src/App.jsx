@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // Configuração de ícones para o Leaflet não bugar no React
@@ -15,7 +15,18 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
+function RecenterMap({ coords }) {
+  const map = useMap();
+  useEffect(() => {
+    if (coords) {
+      map.setView([coords.lat, coords.lng], 15); // Zoom de 15 é ideal para visualização urbana
+    }
+  }, [coords]);
+  return null;
+}
+
 function App() {
+  const [posicaoGestor, setPosicaoGestor] = useState({ lat: -27.63718, lng: -48.70789 }); // Padrão Palhoça
   const [notificacao, setNotificacao] = useState(false);
   
   // Som de Notificação (Beep profissional)
@@ -23,6 +34,20 @@ function App() {
     const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     audio.play();
   };
+
+  // Tenta obter a localização real do Gestor e atualiza o estado
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        setPosicaoGestor({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+      }, (err) => {
+        console.warn('Geolocation error:', err);
+      });
+    }
+  }, []);
 
   const enviarRota = () => {
     tocarSom();
@@ -87,17 +112,26 @@ function App() {
         {/* Mapa com Leaflet */}
         <section style={styles.mapContainer}>
           <MapContainer 
-            center={[-27.63718, -48.70789]} 
+            center={[posicaoGestor.lat, posicaoGestor.lng]} 
             zoom={15} 
             style={{ height: '100%', width: '100%', borderRadius: '12px' }}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+            {/* Marcador do Gestor (posição atual) */}
+            <Marker position={[posicaoGestor.lat, posicaoGestor.lng]}>
+              <Popup>Você está aqui (Gestor)</Popup>
+            </Marker>
+
+            {/* Marcador da Sede */}
             <Marker position={[-27.63718, -48.70789]}>
               <Popup>
                 <strong>Sede Progeto Log</strong> <br />
                 Rua Walmor Beppler, Palhoça - SC
               </Popup>
             </Marker>
+
+            <RecenterMap coords={posicaoGestor} />
           </MapContainer>
         </section>
       </main>
