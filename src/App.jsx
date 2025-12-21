@@ -86,10 +86,17 @@ function App() {
 
         {/* Mapa com Leaflet */}
         <section style={styles.mapContainer}>
-          <MapContainer center={[-23.5505, -46.6333]} zoom={13} style={{ height: '100%', width: '100%', borderRadius: '12px' }}>
+          <MapContainer 
+            center={[-27.63718, -48.70789]} 
+            zoom={15} 
+            style={{ height: '100%', width: '100%', borderRadius: '12px' }}
+          >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            <Marker position={[-23.5505, -46.6333]}>
-              <Popup>Motorista 01 - Em Rota de Coleta</Popup>
+            <Marker position={[-27.63718, -48.70789]}>
+              <Popup>
+                <strong>Sede Progeto Log</strong> <br />
+                Rua Walmor Beppler, Palhoça - SC
+              </Popup>
             </Marker>
           </MapContainer>
         </section>
