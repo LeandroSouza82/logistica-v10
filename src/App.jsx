@@ -1,134 +1,158 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 
-// Som de alerta (link direto para um 'ping' de logística)
 const somAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
 function App() {
   const [entregas, setEntregas] = useState([]);
   const [view, setView] = useState(window.innerWidth < 768 ? 'motorista' : 'gestor');
-  const [motoristaLogado, setMotoristaLogado] = useState(localStorage.getItem('motorista_nome') || null);
-  const [audioDesbloqueado, setAudioDesbloqueado] = useState(false);
+  const [motoristaLogado, setMotoristaLogado] = useState(localStorage.getItem('motorista_nome') || 'Motorista');
+  const [audioAtivo, setAudioAtivo] = useState(false);
 
   const buscarDados = async () => {
     const { data } = await supabase.from('entregas').select('*').order('ordem', { ascending: true });
     if (data) setEntregas(data);
   };
 
-  // Função para "destravar" o som no celular (exigência dos navegadores)
-  const desbloquearAudio = () => {
-    somAlerta.play().then(() => {
-      somAlerta.pause();
-      somAlerta.currentTime = 0;
-      setAudioDesbloqueado(true);
-    }).catch(() => {});
-  };
-
   useEffect(() => {
     buscarDados();
-    const canal = supabase.channel('logistica_v4')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entregas' }, (payload) => {
+    const canal = supabase.channel('logistica_premium')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, (payload) => {
         buscarDados();
-        // Toca o som apenas se o áudio foi desbloqueado pelo clique
-        somAlerta.play().catch(e => console.log("Áudio ainda bloqueado"));
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, () => buscarDados())
-      .subscribe();
-
+        if (payload.eventType === 'INSERT') somAlerta.play().catch(() => {});
+      }).subscribe();
     return () => supabase.removeChannel(canal);
   }, []);
 
+  // FUNÇÃO SOFISTICADA PARA TROCAR POSIÇÃO
+  const moverPosicao = async (id, ordemAtual, direcao) => {
+    const novaOrdem = direcao === 'sobe' ? ordemAtual - 1.1 : ordemAtual + 1.1;
+    await supabase.from('entregas').update({ ordem: novaOrdem }).eq('id', id);
+    // O Realtime atualizará a lista automaticamente
+  };
+
   const concluirEntrega = async (id) => {
-    const nome = prompt("Quem recebeu?");
+    const nome = prompt("Confirmar recebimento por:");
     if (!nome) return;
     await supabase.from('entregas').update({ 
       status: 'Concluído', 
       horario_conclusao: new Date().toISOString(),
-      recado: `Recebido por: ${nome}`
+      recado: `Entregue para: ${nome}`
     }).eq('id', id);
   };
 
-  if (view === 'motorista' && motoristaLogado) {
+  if (view === 'motorista') {
     const pendentes = entregas.filter(e => e.status === 'Pendente');
     const atual = pendentes[0];
     const proximas = pendentes.slice(1);
 
     return (
-      <div style={styles.mobileContainer} onClick={!audioDesbloqueado ? desbloquearAudio : null}>
-        <header style={styles.header}>
-          <div style={{fontSize:'10px', color:'#38bdf8'}}>SISTEMA ATIVO - {motoristaLogado.toUpperCase()}</div>
-          {!audioDesbloqueado && <div style={styles.avisoSom}>⚠️ Toque aqui para ativar o som</div>}
+      <div style={styles.appContainer} onClick={() => setAudioAtivo(true)}>
+        <header style={styles.glassHeader}>
+          <div style={styles.headerInfo}>
+            <span style={styles.userDot}>●</span>
+            <span style={styles.userName}>{motoristaLogado}</span>
+          </div>
+          <div style={styles.statusBadge}>ONLINE</div>
         </header>
 
-        <main style={styles.scrollArea}>
+        <main style={styles.mainContent}>
           {atual ? (
-            <div style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
-              {/* CARD PRINCIPAL (Sempre no topo) */}
-              <div style={styles.cardPrincipal}>
-                <div style={styles.badge}>ENTREGA ATUAL</div>
-                <h1 style={{margin:'10px 0', fontSize:'28px'}}>{atual.cliente}</h1>
-                <p style={{color:'#cbd5e1'}}>📍 {atual.endereco}</p>
-                <div style={styles.gridAcoes}>
-                  <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(atual.endereco)}`)} style={styles.btnMapa}>MAPA</button>
-                  <button onClick={() => concluirEntrega(atual.id)} style={styles.btnConcluir}>CONCLUIR</button>
+            <>
+              {/* CARD DE DESTAQUE (SOFT DESIGN) */}
+              <div style={styles.mainCard}>
+                <div style={styles.categoryTag}>DESTINO ATUAL</div>
+                <h1 style={styles.clientTitle}>{atual.cliente}</h1>
+                <p style={styles.addressText}>📍 {atual.endereco}</p>
+                
+                <div style={styles.actionGrid}>
+                  <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(atual.endereco)}`)} style={styles.secondaryBtn}>ROTA</button>
+                  <button onClick={() => concluirEntrega(atual.id)} style={styles.primaryBtn}>CONCLUIR</button>
                 </div>
               </div>
 
-              {/* LISTA DE PRÓXIMAS (Um embaixo do outro) */}
-              {proximas.length > 0 && <h3 style={{color:'#94a3b8', margin:'10px 0'}}>Próximas Paradas</h3>}
-              {proximas.map((ent, i) => (
-                <div key={ent.id} style={styles.cardMenor}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:'11px', color:'#38bdf8'}}>{i + 2}ª PARADA</div>
-                    <div style={{fontWeight:'bold'}}>{ent.cliente}</div>
-                    <div style={{fontSize:'12px', color:'#94a3b8'}}>{ent.endereco}</div>
+              {/* LISTA DE PRÓXIMAS COM TROCA DE POSIÇÃO */}
+              <div style={styles.listHeader}>
+                <span style={styles.listTitle}>Próximas paradas</span>
+                <span style={styles.listCount}>{proximas.length} restantes</span>
+              </div>
+
+              <div style={styles.verticalList}>
+                {proximas.map((ent, index) => (
+                  <div key={ent.id} style={styles.smallCard}>
+                    <div style={styles.cardInfo}>
+                      <span style={styles.orderNumber}>{index + 2}º</span>
+                      <div>
+                        <div style={styles.smallClient}>{ent.cliente}</div>
+                        <div style={styles.smallAddress}>{ent.endereco}</div>
+                      </div>
+                    </div>
+                    
+                    {/* CONTROLES DE POSIÇÃO ELEGANTES */}
+                    <div style={styles.orderControls}>
+                      <button onClick={() => moverPosicao(ent.id, ent.ordem, 'sobe')} style={styles.orderBtn}>▲</button>
+                      <button onClick={() => moverPosicao(ent.id, ent.ordem, 'desce')} style={styles.orderBtn}>▼</button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           ) : (
-            /* ANIMAÇÃO DE ESPERA QUANDO NÃO HÁ ROTAS */
-            <div style={styles.containerEspera}>
-              <div className="radar"></div>
-              <h3 style={{marginTop:'20px'}}>Aguardando rotas...</h3>
-              <p style={{fontSize:'12px', color:'#64748b'}}>Você será avisado com um sinal sonoro</p>
-              <style>{`
-                .radar {
-                  width: 80px; height: 80px;
-                  background: #38bdf8; border-radius: 50%;
-                  animation: pulse 2s infinite;
-                }
-                @keyframes pulse {
-                  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7); }
-                  70% { transform: scale(1); box-shadow: 0 0 0 30px rgba(56, 189, 248, 0); }
-                  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
-                }
-              `}</style>
+            <div style={styles.emptyState}>
+              <div className="pulse-ring"></div>
+              <p style={styles.emptyText}>Aguardando novas rotas...</p>
             </div>
           )}
         </main>
+        
+        <style>{`
+          .pulse-ring {
+            width: 60px; height: 60px; background: #38bdf8; border-radius: 50%;
+            animation: pulse 2s infinite ease-in-out; opacity: 0.3;
+          }
+          @keyframes pulse {
+            0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 40px rgba(56, 189, 248, 0); }
+            100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+          }
+        `}</style>
       </div>
     );
   }
 
-  // Fallback para login ou gestor
-  return <div style={{padding:'50px', color:'#fff', textAlign:'center'}}>
-    <button onClick={() => { localStorage.setItem('motorista_nome', 'Motorista'); window.location.reload(); }}>Entrar como Motorista</button>
+  return <div style={{background: '#0f172a', height: '100vh', padding: '50px', textAlign:'center'}}>
+    <button onClick={() => setView('motorista')} style={styles.primaryBtn}>Entrar no App</button>
   </div>;
 }
 
 const styles = {
-  mobileContainer: { width: '100vw', height: '100vh', backgroundColor: '#0f172a', color: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column' },
-  header: { padding: '15px', backgroundColor: '#1e293b', borderBottom: '1px solid #334155', textAlign: 'center' },
-  avisoSom: { fontSize: '10px', color: '#fbbf24', marginTop: '5px' },
-  scrollArea: { flex: 1, overflowY: 'auto', padding: '15px' },
-  cardPrincipal: { backgroundColor: '#1e293b', padding: '20px', borderRadius: '20px', borderLeft: '8px solid #38bdf8', boxShadow: '0 10px 15px rgba(0,0,0,0.3)' },
-  badge: { backgroundColor: '#38bdf8', color: '#000', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', display: 'inline-block' },
-  gridAcoes: { display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' },
-  btnMapa: { padding: '15px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold' },
-  btnConcluir: { padding: '18px', backgroundColor: '#00ff88', color: '#000', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '18px' },
-  cardMenor: { backgroundColor: '#1e293b', padding: '15px', borderRadius: '12px', opacity: 0.7, borderLeft: '4px solid #475569' },
-  containerEspera: { height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }
+  appContainer: { width: '100vw', height: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', display: 'flex', flexDirection: 'column', fontFamily: '-apple-system, sans-serif' },
+  glassHeader: { padding: '20px', background: 'rgba(30, 41, 59, 0.7)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  headerInfo: { display: 'flex', alignItems: 'center', gap: '8px' },
+  userDot: { color: '#22c55e', fontSize: '10px' },
+  userName: { fontSize: '14px', fontWeight: '500', letterSpacing: '0.5px' },
+  statusBadge: { fontSize: '10px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', padding: '4px 8px', borderRadius: '20px', fontWeight: 'bold' },
+  mainContent: { flex: 1, overflowY: 'auto', padding: '20px' },
+  mainCard: { background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', padding: '25px', borderRadius: '30px', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)' },
+  categoryTag: { fontSize: '10px', color: '#94a3b8', fontWeight: 'bold', letterSpacing: '2px' },
+  clientTitle: { fontSize: '32px', margin: '10px 0', fontWeight: '800' },
+  addressText: { color: '#cbd5e1', fontSize: '16px', lineHeight: '1.4' },
+  actionGrid: { display: 'flex', gap: '12px', marginTop: '25px' },
+  primaryBtn: { flex: 2, padding: '18px', background: '#38bdf8', color: '#000', border: 'none', borderRadius: '18px', fontWeight: 'bold', fontSize: '16px' },
+  secondaryBtn: { flex: 1, padding: '18px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '18px', fontWeight: 'bold' },
+  listHeader: { display: 'flex', justifyContent: 'space-between', marginTop: '30px', marginBottom: '15px', padding: '0 5px' },
+  listTitle: { fontSize: '14px', fontWeight: 'bold', color: '#94a3b8' },
+  listCount: { fontSize: '12px', color: '#64748b' },
+  verticalList: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  smallCard: { background: 'rgba(30, 41, 59, 0.5)', padding: '15px', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(255,255,255,0.03)' },
+  cardInfo: { display: 'flex', alignItems: 'center', gap: '15px' },
+  orderNumber: { fontSize: '12px', color: '#38bdf8', fontWeight: 'bold' },
+  smallClient: { fontSize: '16px', fontWeight: 'bold' },
+  smallAddress: { fontSize: '12px', color: '#64748b' },
+  orderControls: { display: 'flex', gap: '5px' },
+  orderBtn: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', width: '35px', height: '35px', borderRadius: '10px', fontSize: '12px' },
+  emptyState: { height: '80%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
+  emptyText: { marginTop: '20px', color: '#64748b', fontSize: '14px' }
 };
 
 export default App;
