@@ -62,7 +62,7 @@ function App() {
               <p style={{fontSize: '18px', marginBottom: '20px'}}>📍 {atual.endereco}</p>
               
               <div style={styles.gridAcoes}>
-                <button onClick={() => window.open(`http://maps.google.com/?q=${encodeURIComponent(atual.endereco)}`)} style={styles.btnMapa}>🗺️ ABRIR MAPA</button>
+                <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(atual.endereco)}`, '_blank')} style={styles.btnMapa}>🗺️ ABRIR GPS</button>
                 <button onClick={() => concluirEntrega(atual.id)} style={styles.btnConcluir}>✅ CONCLUIR</button>
               </div>
             </div>
