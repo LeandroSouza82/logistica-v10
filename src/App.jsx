@@ -118,9 +118,106 @@ function App() {
     );
   }
 
-  return <div style={{background:'#020617', height:'100vh', display:'flex', alignItems:'center', justifyContent:'center'}}>
-    <button onClick={() => setView('motorista')} style={styles.btnOk}>Simular Celular</button>
-  </div>;
+  // --- VISÃO DO GESTOR (DESKTOP) ---
+  const pendentes = entregas.filter(e => e.status === 'Pendente');
+  const concluidas = entregas.filter(e => e.status === 'Concluído');
+  const progressoTotal = entregas.length > 0 ? (concluidas.length / entregas.length) * 100 : 0;
+
+  return (
+    <div style={styles.dashContainer}>
+      {/* SIDEBAR DE COMANDO */}
+      <aside style={styles.sidebar}>
+        <div style={styles.logoArea}>
+          <h2 style={styles.logo}>LOGÍSTICA <span style={{color:'#38bdf8'}}>PRO</span></h2>
+          <p style={styles.subLogo}>Painel Administrativo</p>
+        </div>
+
+        <nav style={styles.nav}>
+          <div style={styles.navItemActive}>📊 Visão Geral</div>
+          <div style={styles.navItem} onClick={() => setView('motorista')}>📱 Ver Celular</div>
+        </nav>
+
+        <div style={styles.formContainer}>
+          <h3 style={styles.formTitle}>Nova Entrega</h3>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            const cliente = e.target.cliente.value;
+            const endereco = e.target.endereco.value;
+            await supabase.from('entregas').insert([{ cliente, endereco, status: 'Pendente', ordem: entregas.length + 1 }]);
+            e.target.reset();
+          }} style={styles.form}>
+            <input name="cliente" placeholder="Nome do Cliente" style={styles.inputDash} required />
+            <input name="endereco" placeholder="Endereço Completo" style={styles.inputDash} required />
+            <button type="submit" style={styles.btnDashPrimary}>LANÇAR NA ROTA</button>
+          </form>
+        </div>
+      </aside>
+
+      {/* CONTEÚDO PRINCIPAL */}
+      <main style={styles.dashMain}>
+        {/* CARDS DE INDICADORES */}
+        <header style={styles.dashHeader}>
+          <div style={styles.statCard}>
+            <span style={styles.statLabel}>TOTAL DE ENTREGAS</span>
+            <div style={styles.statValue}>{entregas.length}</div>
+          </div>
+          <div style={styles.statCard}>
+            <span style={styles.statLabel}>CONCLUÍDAS</span>
+            <div style={{...styles.statValue, color: '#10b981'}}>{concluidas.length}</div>
+          </div>
+          <div style={styles.statCard}>
+            <span style={styles.statLabel}>PENDENTES</span>
+            <div style={{...styles.statValue, color: '#fbbf24'}}>{pendentes.length}</div>
+          </div>
+          <div style={styles.statCard}>
+            <span style={styles.statLabel}>EFICIÊNCIA</span>
+            <div style={styles.statValue}>{progressoTotal.toFixed(0)}%</div>
+          </div>
+        </header>
+
+        {/* TABELA DE MONITORAMENTO EM TEMPO REAL */}
+        <section style={styles.tableSection}>
+          <div style={styles.tableHeader}>
+            <h3>Monitoramento em Tempo Real</h3>
+            <div style={styles.liveDot}>● LIVE</div>
+          </div>
+          
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>ORDEM</th>
+                <th style={styles.th}>CLIENTE</th>
+                <th style={styles.th}>ENDEREÇO</th>
+                <th style={styles.th}>STATUS</th>
+                <th style={styles.th}>HORÁRIO</th>
+                <th style={styles.th}>OBSERVAÇÃO</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entregas.map((ent) => (
+                <tr key={ent.id} style={styles.tr}>
+                  <td style={styles.td}>#{ent.ordem}</td>
+                  <td style={{...styles.td, fontWeight: 'bold'}}>{ent.cliente}</td>
+                  <td style={styles.td}>{ent.endereco}</td>
+                  <td style={styles.td}>
+                    <span style={{
+                      ...styles.statusTag, 
+                      backgroundColor: ent.status === 'Concluído' ? '#064e3b' : '#451a03',
+                      color: ent.status === 'Concluído' ? '#10b981' : '#fbbf24'
+                    }}>
+                      {ent.status}
+                    </span>
+                  </td>
+                  <td style={styles.td}>{ent.horario_conclusao ? new Date(ent.horario_conclusao).toLocaleTimeString() : '--:--'}</td>
+                  <td style={styles.td}>{ent.recado || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+  );
 }
 
 const styles = {
@@ -137,7 +234,33 @@ const styles = {
   actions: { display: 'flex', gap: '10px', marginTop: '20px' },
   btnMapa: { flex: 1, padding: '16px', borderRadius: '14px', border: '1px solid #334155', background: 'transparent', color: '#fff', fontWeight: 'bold' },
   btnOk: { flex: 1, padding: '16px', borderRadius: '14px', border: 'none', background: '#38bdf8', color: '#000', fontWeight: 'bold' },
-  empty: { textAlign: 'center', marginTop: '100px', color: '#475569' }
+  empty: { textAlign: 'center', marginTop: '100px', color: '#475569' },
+
+  // DASHBOARD (GESTOR)
+  dashContainer: { display: 'flex', width: '100vw', height: '100vh', backgroundColor: '#020617', color: '#fff', fontFamily: 'sans-serif' },
+  sidebar: { width: '300px', backgroundColor: '#0f172a', borderRight: '1px solid #1e293b', padding: '30px', display: 'flex', flexDirection: 'column' },
+  logoArea: { marginBottom: '20px' },
+  logo: { fontSize: '24px', margin: 0, fontWeight: '800', letterSpacing: '-1px' },
+  subLogo: { fontSize: '12px', color: '#475569', marginTop: '5px' },
+  nav: { marginTop: '40px', flex: 1 },
+  navItemActive: { padding: '12px 15px', backgroundColor: '#1e293b', borderRadius: '8px', color: '#38bdf8', fontWeight: 'bold', marginBottom: '10px' },
+  navItem: { padding: '12px 15px', color: '#94a3b8', cursor: 'pointer', borderRadius: '8px', transition: '0.2s' },
+  formContainer: { marginTop: '20px', padding: '20px', backgroundColor: '#1e293b', borderRadius: '15px' },
+  formTitle: { fontSize: '14px', marginBottom: '15px', color: '#38bdf8' },
+  inputDash: { width: '100%', padding: '12px', marginBottom: '10px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#020617', color: '#fff', boxSizing: 'border-box' },
+  btnDashPrimary: { width: '100%', padding: '15px', backgroundColor: '#38bdf8', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' },
+  dashMain: { flex: 1, padding: '40px', overflowY: 'auto' },
+  dashHeader: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '40px' },
+  statCard: { backgroundColor: '#0f172a', padding: '25px', borderRadius: '20px', border: '1px solid #1e293b' },
+  statLabel: { fontSize: '11px', color: '#475569', fontWeight: 'bold', letterSpacing: '1px' },
+  statValue: { fontSize: '32px', fontWeight: '800', marginTop: '10px' },
+  tableSection: { backgroundColor: '#0f172a', borderRadius: '20px', border: '1px solid #1e293b', overflow: 'hidden' },
+  tableHeader: { padding: '20px', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  liveDot: { color: '#ef4444', fontSize: '12px', fontWeight: 'bold', animation: 'blink 1.5s infinite' },
+  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
+  th: { padding: '15px 20px', fontSize: '12px', color: '#475569', textTransform: 'uppercase', borderBottom: '1px solid #1e293b' },
+  td: { padding: '18px 20px', fontSize: '14px', borderBottom: '1px solid #1e293b' },
+  statusTag: { padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }
 };
 
 export default App;
