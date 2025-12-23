@@ -19,14 +19,12 @@ function App() {
     const { data: e } = await supabase.from('entregas').select('*').order('ordem', { ascending: true });
     if (e) setEntregas(e);
 
-    // Busca motoristas e força a atualização
-    const { data: m, error } = await supabase.from('motoristas').select('*');
-
-    if (error) {
-      console.error("Erro ao buscar motoristas:", error.message);
-    } else if (m) {
-      console.log("Motoristas encontrados:", m);
-      setMotoristas([...m]); // O [...m] força o React a atualizar a lista
+    // Busca motoristas lendo a coluna correta 'motoristas' (conforme sua foto)
+    const { data: m } = await supabase.from('motoristas').select('*');
+    
+    if (m) {
+      console.log("Motoristas carregados:", m);
+      setMotoristas(m);
     }
   };
 
