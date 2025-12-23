@@ -1,42 +1,48 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import { motion as Motion, Reorder, AnimatePresence } from 'framer-motion';
-
-const _SOM_ALERTA = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+import SignatureCanvas from 'react-signature-canvas';
 
 function App() {
   const [entregas, setEntregas] = useState([]);
   const [motoristas, setMotoristas] = useState([]);
   const [view, setView] = useState(window.innerWidth < 768 ? 'motorista' : 'gestor');
-
-  // LOGIN E PERSISTÊNCIA (LEMBRAR SENHA)
   const [motoristaLogado, setMotoristaLogado] = useState(localStorage.getItem('mot_v10_nome') || null);
-  const [paginaInterna, setPaginaInterna] = useState('login');
   const [form, setForm] = useState({ nome: '', tel: '', senha: '', veiculo: '' });
+  const [novoPedido, setNovoPedido] = useState({ cliente: '', endereco: '', motorista: '', recado: '' });
+  
+  // Estados para Assinatura
+  const [mostrarAssinatura, setMostrarAssinatura] = useState(false);
+  const [entregaFocada, setEntregaFocada] = useState(null);
+  const sigPad = useRef({});
 
   const buscarDados = async () => {
-    // Busca entregas
     const { data: e } = await supabase.from('entregas').select('*').order('ordem', { ascending: true });
-    if (e) setEntregas(e);
-
-    // Busca motoristas lendo a coluna correta 'motoristas' (conforme sua foto)
     const { data: m } = await supabase.from('motoristas').select('*');
-
-    if (m) {
-      console.log("Motoristas carregados:", m);
-      setMotoristas(m);
+    
+    // Lógica do Som: Se o número de entregas aumentar, toca o alerta
+    if (e && e.length > entregas.length && view === 'motorista') {
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      audio.play().catch(err => console.log("Som bloqueado pelo navegador"));
     }
+
+    if (e) setEntregas(e);
+    if (m) setMotoristas(m);
   };
 
   useEffect(() => {
-    // Chamamos buscarDados() intencionalmente no mount para popular entregas
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     buscarDados();
     const canal = supabase.channel('logistica_v10')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, () => buscarDados())
       .subscribe();
     return () => supabase.removeChannel(canal);
-  }, []);
+  }, [entregas.length]);
+
+  const criarPedido = async (e) => {
+    e.preventDefault();
+    await supabase.from('entregas').insert([{ ...novoPedido, status: 'Pendente', ordem: entregas.length + 1 }]);
+    setNovoPedido({ cliente: '', endereco: '', motorista: '', recado: '' });
+  };
 
   // --- FUNÇÕES DE STATUS DA ENTREGA CORRIGIDAS ---
 
@@ -265,7 +271,7 @@ function App() {
             {motoristas.map((m, index) => {
               // Tenta pegar o nome de 'motoristas' (sua foto), 'nome' ou 'Nome'
               const nomeExibir = m.motoristas || m.nome || m.Nome || "Sem nome no banco";
-              
+
               return (
                 <option key={m.id || index} value={nomeExibir}>
                   {nomeExibir}
