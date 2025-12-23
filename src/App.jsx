@@ -6,7 +6,7 @@ const _SOM_ALERTA = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/
 
 function App() {
   const [entregas, setEntregas] = useState([]);
-  const [motoristas, _setMotoristas] = useState([]);
+  const [motoristas, setMotoristas] = useState([]);
   const [view, setView] = useState(window.innerWidth < 768 ? 'motorista' : 'gestor');
 
   // LOGIN E PERSISTÊNCIA (LEMBRAR SENHA)
@@ -14,9 +14,15 @@ function App() {
   const [paginaInterna, setPaginaInterna] = useState('login');
   const [form, setForm] = useState({ nome: '', tel: '', senha: '', veiculo: '' });
 
+  // Altere apenas esta função dentro do seu App()
   const buscarDados = async () => {
-    const { data } = await supabase.from('entregas').select('*').order('ordem', { ascending: true });
-    if (data) setEntregas(data);
+    const { data: e } = await supabase.from('entregas').select('*').order('ordem', { ascending: true });
+
+    // CORREÇÃO: Busca os motoristas cadastrados para preencher o Select
+    const { data: m } = await supabase.from('motoristas').select('*').order('nome', { ascending: true });
+
+    if (e) setEntregas(e);
+    if (m) setMotoristas(m); // Isso faz o nome aparecer no Dashboard
   };
 
   useEffect(() => {
@@ -247,13 +253,19 @@ function App() {
             style={styles.inputDash} required
           />
           <select
-            style={styles.inputDash}
+            style={styles.inputAuth}
+            required
             value={novoPedido.motorista}
             onChange={e => setNovoPedido({ ...novoPedido, motorista: e.target.value })}
-            required
           >
             <option value="">Selecionar Motorista</option>
-            {motoristas.map(m => <option key={m.id} value={m.nome}>{m.nome}</option>)}
+            {motoristas.length > 0 ? (
+              motoristas.map(m => (
+                <option key={m.id} value={m.nome}>{m.nome}</option>
+              ))
+            ) : (
+              <option disabled>Carregando motoristas...</option>
+            )}
           </select>
           <button type="submit" style={styles.btnDashEnviar}>ENVIAR PARA ROTA</button>
         </form>
