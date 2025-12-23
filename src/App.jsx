@@ -10,7 +10,7 @@ function App() {
   const [motoristaLogado, setMotoristaLogado] = useState(localStorage.getItem('mot_v10_nome') || null);
   const [form, setForm] = useState({ nome: '', tel: '', senha: '', veiculo: '' });
   const [novoPedido, setNovoPedido] = useState({ cliente: '', endereco: '', motorista: '', recado: '' });
-  
+
   // Estados para Assinatura
   const [mostrarAssinatura, setMostrarAssinatura] = useState(false);
   const [entregaFocada, setEntregaFocada] = useState(null);
@@ -19,7 +19,7 @@ function App() {
   const buscarDados = async () => {
     const { data: e } = await supabase.from('entregas').select('*').order('ordem', { ascending: true });
     const { data: m } = await supabase.from('motoristas').select('*');
-    
+
     // Lógica do Som: Se o número de entregas aumentar, toca o alerta
     if (e && e.length > entregas.length && view === 'motorista') {
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
