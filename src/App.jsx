@@ -9,8 +9,6 @@ function App() {
   const [view, setView] = useState(window.innerWidth < 768 ? 'motorista' : 'gestor');
   const [motoristaLogado, setMotoristaLogado] = useState(localStorage.getItem('mot_v10_nome') || null);
   const [form, setForm] = useState({ nome: '', tel: '', senha: '', veiculo: '' });
-  const [novoPedido, setNovoPedido] = useState({ cliente: '', endereco: '', motorista: '', recado: '' });
-
   // Estados para Assinatura
   const [mostrarAssinatura, setMostrarAssinatura] = useState(false);
   const [entregaFocada, setEntregaFocada] = useState(null);
@@ -38,11 +36,7 @@ function App() {
     return () => supabase.removeChannel(canal);
   }, [entregas.length]);
 
-  const criarPedido = async (e) => {
-    e.preventDefault();
-    await supabase.from('entregas').insert([{ ...novoPedido, status: 'Pendente', ordem: entregas.length + 1 }]);
-    setNovoPedido({ cliente: '', endereco: '', motorista: '', recado: '' });
-  };
+
 
   // --- FUNÇÕES DE STATUS DA ENTREGA CORRIGIDAS ---
 
@@ -107,7 +101,7 @@ function App() {
   };
 
   // --- GESTOR HELPERS ---
-  const [novoPedido, setNovoPedido] = useState({ cliente: '', endereco: '', motorista: '' });
+  const [novoPedido, setNovoPedido] = useState({ cliente: '', endereco: '', motorista: '', recado: '' });
 
   const criarPedido = async (e) => {
     e.preventDefault();
@@ -115,6 +109,7 @@ function App() {
       cliente: novoPedido.cliente,
       endereco: novoPedido.endereco,
       motorista: novoPedido.motorista,
+      recado: novoPedido.recado || '',
       status: 'Pendente',
       ordem: entregas.length + 1
     }]);
@@ -122,7 +117,7 @@ function App() {
     if (error) {
       alert("Erro ao criar pedido: " + error.message);
     } else {
-      setNovoPedido({ cliente: '', endereco: '', motorista: '' });
+      setNovoPedido({ cliente: '', endereco: '', motorista: '', recado: '' });
       buscarDados();
     }
   };
