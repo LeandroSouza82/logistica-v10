@@ -272,13 +272,16 @@ function App() {
             value={novoPedido.motorista}
             onChange={e => setNovoPedido({ ...novoPedido, motorista: e.target.value })}
           >
-            <option value="">Selecionar Motorista</option>
-            {motoristas.length > 0 ? (
-              motoristas.map(m => (
-                <option key={m.id} value={m.nome}>{m.nome}</option>
-              ))
+            {/* Se a lista estiver vazia, ele avisa. Se tiver dados, ele mostra */}
+            {motoristas && motoristas.length > 0 ? (
+              <>
+                <option value="">Selecionar Motorista</option>
+                {motoristas.map(m => (
+                  <option key={m.id} value={m.nome}>{m.nome}</option>
+                ))}
+              </>
             ) : (
-              <option disabled>Carregando motoristas...</option>
+              <option value="">⚠️ Nenhum motorista encontrado no banco</option>
             )}
           </select>
           <button type="submit" style={styles.btnDashEnviar}>ENVIAR PARA ROTA</button>
