@@ -15,27 +15,18 @@ function App() {
   const [form, setForm] = useState({ nome: '', tel: '', senha: '', veiculo: '' });
 
   const buscarDados = async () => {
-    try {
-      // 1. Busca as entregas
-      const { data: e, error: errE } = await supabase
-        .from('entregas')
-        .select('*')
-        .order('ordem', { ascending: true });
+    // Busca entregas
+    const { data: e } = await supabase.from('entregas').select('*').order('ordem', { ascending: true });
+    if (e) setEntregas(e);
 
-      // 2. Busca os motoristas (Correção para o Dashboard)
-      const { data: m, error: errM } = await supabase
-        .from('motoristas')
-        .select('*')
-        .order('nome', { ascending: true });
+    // Busca motoristas e força a atualização
+    const { data: m, error } = await supabase.from('motoristas').select('*');
 
-      if (errE) console.error("Erro entregas:", errE.message);
-      if (errM) console.error("Erro motoristas:", errM.message);
-
-      if (e) setEntregas(e);
-      if (m) setMotoristas(m);
-
-    } catch (err) {
-      console.error("Erro crítico na busca:", err);
+    if (error) {
+      console.error("Erro ao buscar motoristas:", error.message);
+    } else if (m) {
+      console.log("Motoristas encontrados:", m);
+      setMotoristas([...m]); // O [...m] força o React a atualizar a lista
     }
   };
 
