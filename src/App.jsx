@@ -14,15 +14,29 @@ function App() {
   const [paginaInterna, setPaginaInterna] = useState('login');
   const [form, setForm] = useState({ nome: '', tel: '', senha: '', veiculo: '' });
 
-  // Altere apenas esta função dentro do seu App()
   const buscarDados = async () => {
-    const { data: e } = await supabase.from('entregas').select('*').order('ordem', { ascending: true });
+    try {
+      // 1. Busca as entregas
+      const { data: e, error: errE } = await supabase
+        .from('entregas')
+        .select('*')
+        .order('ordem', { ascending: true });
 
-    // CORREÇÃO: Busca os motoristas cadastrados para preencher o Select
-    const { data: m } = await supabase.from('motoristas').select('*').order('nome', { ascending: true });
+      // 2. Busca os motoristas (Correção para o Dashboard)
+      const { data: m, error: errM } = await supabase
+        .from('motoristas')
+        .select('*')
+        .order('nome', { ascending: true });
 
-    if (e) setEntregas(e);
-    if (m) setMotoristas(m); // Isso faz o nome aparecer no Dashboard
+      if (errE) console.error("Erro entregas:", errE.message);
+      if (errM) console.error("Erro motoristas:", errM.message);
+
+      if (e) setEntregas(e);
+      if (m) setMotoristas(m);
+
+    } catch (err) {
+      console.error("Erro crítico na busca:", err);
+    }
   };
 
   useEffect(() => {
