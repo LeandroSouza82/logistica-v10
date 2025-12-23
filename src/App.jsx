@@ -21,7 +21,7 @@ function App() {
 
     // Busca motoristas lendo a coluna correta 'motoristas' (conforme sua foto)
     const { data: m } = await supabase.from('motoristas').select('*');
-    
+
     if (m) {
       console.log("Motoristas carregados:", m);
       setMotoristas(m);
@@ -262,11 +262,16 @@ function App() {
             onChange={e => setNovoPedido({ ...novoPedido, motorista: e.target.value })}
           >
             <option value="">Selecionar Motorista</option>
-            {motoristas.map((m, index) => (
-              <option key={m.id || index} value={m.nome || m.Nome || m.motorista}>
-                {m.nome || m.Nome || m.motorista || "Motorista sem nome"}
-              </option>
-            ))}
+            {motoristas.map((m, index) => {
+              // Tenta pegar o nome de 'motoristas' (sua foto), 'nome' ou 'Nome'
+              const nomeExibir = m.motoristas || m.nome || m.Nome || "Sem nome no banco";
+              
+              return (
+                <option key={m.id || index} value={nomeExibir}>
+                  {nomeExibir}
+                </option>
+              );
+            })}
           </select>
           <button type="submit" style={styles.btnDashEnviar}>ENVIAR PARA ROTA</button>
         </form>
