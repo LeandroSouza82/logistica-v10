@@ -1,395 +1,386 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
-import { motion as Motion, Reorder, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import SignatureCanvas from 'react-signature-canvas';
+// Importando ícones para o painel
+import { Trash2, MapPin, Info, Plus, Send, Settings, Moon, ArrowDownToLine, ArrowUpFromLine, Search } from 'lucide-react';
 
 function App() {
+  // --- ESTADOS GERAIS ---
   const [entregas, setEntregas] = useState([]);
   const [motoristas, setMotoristas] = useState([]);
   const [view, setView] = useState(window.innerWidth < 768 ? 'motorista' : 'gestor');
+
+  // --- ESTADOS DO MOTORISTA ---
   const [motoristaLogado, setMotoristaLogado] = useState(localStorage.getItem('mot_v10_nome') || null);
-  const [form, setForm] = useState({ nome: '', tel: '', senha: '', veiculo: '' });
-  // Estados para Assinatura
+  const [form, setForm] = useState({ tel: '', senha: '' });
   const [mostrarAssinatura, setMostrarAssinatura] = useState(false);
   const [entregaFocada, setEntregaFocada] = useState(null);
   const sigPad = useRef({});
 
+  // --- ESTADOS DO GESTOR (NOVOS) ---
+  const [rascunho, setRascunho] = useState([]); // Lista temporária antes de enviar pro banco
+  const [inputEndereco, setInputEndereco] = useState('');
+  const [inputInfo, setInputInfo] = useState('');
+  const [inputTipo, setInputTipo] = useState('entrega'); // 'entrega' ou 'recolha'
+  const [motoristaSelecionado, setMotoristaSelecionado] = useState('');
+
+  // --- BUSCA DE DADOS ---
   const buscarDados = async () => {
     const { data: e } = await supabase.from('entregas').select('*').order('ordem', { ascending: true });
     const { data: m } = await supabase.from('motoristas').select('*');
 
-    // Lógica do Som: Se o número de entregas aumentar, toca o alerta
+    // Tocar som se for motorista e tiver nova entrega
     if (e && e.length > entregas.length && view === 'motorista') {
-      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-      audio.play().catch(err => console.log("Som bloqueado pelo navegador"));
+      new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play().catch(() => { });
     }
-
     if (e) setEntregas(e);
-    if (m) setMotoristas(m);
+    if (m) {
+        setMotoristas(m);
+        // Se não tiver motorista selecionado no painel, seleciona o primeiro da lista
+        if (!motoristaSelecionado && m.length > 0) setMotoristaSelecionado(m[0].nome || m[0].motoristas);
+    }
   };
 
   useEffect(() => {
     buscarDados();
-    const canal = supabase.channel('logistica_v10')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, () => buscarDados())
-      .subscribe();
+    const canal = supabase.channel('logistica_v10').on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, () => buscarDados()).subscribe();
     return () => supabase.removeChannel(canal);
   }, [entregas.length]);
 
+  // --- FUNÇÕES DO GESTOR (NOVAS) ---
+  const adicionarAoRascunho = () => {
+    if (!inputEndereco) return alert("Digite um endereço!");
+    
+    const novoItem = {
+      id: Date.now(),
+      endereco: inputEndereco,
+      info: inputInfo || 'Sem observações',
+      tipo: inputTipo
+    };
 
-
-  // --- FUNÇÕES DE STATUS DA ENTREGA CORRIGIDAS ---
-
-  const concluirEntrega = async (id) => {
-    // CORREÇÃO: Usamos .toISOString() para o formato correto de data/hora exigido pelo banco
-    const { error } = await supabase
-      .from('entregas')
-      .update({
-        status: 'Concluído',
-        horario_conclusao: new Date().toISOString()
-      })
-      .eq('id', id);
-
-    if (error) {
-      alert("Erro ao concluir: " + error.message);
-    } else {
-      // MENSAGEM DE SUCESSO A CADA ENTREGA
-      const pendentesAtuais = entregas.filter(e => e.status === 'Pendente');
-
-      if (pendentesAtuais.length <= 1) {
-        alert("🏆 Excelente! Você concluiu todas as entregas da sua rota!");
-      } else {
-        alert("✅ Entrega concluída com sucesso!");
-      }
-
-      buscarDados();
-    }
+    setRascunho([...rascunho, novoItem]);
+    setInputEndereco('');
+    setInputInfo('');
   };
 
-  const falhaEntrega = async (id) => {
-    let motivo = prompt("Motivo da não entrega (Ex: Cliente ausente, Endereço errado):");
-
-    while (motivo !== null && motivo.trim().length < 3) {
-      motivo = prompt("Por favor, descreva o motivo com pelo menos 3 caracteres (ou Cancelar para desistir):");
-    }
-
-    if (motivo !== null && motivo.trim().length >= 3) {
-      const { error } = await supabase
-        .from('entregas')
-        .update({
-          status: 'Não Realizado',
-          recado: `FALHA: ${motivo.trim()}`,
-          // CORREÇÃO: Usamos .toISOString() aqui também para evitar o erro de timestamp
-          horario_conclusao: new Date().toISOString()
-        })
-        .eq('id', id);
-
-      if (error) {
-        alert("Erro ao registrar falha: " + error.message);
-      } else {
-        alert("⚠️ Ocorrência registrada.");
-        buscarDados();
-      }
-    }
+  const removerDoRascunho = (id) => {
+    setRascunho(rascunho.filter(item => item.id !== id));
   };
 
-  const finalizarReordem = async (novaLista) => {
-    setEntregas(novaLista);
-    for (let i = 0; i < novaLista.length; i++) {
-      await supabase.from('entregas').update({ ordem: i + 1 }).eq('id', novaLista[i].id);
-    }
-  };
+  const enviarRotaParaSupabase = async () => {
+    if (rascunho.length === 0) return alert("A lista está vazia!");
+    if (!motoristaSelecionado) return alert("Selecione um motorista!");
 
-  // --- GESTOR HELPERS ---
-  const [novoPedido, setNovoPedido] = useState({ cliente: '', endereco: '', motorista: '', recado: '' });
-
-  const criarPedido = async (e) => {
-    e.preventDefault();
-    const { error } = await supabase.from('entregas').insert([{
-      cliente: novoPedido.cliente,
-      endereco: novoPedido.endereco,
-      motorista: novoPedido.motorista,
-      recado: novoPedido.recado || '',
+    // Prepara os dados para o formato do Supabase
+    // Mapeando: 'cliente' vai receber o Tipo + Info para aparecer bonito pro motorista
+    const payload = rascunho.map((item, index) => ({
+      cliente: `[${item.tipo.toUpperCase()}] ${item.info}`, 
+      endereco: item.endereco,
+      motorista: motoristaSelecionado,
       status: 'Pendente',
-      ordem: entregas.length + 1
-    }]);
+      ordem: index + 1, // Define ordem simples baseada na lista
+      assinatura: 'NAO'
+    }));
+
+    const { error } = await supabase.from('entregas').insert(payload);
 
     if (error) {
-      alert("Erro ao criar pedido: " + error.message);
+      alert("Erro ao enviar: " + error.message);
     } else {
-      setNovoPedido({ cliente: '', endereco: '', motorista: '', recado: '' });
-      buscarDados();
+      alert("Rota enviada com sucesso para " + motoristaSelecionado);
+      setRascunho([]); // Limpa o painel
+      buscarDados(); // Atualiza a tela
     }
   };
 
-  // --- RESTANTE DO CÓDIGO MANTIDO EXATAMENTE IGUAL ---
-  const acaoCadastro = async (e) => {
-    e.preventDefault();
-    const { error } = await supabase.from('motoristas').insert([{ ...form, nome: form.nome.trim(), tel: form.tel.trim() }]);
-    if (error) alert("Erro: " + error.message);
-    else { alert("✅ Sucesso! Faça login."); setPaginaInterna('login'); }
+  // --- FUNÇÕES DO MOTORISTA ---
+  const abrirMapa = (endereco) => {
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`;
+    window.open(url, '_blank');
+  };
+
+  const iniciarConclusao = (id) => { setEntregaFocada(id); setMostrarAssinatura(true); };
+
+  const finalizarComAssinatura = async () => {
+    if (sigPad.current.isEmpty()) return alert("O cliente precisa assinar!");
+    const { error } = await supabase.from('entregas').update({
+      status: 'Concluído',
+      assinatura: 'SIM',
+      horario_conclusao: new Date().toISOString()
+    }).eq('id', entregaFocada);
+
+    if (!error) { setMostrarAssinatura(false); setEntregaFocada(null); buscarDados(); }
   };
 
   const acaoLogin = async (e) => {
     e.preventDefault();
     const { data } = await supabase.from('motoristas').select('*').eq('tel', form.tel.trim()).eq('senha', form.senha.trim()).maybeSingle();
     if (data) {
-      localStorage.setItem('mot_v10_nome', data.nome);
-      setMotoristaLogado(data.nome);
-    } else alert("❌ Dados Incorretos!");
+      const n = data.motoristas || data.nome;
+      setMotoristaLogado(n);
+      localStorage.setItem('mot_v10_nome', n);
+    } else { alert("Dados incorretos!"); }
   };
 
-  if (paginaInterna === 'cadastro' || paginaInterna === 'recuperar') {
-    return (
-      <div style={styles.universalPage}>
-        <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={styles.authCard}>
-          <button onClick={() => setPaginaInterna('login')} style={styles.btnVoltar}>← Voltar</button>
-          <form onSubmit={acaoCadastro} style={styles.flexCol}>
-            <h2 style={styles.titleAuth}>Cadastro Motorista</h2>
-            <input placeholder="Nome Completo" style={styles.inputAuth} onChange={e => setForm({ ...form, nome: e.target.value })} required />
-            <input placeholder="WhatsApp" style={styles.inputAuth} onChange={e => setForm({ ...form, tel: e.target.value })} required />
-            <input placeholder="Veículo" style={styles.inputAuth} onChange={e => setForm({ ...form, veiculo: e.target.value })} required />
-            <input placeholder="Senha" type="password" style={styles.inputAuth} onChange={e => setForm({ ...form, senha: e.target.value })} required />
-            <button type="submit" style={styles.btnPrimary}>CADASTRAR</button>
-          </form>
-        </Motion.div>
-      </div>
-    );
-  }
-
+  // -----------------------------------------------------------------------
+  // RENDERIZAÇÃO: VISÃO MOTORISTA (Intacta)
+  // -----------------------------------------------------------------------
   if (view === 'motorista') {
     if (!motoristaLogado) {
       return (
-        <div style={styles.mobileFull}>
-          <div style={styles.loginCenter}>
-            <div style={styles.iconCircle}>🚛</div>
-            <h2>Logística V10</h2>
-            <form onSubmit={acaoLogin} style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <input placeholder="WhatsApp" style={styles.inputLogin} onChange={e => setForm({ ...form, tel: e.target.value })} required />
-              <input placeholder="Senha" type="password" style={styles.inputLogin} onChange={e => setForm({ ...form, senha: e.target.value })} required />
-              <button type="submit" style={styles.btnOk}>ENTRAR</button>
-              <span onClick={() => setPaginaInterna('cadastro')} style={styles.linkText}>Não tem conta? Cadastre-se</span>
+        <div style={styles.universalPage}>
+          <div style={styles.authCard}>
+            <h2 style={{ color: '#38bdf8', textAlign: 'center' }}>Logística V10</h2>
+            <form onSubmit={acaoLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <input placeholder="WhatsApp" style={styles.inputAuth} onChange={e => setForm({ ...form, tel: e.target.value })} />
+              <input placeholder="Senha" type="password" style={styles.inputAuth} onChange={e => setForm({ ...form, senha: e.target.value })} />
+              <button type="submit" style={styles.btnPrimary}>ENTRAR</button>
             </form>
           </div>
         </div>
       );
     }
 
-    const pendentes = entregas.filter(e => e.status === 'Pendente');
-
     return (
       <div style={styles.mobileFull}>
         <header style={styles.headerMobile}>
-          <div>
-            <h2 style={{ margin: 0 }}>ROTA ATIVA</h2>
-            <span style={styles.statusOnline}>● {motoristaLogado}</span>
-          </div>
-          <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={styles.btnSair}>SAIR</button>
+          <h3>ROTA: {motoristaLogado}</h3>
+          <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={{ color: '#ef4444', background: 'none', border: 'none' }}>Sair</button>
         </header>
 
-        <main style={styles.mainMobile}>
-          {pendentes.length > 0 ? (
-            <Reorder.Group axis="y" values={pendentes} onReorder={finalizarReordem} style={styles.list}>
-              <AnimatePresence>
-                {pendentes.map((ent, index) => (
-                  <Reorder.Item
-                    key={ent.id}
-                    value={ent}
-                    style={{
-                      ...styles.card,
-                      background: index === 0 ? '#1e293b' : 'rgba(30,41,59,0.3)',
-                      borderLeft: index === 0 ? '6px solid #38bdf8' : '4px solid transparent'
-                    }}
-                  >
-                    <div style={styles.cardContent}>
-                      <div style={styles.dragHandle}>☰</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={styles.clienteNome}>{ent.cliente}</div>
-                        <div style={styles.enderecoText}>📍 {ent.endereco}</div>
-                      </div>
-                    </div>
-                    {index === 0 && (
-                      <div style={styles.actions}>
-                        <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ent.endereco)}`, '_blank')} style={styles.btnMapa}>GPS</button>
-                        <button onClick={() => falhaEntrega(ent.id)} style={styles.btnFalha}>FALTOU</button>
-                        <button onClick={() => concluirEntrega(ent.id)} style={styles.btnOk}>CONCLUIR</button>
-                      </div>
-                    )}
-                  </Reorder.Item>
-                ))}
-              </AnimatePresence>
-            </Reorder.Group>
-          ) : (
-            <div style={styles.radarContainer}>
-              <div className="radar-circle"><div className="radar-ping"></div></div>
-              <h3 style={{ marginTop: '25px', color: '#38bdf8' }}>AGUARDANDO CARGA...</h3>
+        {mostrarAssinatura && (
+          <div style={styles.modal}>
+            <div style={styles.cardAssinatura}>
+              <h3 style={{ color: '#fff', marginBottom: '10px' }}>Assinatura do Cliente</h3>
+              <div style={{ background: '#fff', borderRadius: '10px' }}><SignatureCanvas ref={sigPad} penColor='black' canvasProps={{ width: 300, height: 200 }} /></div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button onClick={() => setMostrarAssinatura(false)} style={styles.btnSec}>VOLTAR</button>
+                <button onClick={() => sigPad.current.clear()} style={styles.btnSec}>LIMPAR</button>
+                <button onClick={finalizarComAssinatura} style={styles.btnConfirmar}>OK</button>
+              </div>
             </div>
-          )}
+          </div>
+        )}
+
+        <main style={styles.mainMobileScroll}>
+          <AnimatePresence mode='popLayout'>
+            {entregas
+              .filter(e => e.status === 'Pendente' && (e.motorista === motoristaLogado || e.motoristas === motoristaLogado))
+              .sort((a, b) => a.ordem - b.ordem)
+              .map((ent, idx) => (
+                <motion.div
+                  key={ent.id}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: -100 }}
+                  transition={{ duration: 0.3 }}
+                  style={styles.card}
+                >
+                  <div style={styles.numBadge}>{idx + 1}</div>
+                  <strong>{ent.cliente}</strong>
+                  <p style={{ fontSize: '14px', color: '#94a3b8' }}>📍 {ent.endereco}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                    <button onClick={() => abrirMapa(ent.endereco)} style={styles.btnMapa}>🗺️ VER NO MAPA</button>
+                    <button onClick={() => iniciarConclusao(ent.id)} style={styles.btnConcluir}>CONCLUIR</button>
+                  </div>
+                </motion.div>
+              ))}
+          </AnimatePresence>
         </main>
-        <style>{`
-          .radar-circle { width: 80px; height: 80px; border: 2px solid #38bdf8; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; }
-          .radar-ping { width: 100%; height: 100%; background: #38bdf8; border-radius: 50%; position: absolute; animation: radar-pulse 2s infinite ease-out; opacity: 0.5; }
-          @keyframes radar-pulse { 0% { transform: scale(0.5); opacity: 0.8; } 100% { transform: scale(2.5); opacity: 0; } }
-        `}</style>
       </div>
     );
   }
 
-  // --- DASHBOARD GESTOR (VISÃO DESKTOP) ---
+  // -----------------------------------------------------------------------
+  // RENDERIZAÇÃO: VISÃO GESTOR (Novo Dashboard)
+  // -----------------------------------------------------------------------
   return (
-    <div style={styles.dashBody}>
-      {/* BARRA LATERAL DE LANÇAMENTO */}
-      <aside style={styles.sidebar}>
-        <h2 style={{ color: '#38bdf8', marginBottom: '20px' }}>LOGÍSTICA V10</h2>
-
-        <form onSubmit={criarPedido} style={styles.formGestor}>
-          <h4 style={{ color: '#94a3b8', marginBottom: '10px' }}>Novo Lançamento</h4>
-          <input
-            placeholder="Nome do Cliente"
-            value={novoPedido.cliente}
-            onChange={e => setNovoPedido({ ...novoPedido, cliente: e.target.value })}
-            style={styles.inputDash} required
-          />
-          <input
-            placeholder="Endereço Completo"
-            value={novoPedido.endereco}
-            onChange={e => setNovoPedido({ ...novoPedido, endereco: e.target.value })}
-            style={styles.inputDash} required
-          />
-          <select
-            style={styles.inputAuth}
-            required
-            value={novoPedido.motorista}
-            onChange={e => setNovoPedido({ ...novoPedido, motorista: e.target.value })}
-          >
-            <option value="">Selecionar Motorista</option>
-            {motoristas.map((m, index) => {
-              // Tenta pegar o nome de 'motoristas' (sua foto), 'nome' ou 'Nome'
-              const nomeExibir = m.motoristas || m.nome || m.Nome || "Sem nome no banco";
-
-              return (
-                <option key={m.id || index} value={nomeExibir}>
-                  {nomeExibir}
-                </option>
-              );
-            })}
-          </select>
-          <button type="submit" style={styles.btnDashEnviar}>ENVIAR PARA ROTA</button>
-        </form>
-
-        <button onClick={() => setView('motorista')} style={styles.btnSimular}>
-          📱 Simular Visão Celular
+    <div style={styles.universalPage}>
+      {/* Sidebar / Menu simples */}
+      <div style={{ position: 'absolute', top: 20, right: 20 }}>
+        <button onClick={() => setView('motorista')} style={styles.btnSec}>
+            Ver como Celular
         </button>
-      </aside>
+      </div>
 
-      {/* PAINEL CENTRAL DE MONITORAMENTO */}
-      <main style={styles.dashMain}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1>Monitoramento em Tempo Real</h1>
-          <div style={styles.cardFaturamento}>
-            <small>Status da Operação</small>
-            <div style={{ color: '#10b981', fontWeight: 'bold' }}>SISTEMA ONLINE</div>
+      <main style={styles.dashboardContainer}>
+        <div style={styles.dashboardCard}>
+          
+          <div style={styles.dashboardHeader}>
+            <h2 style={{ color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+               PAINEL DE ROTAS
+            </h2>
+            <div style={{color: '#94a3b8', fontSize: '14px'}}>
+                <Settings size={18} style={{display:'inline', marginRight: 10}}/> 
+                Gestão V10
+            </div>
           </div>
-        </header>
 
-        <div style={styles.gridDash}>
-          {/* TABELA DE ENTREGAS ATIVAS */}
-          <section style={styles.secaoTabela}>
-            <h3>📦 Entregas na Rota</h3>
-            <div style={styles.tabelaContainer}>
-              <table style={styles.tabela}>
-                <thead>
-                  <tr>
-                    <th>Ordem</th>
-                    <th>Cliente</th>
-                    <th>Motorista</th>
-                    <th>Status</th>
-                    <th>Hora</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entregas.map(ent => (
-                    <tr key={ent.id}>
-                      <td>{ent.ordem}º</td>
-                      <td>{ent.cliente}</td>
-                      <td>{ent.motorista}</td>
-                      <td style={{ color: ent.status === 'Concluído' ? '#10b981' : '#fbbf24' }}>
-                        {ent.status}
-                      </td>
-                      <td>{ent.horario_conclusao ? new Date(ent.horario_conclusao).toLocaleTimeString() : '--:--'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div style={{ padding: '30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* Seletor de Motorista */}
+            <div>
+                <label style={styles.label}>Para qual motorista?</label>
+                <select 
+                    style={styles.selectInput}
+                    value={motoristaSelecionado}
+                    onChange={(e) => setMotoristaSelecionado(e.target.value)}
+                >
+                    <option value="">Selecione um motorista...</option>
+                    {motoristas.map(m => {
+                        const nome = m.nome || m.motoristas;
+                        return <option key={m.id} value={nome}>{nome}</option>
+                    })}
+                </select>
             </div>
-          </section>
 
-          {/* RELATÓRIO DE OCORRÊNCIAS (FALHAS) */}
-          <section style={styles.secaoAlertas}>
-            <h3>⚠️ Motivos de Falha (Faltou)</h3>
-            <div style={styles.listaOcorrencias}>
-              {entregas.filter(e => e.status === 'Não Realizado').length === 0 ? (
-                <p style={{ color: '#475569' }}>Nenhuma falha registrada hoje.</p>
-              ) : (
-                entregas.filter(e => e.status === 'Não Realizado').map(ent => (
-                  <div key={ent.id} style={styles.cardFalha}>
-                    <strong>{ent.cliente}</strong>
-                    <p style={styles.motivoTexto}>{ent.recado}</p>
-                    <small>{new Date(ent.horario_conclusao).toLocaleTimeString()}</small>
+            {/* Seletor de Tipo (Entrega/Recolha) */}
+            <div>
+              <label style={styles.label}>Tipo de Operação</label>
+              <div style={{ display: 'flex', gap: '15px' }}>
+                <button 
+                  onClick={() => setInputTipo('entrega')}
+                  style={inputTipo === 'entrega' ? styles.btnTypeActiveBlue : styles.btnTypeInactive}
+                >
+                  <ArrowDownToLine size={20} /> ENTREGA
+                </button>
+                <button 
+                  onClick={() => setInputTipo('recolha')}
+                  style={inputTipo === 'recolha' ? styles.btnTypeActiveOrange : styles.btnTypeInactive}
+                >
+                  <ArrowUpFromLine size={20} /> RECOLHA
+                </button>
+              </div>
+            </div>
+
+            {/* Inputs de Endereço */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ flex: 2 }}>
+                    <label style={styles.label}>Endereço</label>
+                    <div style={{display: 'flex', gap: 5}}>
+                        <input 
+                            value={inputEndereco}
+                            onChange={(e) => setInputEndereco(e.target.value)}
+                            placeholder="Rua, Número, Bairro" 
+                            style={styles.inputDash} 
+                        />
+                        <button style={styles.btnIcon}><Search size={20}/></button>
+                    </div>
+                </div>
+                <div style={{ flex: 1 }}>
+                    <label style={styles.label}>Obs. Motorista</label>
+                    <input 
+                        value={inputInfo}
+                        onChange={(e) => setInputInfo(e.target.value)}
+                        placeholder="Ex: Cão bravo" 
+                        style={styles.inputDash} 
+                    />
+                </div>
+            </div>
+
+            <button onClick={adicionarAoRascunho} style={styles.btnAdd}>
+              <Plus size={20} /> ADICIONAR À LISTA
+            </button>
+
+            <hr style={{ borderColor: '#334155', margin: '10px 0' }} />
+
+            {/* Lista de Rascunho */}
+            <div>
+              <label style={styles.label}>Rascunho da Rota ({rascunho.length})</label>
+              <div style={styles.listContainer}>
+                {rascunho.length === 0 && <p style={{color: '#64748b', textAlign: 'center', padding: 20}}>Nenhuma parada adicionada.</p>}
+                
+                {rascunho.map((item, index) => (
+                  <div key={item.id} style={styles.listItem}>
+                    <div style={{
+                        width: '4px', height: '100%', position: 'absolute', left: 0, top: 0,
+                        backgroundColor: item.tipo === 'entrega' ? '#3b82f6' : '#f97316'
+                    }}></div>
+                    
+                    <div style={{marginLeft: 10, marginRight: 10, color: '#94a3b8', fontWeight: 'bold'}}>{index + 1}.</div>
+                    
+                    <div style={{flex: 1}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: 5}}>
+                            <span style={{
+                                fontSize: '10px', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase', fontWeight: 'bold',
+                                backgroundColor: item.tipo === 'entrega' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(249, 115, 22, 0.2)',
+                                color: item.tipo === 'entrega' ? '#60a5fa' : '#fb923c'
+                            }}>
+                                {item.tipo}
+                            </span>
+                        </div>
+                        <div style={{color: '#e2e8f0', fontWeight: '500'}}>{item.endereco}</div>
+                        <div style={{color: '#64748b', fontSize: '12px'}}>{item.info}</div>
+                    </div>
+
+                    <button onClick={() => removerDoRascunho(item.id)} style={{background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer'}}>
+                        <Trash2 size={18} />
+                    </button>
                   </div>
-                ))
-              )}
+                ))}
+              </div>
             </div>
-          </section>
+
+            <button onClick={enviarRotaParaSupabase} style={styles.btnSend}>
+               <Send size={20} /> ENVIAR ROTA PARA MOTORISTA
+            </button>
+
+          </div>
         </div>
       </main>
     </div>
   );
 }
 
+// --- ESTILOS (CSS IN JS) ---
 const styles = {
-  universalPage: { width: '100vw', height: '100vh', backgroundColor: '#020617', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  authCard: { backgroundColor: '#0f172a', padding: '30px', borderRadius: '24px', width: '90%', maxWidth: '400px' },
-  titleAuth: { color: '#38bdf8', marginBottom: '20px' },
-  inputAuth: { width: '100%', padding: '15px', borderRadius: '10px', backgroundColor: '#020617', border: '1px solid #1e293b', color: '#fff', marginBottom: '10px', boxSizing: 'border-box' },
-  btnPrimary: { width: '100%', padding: '15px', borderRadius: '10px', border: 'none', backgroundColor: '#38bdf8', fontWeight: 'bold', cursor: 'pointer' },
-  btnVoltar: { background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', marginBottom: '10px' },
-  mobileFull: { width: '100vw', height: '100dvh', backgroundColor: '#020617', color: '#fff', display: 'flex', flexDirection: 'column' },
-  loginCenter: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' },
-  iconCircle: { width: '60px', height: '60px', borderRadius: '50%', border: '2px solid #38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '30px', marginBottom: '10px' },
-  inputLogin: { width: '100%', padding: '15px', borderRadius: '12px', backgroundColor: '#0f172a', border: '1px solid #1e293b', color: '#fff', boxSizing: 'border-box' },
-  btnOk: { flex: 1, padding: '15px', borderRadius: '12px', border: 'none', backgroundColor: '#10b981', color: '#000', fontWeight: 'bold' },
-  btnFalha: { flex: 1, padding: '15px', borderRadius: '12px', border: 'none', backgroundColor: '#ef4444', color: '#fff', fontWeight: 'bold' },
-  linkText: { color: '#38bdf8', marginTop: '15px', cursor: 'pointer', fontSize: '14px' },
-  headerMobile: { padding: '20px', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  statusOnline: { fontSize: '12px', color: '#10b981' },
-  mainMobile: { flex: 1, padding: '15px', overflowY: 'auto' },
-  list: { listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '10px' },
-  card: { padding: '20px', borderRadius: '20px' },
-  cardContent: { display: 'flex', gap: '15px', alignItems: 'center' },
-  dragHandle: { color: '#475569' },
-  clienteNome: { fontWeight: 'bold', fontSize: '18px' },
-  enderecoText: { fontSize: '13px', color: '#94a3b8' },
-  actions: { display: 'flex', gap: '8px', marginTop: '15px' },
-  btnMapa: { flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid #334155', background: 'none', color: '#fff' },
-  radarContainer: { height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
-  btnSair: { color: '#ef4444', border: '1px solid #ef4444', background: 'none', padding: '5px 10px', borderRadius: '8px', fontSize: '10px' },
-  dashBody: { display: 'flex', width: '100vw', height: '100vh', background: '#020617', fontFamily: 'sans-serif' },
-  sidebar: { width: '300px', padding: '25px', background: '#0f172a', borderRight: '1px solid #1e293b', display: 'flex', flexDirection: 'column' },
-  formGestor: { display: 'flex', flexDirection: 'column', gap: '10px' },
-  inputDash: { padding: '12px', borderRadius: '8px', background: '#020617', border: '1px solid #1e293b', color: '#fff' },
-  btnDashEnviar: { padding: '15px', borderRadius: '8px', border: 'none', background: '#38bdf8', fontWeight: 'bold', cursor: 'pointer' },
-  btnSimular: { marginTop: 'auto', background: 'none', border: '1px solid #334155', color: '#94a3b8', padding: '10px', borderRadius: '8px', cursor: 'pointer' },
-  dashMain: { flex: 1, padding: '40px', overflowY: 'auto', color: '#fff' },
-  gridDash: { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '30px', marginTop: '30px' },
-  cardFaturamento: { padding: '15px', background: '#0f172a', borderRadius: '12px', border: '1px solid #1e293b', textAlign: 'right' },
-  secaoTabela: {},
-  tabelaContainer: { background: '#0f172a', borderRadius: '15px', padding: '20px', border: '1px solid #1e293b' },
-  tabela: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
-  secaoAlertas: {},
-  listaOcorrencias: { marginTop: '10px' },
-  cardFalha: { padding: '15px', background: '#450a0a', borderRadius: '12px', borderLeft: '5px solid #ef4444', marginBottom: '10px' },
-  motivoTexto: { margin: '5px 0', fontSize: '14px', color: '#fca5a5' }
+  universalPage: { width: '100vw', minHeight: '100vh', backgroundColor: '#020617', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' },
+  
+  // Auth & Mobile Base
+  authCard: { backgroundColor: '#0f172a', padding: '30px', borderRadius: '24px', width: '350px', border: '1px solid #1e293b' },
+  inputAuth: { padding: '15px', borderRadius: '10px', backgroundColor: '#020617', border: '1px solid #1e293b', color: '#fff', fontSize: '16px' },
+  
+  // Mobile UI
+  mobileFull: { width: '100vw', height: '100vh', backgroundColor: '#020617', color: '#fff', display: 'flex', flexDirection: 'column' },
+  headerMobile: { padding: '20px', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0f172a' },
+  mainMobileScroll: { padding: '15px', flex: 1, overflowY: 'auto' },
+  card: { background: '#0f172a', padding: '20px', borderRadius: '15px', marginBottom: '20px', position: 'relative', borderLeft: '5px solid #38bdf8', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
+  numBadge: { position: 'absolute', top: '-10px', left: '-10px', background: '#38bdf8', color: '#000', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' },
+  btnMapa: { background: '#334155', color: '#fff', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
+  btnConcluir: { background: '#10b981', color: '#000', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
+  
+  // Modal Assinatura
+  modal: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  cardAssinatura: { background: '#1e293b', padding: '20px', borderRadius: '20px', textAlign: 'center', width: '90%', maxWidth: '400px' },
+
+  // GESTOR DASHBOARD STYLES (NOVO)
+  dashboardContainer: { width: '100%', maxWidth: '800px', padding: '20px' },
+  dashboardCard: { backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid #1e293b', overflow: 'hidden', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' },
+  dashboardHeader: { backgroundColor: '#1e293b', padding: '20px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  
+  label: { display: 'block', color: '#94a3b8', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px', textTransform: 'uppercase' },
+  inputDash: { width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: '#020617', border: '1px solid #334155', color: '#fff', outline: 'none' },
+  selectInput: { width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: '#020617', border: '1px solid #334155', color: '#fff', outline: 'none' },
+  
+  // Type Buttons
+  btnTypeInactive: { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #334155', background: 'transparent', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold' },
+  btnTypeActiveBlue: { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold' },
+  btnTypeActiveOrange: { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #f97316', background: 'rgba(249, 115, 22, 0.1)', color: '#fb923c', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold' },
+
+  btnAdd: { width: '100%', padding: '15px', borderRadius: '8px', background: '#3b82f6', color: '#fff', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '10px' },
+  btnSend: { width: '100%', padding: '15px', borderRadius: '8px', background: 'linear-gradient(to right, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '10px', fontSize: '16px' },
+  btnIcon: { padding: '0 15px', borderRadius: '8px', background: '#334155', color: '#fff', border: 'none', cursor: 'pointer' },
+
+  // List Items
+  listContainer: { maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '5px' },
+  listItem: { display: 'flex', alignItems: 'center', padding: '12px', backgroundColor: '#1e293b', borderRadius: '8px', position: 'relative', overflow: 'hidden', border: '1px solid #334155' },
+
+  // Generic Buttons
+  btnPrimary: { padding: '15px', borderRadius: '10px', border: 'none', backgroundColor: '#38bdf8', color: '#000', fontWeight: 'bold', cursor: 'pointer' },
+  btnSec: { flex: 1, padding: '10px', background: '#334155', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
+  btnConfirmar: { flex: 1, padding: '10px', background: '#10b981', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }
 };
 
 export default App;
