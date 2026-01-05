@@ -1,9 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion'; // Adicionado Reorder
 import SignatureCanvas from 'react-signature-canvas';
-// Importando ícones para o painel
-import { Trash2, MapPin, Info, Plus, Send, Settings, Moon, ArrowDownToLine, ArrowUpFromLine, Search } from 'lucide-react';
+import { Trash2, MapPin, Info, Plus, Send, Settings, Moon, ArrowDownToLine, ArrowUpFromLine, Search, XCircle, GripVertical } from 'lucide-react';
+
+// Importações do Mapa
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Correção para ícone do leaflet padrão que as vezes buga no React
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+let DefaultIcon = L.icon({ iconUrl: icon, shadowUrl: iconShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
+L.Marker.prototype.options.icon = DefaultIcon;
 
 function App() {
   // --- ESTADOS GERAIS ---
@@ -15,30 +25,40 @@ function App() {
   const [motoristaLogado, setMotoristaLogado] = useState(localStorage.getItem('mot_v10_nome') || null);
   const [form, setForm] = useState({ tel: '', senha: '' });
   const [mostrarAssinatura, setMostrarAssinatura] = useState(false);
+  const [mostrarMotivo, setMostrarMotivo] = useState(false); // Modal de motivo
+  const [motivoTexto, setMotivoTexto] = useState(''); // Texto do motivo
   const [entregaFocada, setEntregaFocada] = useState(null);
   const sigPad = useRef({});
 
-  // --- ESTADOS DO GESTOR (NOVOS) ---
-  const [rascunho, setRascunho] = useState([]); // Lista temporária antes de enviar pro banco
+  // --- ESTADOS DO GESTOR ---
+  const [rascunho, setRascunho] = useState([]); 
   const [inputEndereco, setInputEndereco] = useState('');
   const [inputInfo, setInputInfo] = useState('');
-  const [inputTipo, setInputTipo] = useState('entrega'); // 'entrega' ou 'recolha'
+  const [inputTipo, setInputTipo] = useState('entrega'); 
   const [motoristaSelecionado, setMotoristaSelecionado] = useState('');
+  // Estado para localização do motorista no mapa
+  const [coordsMotorista, setCoordsMotorista] = useState(null); 
 
   // --- BUSCA DE DADOS ---
   const buscarDados = async () => {
     const { data: e } = await supabase.from('entregas').select('*').order('ordem', { ascending: true });
     const { data: m } = await supabase.from('motoristas').select('*');
 
-    // Tocar som se for motorista e tiver nova entrega
     if (e && e.length > entregas.length && view === 'motorista') {
       new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play().catch(() => { });
     }
     if (e) setEntregas(e);
     if (m) {
         setMotoristas(m);
-        // Se não tiver motorista selecionado no painel, seleciona o primeiro da lista
         if (!motoristaSelecionado && m.length > 0) setMotoristaSelecionado(m[0].nome || m[0].motoristas);
+        
+        // Se for gestor, pega a lat/long do motorista selecionado para o mapa
+        if (motoristaSelecionado) {
+            const mot = m.find(x => (x.nome || x.motoristas) === motoristaSelecionado);
+            if (mot && mot.lat && mot.lng) {
+                setCoordsMotorista([mot.lat, mot.lng]);
+            }
+        }
     }
   };
 
@@ -46,52 +66,50 @@ function App() {
     buscarDados();
     const canal = supabase.channel('logistica_v10').on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, () => buscarDados()).subscribe();
     return () => supabase.removeChannel(canal);
-  }, [entregas.length]);
+  }, [entregas.length, motoristaSelecionado]);
 
-  // --- FUNÇÕES DO GESTOR (NOVAS) ---
+  // --- RASTREAMENTO DO MOTORISTA (GEOLOCALIZAÇÃO) ---
+  useEffect(() => {
+    let watchId;
+    if (view === 'motorista' && motoristaLogado) {
+        if ("geolocation" in navigator) {
+            watchId = navigator.geolocation.watchPosition(async (pos) => {
+                // Atualiza a tabela motoristas com a posição atual
+                await supabase.from('motoristas').update({
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    ultimo_sinal: new Date().toISOString()
+                }).eq('nome', motoristaLogado); // Assumindo que a coluna 'nome' é a chave, ou use ID se preferir
+            }, (err) => console.error(err), { enableHighAccuracy: true });
+        }
+    }
+    return () => { if (watchId) navigator.geolocation.clearWatch(watchId); }
+  }, [view, motoristaLogado]);
+
+
+  // --- FUNÇÕES DO GESTOR ---
   const adicionarAoRascunho = () => {
     if (!inputEndereco) return alert("Digite um endereço!");
-    
-    const novoItem = {
-      id: Date.now(),
-      endereco: inputEndereco,
-      info: inputInfo || 'Sem observações',
-      tipo: inputTipo
-    };
-
+    const novoItem = { id: Date.now(), endereco: inputEndereco, info: inputInfo || 'Sem observações', tipo: inputTipo };
     setRascunho([...rascunho, novoItem]);
-    setInputEndereco('');
-    setInputInfo('');
+    setInputEndereco(''); setInputInfo('');
   };
 
-  const removerDoRascunho = (id) => {
-    setRascunho(rascunho.filter(item => item.id !== id));
-  };
+  const removerDoRascunho = (id) => { setRascunho(rascunho.filter(item => item.id !== id)); };
 
   const enviarRotaParaSupabase = async () => {
     if (rascunho.length === 0) return alert("A lista está vazia!");
     if (!motoristaSelecionado) return alert("Selecione um motorista!");
-
-    // Prepara os dados para o formato do Supabase
-    // Mapeando: 'cliente' vai receber o Tipo + Info para aparecer bonito pro motorista
     const payload = rascunho.map((item, index) => ({
       cliente: `[${item.tipo.toUpperCase()}] ${item.info}`, 
       endereco: item.endereco,
       motorista: motoristaSelecionado,
       status: 'Pendente',
-      ordem: index + 1, // Define ordem simples baseada na lista
+      ordem: index + 1,
       assinatura: 'NAO'
     }));
-
     const { error } = await supabase.from('entregas').insert(payload);
-
-    if (error) {
-      alert("Erro ao enviar: " + error.message);
-    } else {
-      alert("Rota enviada com sucesso para " + motoristaSelecionado);
-      setRascunho([]); // Limpa o painel
-      buscarDados(); // Atualiza a tela
-    }
+    if (!error) { alert("Enviado!"); setRascunho([]); buscarDados(); }
   };
 
   // --- FUNÇÕES DO MOTORISTA ---
@@ -101,16 +119,37 @@ function App() {
   };
 
   const iniciarConclusao = (id) => { setEntregaFocada(id); setMostrarAssinatura(true); };
+  
+  // Nova função: Abrir modal de motivo
+  const iniciarNaoEntrega = (id) => { setEntregaFocada(id); setMostrarMotivo(true); setMotivoTexto(''); };
 
   const finalizarComAssinatura = async () => {
     if (sigPad.current.isEmpty()) return alert("O cliente precisa assinar!");
     const { error } = await supabase.from('entregas').update({
-      status: 'Concluído',
-      assinatura: 'SIM',
-      horario_conclusao: new Date().toISOString()
+      status: 'Concluído', assinatura: 'SIM', horario_conclusao: new Date().toISOString()
     }).eq('id', entregaFocada);
-
     if (!error) { setMostrarAssinatura(false); setEntregaFocada(null); buscarDados(); }
+  };
+
+  // Nova função: Finalizar como Não Entregue
+  const finalizarSemEntrega = async () => {
+    if (!motivoTexto) return alert("Digite o motivo!");
+    const { error } = await supabase.from('entregas').update({
+        status: 'Não Entregue',
+        assinatura: 'NAO',
+        obs_conclusao: motivoTexto, // Certifique-se de ter essa coluna ou use outra
+        horario_conclusao: new Date().toISOString()
+    }).eq('id', entregaFocada);
+    if (!error) { setMostrarMotivo(false); setEntregaFocada(null); buscarDados(); }
+  };
+
+  // Nova função: Reordenar itens (Drag and Drop)
+  const atualizarOrdemEntregas = async (novaOrdem) => {
+    setEntregas(novaOrdem); // Atualiza visualmente instantaneo
+    // Atualiza no banco (pode ser otimizado com rpc, mas faremos simples)
+    for (let i = 0; i < novaOrdem.length; i++) {
+        await supabase.from('entregas').update({ ordem: i + 1 }).eq('id', novaOrdem[i].id);
+    }
   };
 
   const acaoLogin = async (e) => {
@@ -124,7 +163,7 @@ function App() {
   };
 
   // -----------------------------------------------------------------------
-  // RENDERIZAÇÃO: VISÃO MOTORISTA (Intacta)
+  // RENDERIZAÇÃO: VISÃO MOTORISTA
   // -----------------------------------------------------------------------
   if (view === 'motorista') {
     if (!motoristaLogado) {
@@ -142,6 +181,9 @@ function App() {
       );
     }
 
+    // Filtrar apenas as pendentes para o motorista logado
+    const minhasEntregas = entregas.filter(e => e.status === 'Pendente' && (e.motorista === motoristaLogado || e.motoristas === motoristaLogado));
+
     return (
       <div style={styles.mobileFull}>
         <header style={styles.headerMobile}>
@@ -149,6 +191,7 @@ function App() {
           <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={{ color: '#ef4444', background: 'none', border: 'none' }}>Sair</button>
         </header>
 
+        {/* Modal Assinatura */}
         {mostrarAssinatura && (
           <div style={styles.modal}>
             <div style={styles.cardAssinatura}>
@@ -163,172 +206,152 @@ function App() {
           </div>
         )}
 
+        {/* Modal Não Entrega (NOVO) */}
+        {mostrarMotivo && (
+          <div style={styles.modal}>
+            <div style={styles.cardAssinatura}>
+              <h3 style={{ color: '#ef4444', marginBottom: '10px' }}>Motivo da Não Entrega</h3>
+              <textarea 
+                style={{width: '100%', padding: 10, borderRadius: 8, height: 100}} 
+                placeholder="Ex: Cliente ausente, Endereço não encontrado..."
+                value={motivoTexto}
+                onChange={e => setMotivoTexto(e.target.value)}
+              />
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button onClick={() => setMostrarMotivo(false)} style={styles.btnSec}>CANCELAR</button>
+                <button onClick={finalizarSemEntrega} style={{...styles.btnConfirmar, background: '#ef4444', color: 'white'}}>CONFIRMAR</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <main style={styles.mainMobileScroll}>
-          <AnimatePresence mode='popLayout'>
-            {entregas
-              .filter(e => e.status === 'Pendente' && (e.motorista === motoristaLogado || e.motoristas === motoristaLogado))
-              .sort((a, b) => a.ordem - b.ordem)
-              .map((ent, idx) => (
-                <motion.div
-                  key={ent.id}
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -100 }}
-                  transition={{ duration: 0.3 }}
-                  style={styles.card}
-                >
-                  <div style={styles.numBadge}>{idx + 1}</div>
-                  <strong>{ent.cliente}</strong>
-                  <p style={{ fontSize: '14px', color: '#94a3b8' }}>📍 {ent.endereco}</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
-                    <button onClick={() => abrirMapa(ent.endereco)} style={styles.btnMapa}>🗺️ VER NO MAPA</button>
-                    <button onClick={() => iniciarConclusao(ent.id)} style={styles.btnConcluir}>CONCLUIR</button>
-                  </div>
-                </motion.div>
+          {/* Reorder.Group substitui a div normal para permitir drag and drop fluido */}
+          <Reorder.Group axis="y" values={minhasEntregas} onReorder={atualizarOrdemEntregas} style={{listStyle: 'none', padding: 0}}>
+            <AnimatePresence mode='popLayout'>
+              {minhasEntregas.map((ent, idx) => (
+                <Reorder.Item key={ent.id} value={ent} style={{position: 'relative'}}>
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -100 }}
+                    style={styles.card}
+                    whileDrag={{scale: 1.05, boxShadow: "0px 10px 20px rgba(0,0,0,0.5)"}} // Efeito visual ao arrastar
+                  >
+                    {/* Ícone de Arrastar */}
+                    <div style={{position: 'absolute', right: 10, top: 10, color: '#334155'}}>
+                        <GripVertical />
+                    </div>
+
+                    <div style={styles.numBadge}>{idx + 1}</div>
+                    <strong style={{marginRight: 20}}>{ent.cliente}</strong>
+                    <p style={{ fontSize: '14px', color: '#94a3b8' }}>📍 {ent.endereco}</p>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                      <button onClick={() => abrirMapa(ent.endereco)} style={styles.btnMapa}>🗺️ VER NO MAPA</button>
+                      
+                      <div style={{display: 'flex', gap: 8}}>
+                          {/* Botão Não Entrega (NOVO) */}
+                          <button onClick={() => iniciarNaoEntrega(ent.id)} style={styles.btnNaoEntrega}>
+                            <XCircle size={18} /> NÃO
+                          </button>
+                          
+                          <button onClick={() => iniciarConclusao(ent.id)} style={styles.btnConcluir}>
+                            CONCLUIR
+                          </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                </Reorder.Item>
               ))}
-          </AnimatePresence>
+            </AnimatePresence>
+          </Reorder.Group>
         </main>
       </div>
     );
   }
 
   // -----------------------------------------------------------------------
-  // RENDERIZAÇÃO: VISÃO GESTOR (Novo Dashboard)
+  // RENDERIZAÇÃO: VISÃO GESTOR
   // -----------------------------------------------------------------------
   return (
     <div style={styles.universalPage}>
-      {/* Sidebar / Menu simples */}
-      <div style={{ position: 'absolute', top: 20, right: 20 }}>
-        <button onClick={() => setView('motorista')} style={styles.btnSec}>
-            Ver como Celular
-        </button>
+      <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 999 }}>
+        <button onClick={() => setView('motorista')} style={styles.btnSec}>Ver como Celular</button>
       </div>
 
       <main style={styles.dashboardContainer}>
-        <div style={styles.dashboardCard}>
-          
+        {/* Lado Esquerdo: Formulário (Mantido) */}
+        <div style={{...styles.dashboardCard, flex: 1, display: 'flex', flexDirection: 'column'}}>
           <div style={styles.dashboardHeader}>
-            <h2 style={{ color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-               PAINEL DE ROTAS
-            </h2>
-            <div style={{color: '#94a3b8', fontSize: '14px'}}>
-                <Settings size={18} style={{display:'inline', marginRight: 10}}/> 
-                Gestão V10
-            </div>
+            <h2 style={{ color: '#fff', margin: 0, fontSize: '18px' }}>PAINEL DE ROTAS</h2>
+            <Settings size={18} color="#94a3b8"/>
           </div>
 
-          <div style={{ padding: '30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
-            {/* Seletor de Motorista */}
-            <div>
-                <label style={styles.label}>Para qual motorista?</label>
-                <select 
-                    style={styles.selectInput}
-                    value={motoristaSelecionado}
-                    onChange={(e) => setMotoristaSelecionado(e.target.value)}
-                >
-                    <option value="">Selecione um motorista...</option>
-                    {motoristas.map(m => {
-                        const nome = m.nome || m.motoristas;
-                        return <option key={m.id} value={nome}>{nome}</option>
-                    })}
-                </select>
-            </div>
+          <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto' }}>
+            <select style={styles.selectInput} value={motoristaSelecionado} onChange={(e) => setMotoristaSelecionado(e.target.value)}>
+                <option value="">Selecione um motorista...</option>
+                {motoristas.map(m => <option key={m.id} value={m.nome || m.motoristas}>{m.nome || m.motoristas}</option>)}
+            </select>
 
-            {/* Seletor de Tipo (Entrega/Recolha) */}
-            <div>
-              <label style={styles.label}>Tipo de Operação</label>
-              <div style={{ display: 'flex', gap: '15px' }}>
-                <button 
-                  onClick={() => setInputTipo('entrega')}
-                  style={inputTipo === 'entrega' ? styles.btnTypeActiveBlue : styles.btnTypeInactive}
-                >
-                  <ArrowDownToLine size={20} /> ENTREGA
-                </button>
-                <button 
-                  onClick={() => setInputTipo('recolha')}
-                  style={inputTipo === 'recolha' ? styles.btnTypeActiveOrange : styles.btnTypeInactive}
-                >
-                  <ArrowUpFromLine size={20} /> RECOLHA
-                </button>
-              </div>
-            </div>
-
-            {/* Inputs de Endereço */}
             <div style={{ display: 'flex', gap: '10px' }}>
-                <div style={{ flex: 2 }}>
-                    <label style={styles.label}>Endereço</label>
-                    <div style={{display: 'flex', gap: 5}}>
-                        <input 
-                            value={inputEndereco}
-                            onChange={(e) => setInputEndereco(e.target.value)}
-                            placeholder="Rua, Número, Bairro" 
-                            style={styles.inputDash} 
-                        />
-                        <button style={styles.btnIcon}><Search size={20}/></button>
-                    </div>
-                </div>
-                <div style={{ flex: 1 }}>
-                    <label style={styles.label}>Obs. Motorista</label>
-                    <input 
-                        value={inputInfo}
-                        onChange={(e) => setInputInfo(e.target.value)}
-                        placeholder="Ex: Cão bravo" 
-                        style={styles.inputDash} 
-                    />
-                </div>
+              <button onClick={() => setInputTipo('entrega')} style={inputTipo === 'entrega' ? styles.btnTypeActiveBlue : styles.btnTypeInactive}>ENTREGA</button>
+              <button onClick={() => setInputTipo('recolha')} style={inputTipo === 'recolha' ? styles.btnTypeActiveOrange : styles.btnTypeInactive}>RECOLHA</button>
             </div>
 
-            <button onClick={adicionarAoRascunho} style={styles.btnAdd}>
-              <Plus size={20} /> ADICIONAR À LISTA
-            </button>
+            <div style={{ display: 'flex', gap: '5px' }}>
+               <input value={inputEndereco} onChange={(e) => setInputEndereco(e.target.value)} placeholder="Endereço" style={{...styles.inputDash, flex: 2}} />
+               <input value={inputInfo} onChange={(e) => setInputInfo(e.target.value)} placeholder="Obs" style={{...styles.inputDash, flex: 1}} />
+            </div>
 
-            <hr style={{ borderColor: '#334155', margin: '10px 0' }} />
+            <button onClick={adicionarAoRascunho} style={styles.btnAdd}><Plus size={20} /> ADICIONAR</button>
 
-            {/* Lista de Rascunho */}
-            <div>
-              <label style={styles.label}>Rascunho da Rota ({rascunho.length})</label>
-              <div style={styles.listContainer}>
-                {rascunho.length === 0 && <p style={{color: '#64748b', textAlign: 'center', padding: 20}}>Nenhuma parada adicionada.</p>}
-                
-                {rascunho.map((item, index) => (
+            {/* Rascunho Lista */}
+            <div style={styles.listContainer}>
+               {rascunho.map((item, index) => (
                   <div key={item.id} style={styles.listItem}>
-                    <div style={{
-                        width: '4px', height: '100%', position: 'absolute', left: 0, top: 0,
-                        backgroundColor: item.tipo === 'entrega' ? '#3b82f6' : '#f97316'
-                    }}></div>
-                    
-                    <div style={{marginLeft: 10, marginRight: 10, color: '#94a3b8', fontWeight: 'bold'}}>{index + 1}.</div>
-                    
-                    <div style={{flex: 1}}>
-                        <div style={{display: 'flex', alignItems: 'center', gap: 5}}>
-                            <span style={{
-                                fontSize: '10px', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase', fontWeight: 'bold',
-                                backgroundColor: item.tipo === 'entrega' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(249, 115, 22, 0.2)',
-                                color: item.tipo === 'entrega' ? '#60a5fa' : '#fb923c'
-                            }}>
-                                {item.tipo}
-                            </span>
-                        </div>
-                        <div style={{color: '#e2e8f0', fontWeight: '500'}}>{item.endereco}</div>
-                        <div style={{color: '#64748b', fontSize: '12px'}}>{item.info}</div>
-                    </div>
-
-                    <button onClick={() => removerDoRascunho(item.id)} style={{background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer'}}>
-                        <Trash2 size={18} />
-                    </button>
+                    <span style={{color: '#fff', marginRight: 10}}>{index + 1}.</span>
+                    <span style={{color: '#ccc', flex: 1, fontSize: '13px'}}>{item.endereco}</span>
+                    <Trash2 size={16} color="#ef4444" onClick={() => removerDoRascunho(item.id)} style={{cursor:'pointer'}}/>
                   </div>
-                ))}
-              </div>
+               ))}
             </div>
-
-            <button onClick={enviarRotaParaSupabase} style={styles.btnSend}>
-               <Send size={20} /> ENVIAR ROTA PARA MOTORISTA
-            </button>
-
+            <button onClick={enviarRotaParaSupabase} style={styles.btnSend}><Send size={18} /> ENVIAR</button>
           </div>
         </div>
+
+        {/* Lado Direito: MAPA EM TEMPO REAL (NOVO) */}
+        <div style={{...styles.dashboardCard, flex: 1, marginLeft: 20, height: '600px', position: 'relative'}}>
+            <div style={styles.dashboardHeader}>
+                <h2 style={{ color: '#fff', margin: 0, fontSize: '18px' }}>
+                    MAPA EM TEMPO REAL
+                    {motoristaSelecionado && <span style={{fontSize: '12px', color: '#38bdf8', marginLeft: 10}}>Rastreando: {motoristaSelecionado}</span>}
+                </h2>
+            </div>
+            {/* Componente do Mapa Leaflet */}
+            <MapContainer center={coordsMotorista || [-23.5505, -46.6333]} zoom={13} style={{ height: '100%', width: '100%' }}>
+                <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                />
+                
+                {/* Marcador do Motorista */}
+                {coordsMotorista && (
+                    <Marker position={coordsMotorista}>
+                        <Popup>
+                            <b>{motoristaSelecionado}</b><br/>
+                            Está aqui agora.
+                        </Popup>
+                    </Marker>
+                )}
+
+                {/* Marcadores das Entregas Pendentes no Mapa */}
+                {/* Nota: Isso funcionaria melhor se salvássemos lat/long das entregas no banco.
+                    Como temos só endereço texto, não vamos plotar para não quebrar sem Geocoding API */}
+            </MapContainer>
+        </div>
+
       </main>
     </div>
   );
@@ -336,48 +359,44 @@ function App() {
 
 // --- ESTILOS (CSS IN JS) ---
 const styles = {
-  universalPage: { width: '100vw', minHeight: '100vh', backgroundColor: '#020617', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' },
+  universalPage: { width: '100vw', minHeight: '100vh', backgroundColor: '#020617', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', overflow: 'hidden' },
   
-  // Auth & Mobile Base
   authCard: { backgroundColor: '#0f172a', padding: '30px', borderRadius: '24px', width: '350px', border: '1px solid #1e293b' },
   inputAuth: { padding: '15px', borderRadius: '10px', backgroundColor: '#020617', border: '1px solid #1e293b', color: '#fff', fontSize: '16px' },
   
-  // Mobile UI
   mobileFull: { width: '100vw', height: '100vh', backgroundColor: '#020617', color: '#fff', display: 'flex', flexDirection: 'column' },
   headerMobile: { padding: '20px', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0f172a' },
   mainMobileScroll: { padding: '15px', flex: 1, overflowY: 'auto' },
-  card: { background: '#0f172a', padding: '20px', borderRadius: '15px', marginBottom: '20px', position: 'relative', borderLeft: '5px solid #38bdf8', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' },
-  numBadge: { position: 'absolute', top: '-10px', left: '-10px', background: '#38bdf8', color: '#000', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' },
-  btnMapa: { background: '#334155', color: '#fff', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
-  btnConcluir: { background: '#10b981', color: '#000', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
   
-  // Modal Assinatura
+  card: { background: '#0f172a', padding: '20px', borderRadius: '15px', marginBottom: '20px', position: 'relative', borderLeft: '5px solid #38bdf8', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', touchAction: 'none' }, // touchAction none é importante pro drag
+  numBadge: { position: 'absolute', top: '-10px', left: '-10px', background: '#38bdf8', color: '#000', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' },
+  
+  btnMapa: { background: '#334155', color: '#fff', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%' },
+  btnConcluir: { flex: 2, background: '#10b981', color: '#000', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
+  btnNaoEntrega: { flex: 1, background: '#ef4444', color: '#fff', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  
   modal: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   cardAssinatura: { background: '#1e293b', padding: '20px', borderRadius: '20px', textAlign: 'center', width: '90%', maxWidth: '400px' },
 
-  // GESTOR DASHBOARD STYLES (NOVO)
-  dashboardContainer: { width: '100%', maxWidth: '800px', padding: '20px' },
+  // GESTOR STYLES
+  dashboardContainer: { width: '95%', height: '90vh', display: 'flex', flexDirection: 'row', maxWidth: '1400px' },
   dashboardCard: { backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid #1e293b', overflow: 'hidden', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' },
-  dashboardHeader: { backgroundColor: '#1e293b', padding: '20px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  dashboardHeader: { backgroundColor: '#1e293b', padding: '15px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   
   label: { display: 'block', color: '#94a3b8', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px', textTransform: 'uppercase' },
-  inputDash: { width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: '#020617', border: '1px solid #334155', color: '#fff', outline: 'none' },
-  selectInput: { width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: '#020617', border: '1px solid #334155', color: '#fff', outline: 'none' },
+  inputDash: { padding: '10px', borderRadius: '8px', backgroundColor: '#020617', border: '1px solid #334155', color: '#fff', outline: 'none' },
+  selectInput: { padding: '10px', borderRadius: '8px', backgroundColor: '#020617', border: '1px solid #334155', color: '#fff', outline: 'none', width: '100%' },
   
-  // Type Buttons
-  btnTypeInactive: { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #334155', background: 'transparent', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold' },
-  btnTypeActiveBlue: { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold' },
-  btnTypeActiveOrange: { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #f97316', background: 'rgba(249, 115, 22, 0.1)', color: '#fb923c', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold' },
+  btnTypeInactive: { flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #334155', background: 'transparent', color: '#64748b', cursor: 'pointer', fontWeight: 'bold' },
+  btnTypeActiveBlue: { flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', cursor: 'pointer', fontWeight: 'bold' },
+  btnTypeActiveOrange: { flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #f97316', background: 'rgba(249, 115, 22, 0.1)', color: '#fb923c', cursor: 'pointer', fontWeight: 'bold' },
 
-  btnAdd: { width: '100%', padding: '15px', borderRadius: '8px', background: '#3b82f6', color: '#fff', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '10px' },
-  btnSend: { width: '100%', padding: '15px', borderRadius: '8px', background: 'linear-gradient(to right, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '10px', fontSize: '16px' },
-  btnIcon: { padding: '0 15px', borderRadius: '8px', background: '#334155', color: '#fff', border: 'none', cursor: 'pointer' },
+  btnAdd: { width: '100%', padding: '12px', borderRadius: '8px', background: '#3b82f6', color: '#fff', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' },
+  btnSend: { width: '100%', padding: '12px', borderRadius: '8px', background: '#10b981', color: '#fff', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: 10 },
 
-  // List Items
-  listContainer: { maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '5px' },
-  listItem: { display: 'flex', alignItems: 'center', padding: '12px', backgroundColor: '#1e293b', borderRadius: '8px', position: 'relative', overflow: 'hidden', border: '1px solid #334155' },
+  listContainer: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '5px', marginTop: 10 },
+  listItem: { display: 'flex', alignItems: 'center', padding: '10px', backgroundColor: '#1e293b', borderRadius: '8px', border: '1px solid #334155' },
 
-  // Generic Buttons
   btnPrimary: { padding: '15px', borderRadius: '10px', border: 'none', backgroundColor: '#38bdf8', color: '#000', fontWeight: 'bold', cursor: 'pointer' },
   btnSec: { flex: 1, padding: '10px', background: '#334155', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
   btnConfirmar: { flex: 1, padding: '10px', background: '#10b981', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }
