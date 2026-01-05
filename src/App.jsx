@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
-import { motion, AnimatePresence, Reorder } from 'framer-motion'; // Adicionado Reorder
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import SignatureCanvas from 'react-signature-canvas';
-import { Trash2, MapPin, Info, Plus, Send, Settings, Moon, ArrowDownToLine, ArrowUpFromLine, Search, XCircle, GripVertical } from 'lucide-react';
+import { Trash2, Plus, Send, Settings, ArrowDownToLine, ArrowUpFromLine, Search, XCircle, GripVertical } from 'lucide-react';
 
 // Importações do Mapa
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Correção para ícone do leaflet padrão que as vezes buga no React
+// Correção para ícone do leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 let DefaultIcon = L.icon({ iconUrl: icon, shadowUrl: iconShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
@@ -25,8 +25,8 @@ function App() {
   const [motoristaLogado, setMotoristaLogado] = useState(localStorage.getItem('mot_v10_nome') || null);
   const [form, setForm] = useState({ tel: '', senha: '' });
   const [mostrarAssinatura, setMostrarAssinatura] = useState(false);
-  const [mostrarMotivo, setMostrarMotivo] = useState(false); // Modal de motivo
-  const [motivoTexto, setMotivoTexto] = useState(''); // Texto do motivo
+  const [mostrarMotivo, setMostrarMotivo] = useState(false);
+  const [motivoTexto, setMotivoTexto] = useState('');
   const [entregaFocada, setEntregaFocada] = useState(null);
   const sigPad = useRef({});
 
@@ -36,7 +36,6 @@ function App() {
   const [inputInfo, setInputInfo] = useState('');
   const [inputTipo, setInputTipo] = useState('entrega'); 
   const [motoristaSelecionado, setMotoristaSelecionado] = useState('');
-  // Estado para localização do motorista no mapa
   const [coordsMotorista, setCoordsMotorista] = useState(null); 
 
   // --- BUSCA DE DADOS ---
@@ -52,7 +51,6 @@ function App() {
         setMotoristas(m);
         if (!motoristaSelecionado && m.length > 0) setMotoristaSelecionado(m[0].nome || m[0].motoristas);
         
-        // Se for gestor, pega a lat/long do motorista selecionado para o mapa
         if (motoristaSelecionado) {
             const mot = m.find(x => (x.nome || x.motoristas) === motoristaSelecionado);
             if (mot && mot.lat && mot.lng) {
@@ -68,18 +66,17 @@ function App() {
     return () => supabase.removeChannel(canal);
   }, [entregas.length, motoristaSelecionado]);
 
-  // --- RASTREAMENTO DO MOTORISTA (GEOLOCALIZAÇÃO) ---
+  // --- RASTREAMENTO DO MOTORISTA ---
   useEffect(() => {
     let watchId;
     if (view === 'motorista' && motoristaLogado) {
         if ("geolocation" in navigator) {
             watchId = navigator.geolocation.watchPosition(async (pos) => {
-                // Atualiza a tabela motoristas com a posição atual
                 await supabase.from('motoristas').update({
                     lat: pos.coords.latitude,
                     lng: pos.coords.longitude,
                     ultimo_sinal: new Date().toISOString()
-                }).eq('nome', motoristaLogado); // Assumindo que a coluna 'nome' é a chave, ou use ID se preferir
+                }).eq('nome', motoristaLogado);
             }, (err) => console.error(err), { enableHighAccuracy: true });
         }
     }
@@ -120,7 +117,6 @@ function App() {
 
   const iniciarConclusao = (id) => { setEntregaFocada(id); setMostrarAssinatura(true); };
   
-  // Nova função: Abrir modal de motivo
   const iniciarNaoEntrega = (id) => { setEntregaFocada(id); setMostrarMotivo(true); setMotivoTexto(''); };
 
   const finalizarComAssinatura = async () => {
@@ -131,22 +127,30 @@ function App() {
     if (!error) { setMostrarAssinatura(false); setEntregaFocada(null); buscarDados(); }
   };
 
-  // Nova função: Finalizar como Não Entregue
+  // --- CORREÇÃO AQUI: FINALIZAR SEM ENTREGA ---
   const finalizarSemEntrega = async () => {
     if (!motivoTexto) return alert("Digite o motivo!");
+    
+    // Agora salvamos o motivo DENTRO do status para evitar erro de coluna inexistente
+    const statusComMotivo = `Não Entregue: ${motivoTexto}`;
+
     const { error } = await supabase.from('entregas').update({
-        status: 'Não Entregue',
+        status: statusComMotivo, 
         assinatura: 'NAO',
-        obs_conclusao: motivoTexto, // Certifique-se de ter essa coluna ou use outra
         horario_conclusao: new Date().toISOString()
     }).eq('id', entregaFocada);
-    if (!error) { setMostrarMotivo(false); setEntregaFocada(null); buscarDados(); }
+
+    if (error) {
+        alert("Erro ao salvar: " + error.message);
+    } else {
+        setMostrarMotivo(false);
+        setEntregaFocada(null);
+        buscarDados();
+    }
   };
 
-  // Nova função: Reordenar itens (Drag and Drop)
   const atualizarOrdemEntregas = async (novaOrdem) => {
-    setEntregas(novaOrdem); // Atualiza visualmente instantaneo
-    // Atualiza no banco (pode ser otimizado com rpc, mas faremos simples)
+    setEntregas(novaOrdem); 
     for (let i = 0; i < novaOrdem.length; i++) {
         await supabase.from('entregas').update({ ordem: i + 1 }).eq('id', novaOrdem[i].id);
     }
@@ -181,7 +185,6 @@ function App() {
       );
     }
 
-    // Filtrar apenas as pendentes para o motorista logado
     const minhasEntregas = entregas.filter(e => e.status === 'Pendente' && (e.motorista === motoristaLogado || e.motoristas === motoristaLogado));
 
     return (
@@ -191,7 +194,6 @@ function App() {
           <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={{ color: '#ef4444', background: 'none', border: 'none' }}>Sair</button>
         </header>
 
-        {/* Modal Assinatura */}
         {mostrarAssinatura && (
           <div style={styles.modal}>
             <div style={styles.cardAssinatura}>
@@ -206,7 +208,7 @@ function App() {
           </div>
         )}
 
-        {/* Modal Não Entrega (NOVO) */}
+        {/* Modal Não Entrega */}
         {mostrarMotivo && (
           <div style={styles.modal}>
             <div style={styles.cardAssinatura}>
@@ -226,7 +228,6 @@ function App() {
         )}
 
         <main style={styles.mainMobileScroll}>
-          {/* Reorder.Group substitui a div normal para permitir drag and drop fluido */}
           <Reorder.Group axis="y" values={minhasEntregas} onReorder={atualizarOrdemEntregas} style={{listStyle: 'none', padding: 0}}>
             <AnimatePresence mode='popLayout'>
               {minhasEntregas.map((ent, idx) => (
@@ -237,9 +238,8 @@ function App() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -100 }}
                     style={styles.card}
-                    whileDrag={{scale: 1.05, boxShadow: "0px 10px 20px rgba(0,0,0,0.5)"}} // Efeito visual ao arrastar
+                    whileDrag={{scale: 1.05, boxShadow: "0px 10px 20px rgba(0,0,0,0.5)"}} 
                   >
-                    {/* Ícone de Arrastar */}
                     <div style={{position: 'absolute', right: 10, top: 10, color: '#334155'}}>
                         <GripVertical />
                     </div>
@@ -252,11 +252,9 @@ function App() {
                       <button onClick={() => abrirMapa(ent.endereco)} style={styles.btnMapa}>🗺️ VER NO MAPA</button>
                       
                       <div style={{display: 'flex', gap: 8}}>
-                          {/* Botão Não Entrega (NOVO) */}
                           <button onClick={() => iniciarNaoEntrega(ent.id)} style={styles.btnNaoEntrega}>
                             <XCircle size={18} /> NÃO
                           </button>
-                          
                           <button onClick={() => iniciarConclusao(ent.id)} style={styles.btnConcluir}>
                             CONCLUIR
                           </button>
@@ -282,7 +280,7 @@ function App() {
       </div>
 
       <main style={styles.dashboardContainer}>
-        {/* Lado Esquerdo: Formulário (Mantido) */}
+        {/* Lado Esquerdo */}
         <div style={{...styles.dashboardCard, flex: 1, display: 'flex', flexDirection: 'column'}}>
           <div style={styles.dashboardHeader}>
             <h2 style={{ color: '#fff', margin: 0, fontSize: '18px' }}>PAINEL DE ROTAS</h2>
@@ -307,7 +305,6 @@ function App() {
 
             <button onClick={adicionarAoRascunho} style={styles.btnAdd}><Plus size={20} /> ADICIONAR</button>
 
-            {/* Rascunho Lista */}
             <div style={styles.listContainer}>
                {rascunho.map((item, index) => (
                   <div key={item.id} style={styles.listItem}>
@@ -321,7 +318,7 @@ function App() {
           </div>
         </div>
 
-        {/* Lado Direito: MAPA EM TEMPO REAL (NOVO) */}
+        {/* Lado Direito: MAPA */}
         <div style={{...styles.dashboardCard, flex: 1, marginLeft: 20, height: '600px', position: 'relative'}}>
             <div style={styles.dashboardHeader}>
                 <h2 style={{ color: '#fff', margin: 0, fontSize: '18px' }}>
@@ -329,14 +326,12 @@ function App() {
                     {motoristaSelecionado && <span style={{fontSize: '12px', color: '#38bdf8', marginLeft: 10}}>Rastreando: {motoristaSelecionado}</span>}
                 </h2>
             </div>
-            {/* Componente do Mapa Leaflet */}
             <MapContainer center={coordsMotorista || [-23.5505, -46.6333]} zoom={13} style={{ height: '100%', width: '100%' }}>
                 <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
                 
-                {/* Marcador do Motorista */}
                 {coordsMotorista && (
                     <Marker position={coordsMotorista}>
                         <Popup>
@@ -345,10 +340,6 @@ function App() {
                         </Popup>
                     </Marker>
                 )}
-
-                {/* Marcadores das Entregas Pendentes no Mapa */}
-                {/* Nota: Isso funcionaria melhor se salvássemos lat/long das entregas no banco.
-                    Como temos só endereço texto, não vamos plotar para não quebrar sem Geocoding API */}
             </MapContainer>
         </div>
 
@@ -357,7 +348,7 @@ function App() {
   );
 }
 
-// --- ESTILOS (CSS IN JS) ---
+// --- ESTILOS ---
 const styles = {
   universalPage: { width: '100vw', minHeight: '100vh', backgroundColor: '#020617', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', overflow: 'hidden' },
   
@@ -368,7 +359,7 @@ const styles = {
   headerMobile: { padding: '20px', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0f172a' },
   mainMobileScroll: { padding: '15px', flex: 1, overflowY: 'auto' },
   
-  card: { background: '#0f172a', padding: '20px', borderRadius: '15px', marginBottom: '20px', position: 'relative', borderLeft: '5px solid #38bdf8', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', touchAction: 'none' }, // touchAction none é importante pro drag
+  card: { background: '#0f172a', padding: '20px', borderRadius: '15px', marginBottom: '20px', position: 'relative', borderLeft: '5px solid #38bdf8', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', touchAction: 'none' },
   numBadge: { position: 'absolute', top: '-10px', left: '-10px', background: '#38bdf8', color: '#000', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' },
   
   btnMapa: { background: '#334155', color: '#fff', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%' },
@@ -378,7 +369,6 @@ const styles = {
   modal: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   cardAssinatura: { background: '#1e293b', padding: '20px', borderRadius: '20px', textAlign: 'center', width: '90%', maxWidth: '400px' },
 
-  // GESTOR STYLES
   dashboardContainer: { width: '95%', height: '90vh', display: 'flex', flexDirection: 'row', maxWidth: '1400px' },
   dashboardCard: { backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid #1e293b', overflow: 'hidden', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' },
   dashboardHeader: { backgroundColor: '#1e293b', padding: '15px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
