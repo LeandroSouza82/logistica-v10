@@ -1,0 +1,31 @@
+  const simularTrajeto = async () => {
+    setSimulando(true);
+    
+    // O nome deve ser EXATAMENTE como está no banco
+    const nomeNoBanco = "Motorista Teste"; 
+
+    const pontos = [
+      { lat: -23.5505, lng: -46.6333 },
+      { lat: -23.5515, lng: -46.6343 },
+      { lat: -23.5525, lng: -46.6353 }
+    ];
+
+    for (const p of pontos) {
+      const { error } = await supabase
+        .from('motoristas')
+        .update({
+          lat: p.lat,
+          lng: p.lng,
+          ultimo_sinal: new Date().toISOString()
+        })
+        .eq('motoristas', nomeNoBanco); // CORRIGIDO: de 'nome' para 'motoristas'
+
+      if (error) {
+        console.error("Erro ao atualizar:", error.message);
+      } else {
+        console.log("Sucesso! Posição enviada.");
+      }
+      await new Promise(r => setTimeout(r, 3000));
+    }
+    setSimulando(false);
+  };

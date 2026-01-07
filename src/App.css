@@ -1,8 +1,59 @@
+/* === GLOBAL STYLES === */
+html,
+body,
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  /* Impede que a tela "balance" */
+  background-color: #0b0e14;
+}
+
+/* Estilos para o Container Principal */
+.container-motorista {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  /* Ocupa a tela toda */
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Metade de cima: MAPA */
+.secao-mapa {
+  flex: 1;
+  /* Pega 50% da altura */
+  background-color: #000;
+  /* Mapa preto como pedido */
+  position: relative;
+}
+
+/* Metade de baixo: INFO */
+.secao-info {
+  flex: 1;
+  /* Pega os outros 50% */
+  background-color: #fff;
+  overflow-y: auto;
+  /* Se a lista for grande, rola só aqui */
+  padding: 15px;
+}
+
+/* Topo Flutuante (Header) */
+.header-logistica {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 8px 15px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 .logo {
@@ -11,9 +62,11 @@
   will-change: filter;
   transition: filter 300ms;
 }
+
 .logo:hover {
   filter: drop-shadow(0 0 2em #646cffaa);
 }
+
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
@@ -22,6 +75,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -39,4 +93,226 @@
 
 .read-the-docs {
   color: #888;
+}
+
+.contagem-badge {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.contagem-badge::before {
+  display: none !important;
+}
+
+/* === LAYOUT GESTOR === */
+
+/* Container Principal */
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: #0b0e14;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* 1. BARRA SUPERIOR (WhatsApp, Equipe, Logística Ativa) */
+.topo-ferramentas {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background-color: #151a22;
+  border-bottom: 1px solid #2d3748;
+  height: 60px;
+}
+
+/* 2. CONTEÚDO DO MEIO (Lateral Esquerda + Espaço do Mapa) */
+.conteudo-principal {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Painel de Digitação (Encostado na Esquerda) */
+.painel-lateral {
+  width: 400px;
+  background-color: #151a22;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  border-right: 1px solid #2d3748;
+  z-index: 10;
+  overflow-y: auto;
+}
+
+/* 3. MAPA (Encostado embaixo e reto com o botão de enviar) */
+.area-mapa-inferior {
+  flex: 1;
+  background-color: #000;
+  height: 100%;
+}
+
+/* === CLASSES COMPLEMENTARES === */
+
+/* Abas de Navegação */
+.abas-navegacao {
+  display: flex;
+  gap: 10px;
+  border-bottom: 2px solid #2d3748;
+  margin-bottom: 15px;
+}
+
+.aba-item {
+  flex: 1;
+  padding: 10px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-weight: bold;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.aba-item.ativa {
+  color: #38bdf8;
+  border-bottom-color: #38bdf8;
+}
+
+.aba-item:hover {
+  color: #cbd5e1;
+}
+
+/* Formulário de Entrada */
+.formulario-entrada {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.input-dark {
+  padding: 10px;
+  background-color: #0b0e14;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-dark:focus {
+  border-color: #38bdf8;
+}
+
+.input-dark::placeholder {
+  color: #64748b;
+}
+
+/* Botões */
+.btn-topo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 15px;
+  background-color: #1e293b;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  color: #cbd5e1;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.btn-topo:hover {
+  background-color: #334155;
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.btn-azul-largo {
+  width: 100%;
+  padding: 12px;
+  background-color: #3b82f6;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-azul-largo:hover {
+  background-color: #2563eb;
+}
+
+.btn-verde-enviar {
+  width: 100%;
+  padding: 12px;
+  background-color: #22c55e;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+}
+
+.btn-verde-enviar:hover {
+  background-color: #16a34a;
+}
+
+/* Lista de Rascunho */
+.lista-rascunho {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Card de Ponto (Entrega) */
+.card-ponto {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background-color: #1e293b;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  color: #cbd5e1;
+  cursor: grab;
+  transition: all 0.2s;
+}
+
+.card-ponto:hover {
+  border-color: #38bdf8;
+  background-color: #0f172a;
+}
+
+.card-ponto span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background-color: #3b82f6;
+  color: #fff;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 12px;
 }

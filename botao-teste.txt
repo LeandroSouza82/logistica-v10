@@ -1,0 +1,10 @@
+                <button 
+                  onClick={criarEntregaTeste}
+                  style={{
+                    width: '100%', padding: '10px', marginTop: '10px',
+                    backgroundColor: '#10b981', color: 'white', border: 'none',
+                    borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer'
+                  }}
+                >
+                  🎁 GERAR ENTREGA DE TESTE
+                </button>

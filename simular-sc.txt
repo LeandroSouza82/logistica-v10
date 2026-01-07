@@ -1,0 +1,29 @@
+  const simularTrajeto = async () => {
+    setSimulando(true);
+    
+    // Nome exato que aparece na coluna 'motoristas' da sua tabela
+    const nomeNoBanco = "Motorista Teste"; 
+
+    const pontos = [
+      { lat: -27.5954, lng: -48.5480 },
+      { lat: -27.5964, lng: -48.5490 },
+      { lat: -27.5974, lng: -48.5500 }
+    ];
+
+    for (const p of pontos) {
+      const { error } = await supabase
+        .from('motoristas')
+        .update({
+          lat: p.lat,
+          lng: p.lng,
+          ultimo_sinal: new Date().toISOString()
+        })
+        .eq('motoristas', nomeNoBanco); // CORRIGIDO: de 'nome' para 'motoristas'
+
+      if (error) console.error("Erro no movimento:", error.message);
+      else console.log("Movimento registrado no banco!");
+
+      await new Promise(r => setTimeout(r, 3000));
+    }
+    setSimulando(false);
+  };
