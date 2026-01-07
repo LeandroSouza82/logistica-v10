@@ -3,8 +3,8 @@ import { GoogleMap, Marker, Polyline } from '@react-google-maps/api';
 
 const centroPalhoca = { lat: -27.6438, lng: -48.6674 };
 
-function MapaGestor({ pedidosNoRascunho = [], posicaoMoto = null, height = 500, isLoaded = true }) {
-    const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+function MapaGestor({ pedidosNoRascunho = [], posicaoMoto = null, isLoaded = true }) {
+    const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY; // NOTE: map container uses fixed vw/vh to avoid 0px height issues
     if (!googleMapsApiKey) {
         return <div style={{ color: '#f87171', padding: 12 }}>Chave do Google Maps não configurada. Configure a variável `VITE_GOOGLE_MAPS_API_KEY`.</div>;
     }
@@ -36,7 +36,7 @@ function MapaGestor({ pedidosNoRascunho = [], posicaoMoto = null, height = 500, 
 
     return (
         <GoogleMap
-            mapContainerStyle={{ width: '100%', height }}
+            mapContainerStyle={{ width: '100vw', height: '100vh' }}
             center={posicaoMoto || centroPalhoca}
             zoom={12}
             onLoad={onLoad}
