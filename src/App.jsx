@@ -1,6 +1,100 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from './supabaseClient';
+import React, { useState, useEffect } from 'react';
+import { GoogleMap, useJsApiLoader } from '@react-google-maps/api';
+import { motion, Reorder, AnimatePresence } from 'framer-motion';
 import SignatureCanvas from 'react-signature-canvas';
+
+export default function App() {
+  const [etapa, setEtapa] = useState('mapa'); // Começa direto no mapa para teste
+  const [pedidos, setPedidos] = useState([
+    { id: '1', cliente: 'João Silva', local: 'Rua das Flores, 10' },
+    { id: '2', cliente: 'Mercado Central', local: 'Av. Brasil, 500' },
+    { id: '3', cliente: 'Padaria Alfa', local: 'Rua Norte, 22' },
+  ]);
+  const [aberto, setAberto] = useState(false);
+  const [assinando, setAssinando] = useState(false);
+
+  // 1. Carregamento do Mapa (Usando sua chave do Vercel)
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+  });
+
+  if (!isLoaded) return <div style={{color: 'white', textAlign: 'center', paddingTop: '50%'}}>Carregando sistema...</div>;
+
+  return (
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>
+      
+      {/* CAMADA 1: O MAPA (OCUPA TUDO) */}
+      <GoogleMap
+        mapContainerStyle={{ width: '100%', height: '100%' }}
+        center={{ lat: -23.5505, lng: -46.6333 }}
+        zoom={14}
+        options={{ disableDefaultUI: true }}
+      />
+
+      {/* CAMADA 2: PAINEL DE PEDIDOS (TRANSPARENTE E SOBE DE BAIXO) */}
+      <motion.div
+        initial={{ y: '80%' }}
+        animate={{ y: aberto ? '20%' : '80%' }}
+        transition={{ type: 'spring', damping: 20 }}
+        style={sheetStyle}
+      >
+        {/* Puxador para o dedo */}
+        <div style={dragHandle} onClick={() => setAberto(!aberto)} />
+        
+        <h3 style={{ textAlign: 'center', margin: '10px' }}>📦 Meus Pedidos</h3>
+        
+        {/* Lista que troca de lugar com o dedo */}
+        <Reorder.Group axis="y" values={pedidos} onReorder={setPedidos} style={{ padding: 0 }}>
+          {pedidos.map((item) => (
+            <Reorder.Item key={item.id} value={item} style={cardStyle}>
+              <div style={{ flex: 1 }}>
+                <strong>{item.cliente}</strong>
+                <p style={{ fontSize: '12px', margin: '5px 0' }}>{item.local}</p>
+              </div>
+              <button onClick={() => setAssinando(true)} style={btnEntregar}>Entregar</button>
+            </Reorder.Item>
+          ))}
+        </Reorder.Group>
+      </motion.div>
+
+      {/* CAMADA 3: TELA DE ASSINATURA */}
+      <AnimatePresence>
+        {assinando && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={overlayModal}>
+            <div style={modalCorpo}>
+              <h3>Assinatura do Cliente</h3>
+              <div style={{ background: '#fff', borderRadius: '8px' }}>
+                <SignatureCanvas canvasProps={{ width: 300, height: 180, className: 'sigCanvas' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                <button onClick={() => setAssinando(false)} style={btnCancelar}>Voltar</button>
+                <button onClick={() => { alert('Assinatura salva!'); setAssinando(false); }} style={btnConfirmar}>Confirmar</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// --- ESTILOS ---
+const sheetStyle = {
+  position: 'absolute', bottom: 0, left: 0, right: 0, height: '100%',
+  background: 'rgba(25, 25, 25, 0.85)', backdropFilter: 'blur(15px)',
+  borderTopLeftRadius: '30px', borderTopRightRadius: '30px', padding: '15px',
+  color: 'white', zIndex: 10, boxShadow: '0 -10px 20px rgba(0,0,0,0.5)'
+};
+const dragHandle = { width: '50px', height: '6px', background: '#555', borderRadius: '3px', margin: '0 auto 20px' };
+const cardStyle = {
+  background: 'rgba(255,255,255,0.08)', padding: '15px', borderRadius: '15px',
+  marginBottom: '10px', display: 'flex', alignItems: 'center', border: '1px solid rgba(255,255,255,0.1)'
+};
+const btnEntregar = { background: '#007bff', color: '#fff', border: 'none', padding: '10px', borderRadius: '8px' };
+const overlayModal = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.9)', zIndex: 100, display: 'flex', justifyContent: 'center', alignItems: 'center' };
+const modalCorpo = { background: '#222', padding: '20px', borderRadius: '20px', textAlign: 'center' };
+const btnCancelar = { background: '#444', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px' };
+const btnConfirmar = { background: '#28a745', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px' };
 import { Trash2, Plus, Send, Settings, CheckCircle, Clock, History, AlertCircle, XCircle, GripVertical, AlertTriangle, MessageCircle, Save, Eye, FileText, Box, Truck, Search, X, Users, MapPin, Activity, Navigation } from 'lucide-react';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
