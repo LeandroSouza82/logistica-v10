@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { GoogleMap, useJsApiLoader } from '@react-google-maps/api';
 import { motion, Reorder, AnimatePresence } from 'framer-motion';
 import SignatureCanvas from 'react-signature-canvas';
 
 export default function App() {
-  const [etapa, setEtapa] = useState('mapa'); // Começa direto no mapa para teste
   const [pedidos, setPedidos] = useState([
     { id: '1', cliente: 'João Silva', local: 'Rua das Flores, 10' },
     { id: '2', cliente: 'Mercado Central', local: 'Av. Brasil, 500' },
@@ -12,8 +11,8 @@ export default function App() {
   ]);
   const [aberto, setAberto] = useState(false);
   const [assinando, setAssinando] = useState(false);
+  const sigPad = useRef(null);
 
-  // 1. Carregamento do Mapa (Usando sua chave do Vercel)
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
   });
@@ -22,8 +21,6 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', background: '#000' }}>
-      
-      {/* CAMADA 1: O MAPA (OCUPA TUDO) */}
       <GoogleMap
         mapContainerStyle={{ width: '100%', height: '100%' }}
         center={{ lat: -23.5505, lng: -46.6333 }}
@@ -31,19 +28,15 @@ export default function App() {
         options={{ disableDefaultUI: true }}
       />
 
-      {/* CAMADA 2: PAINEL DE PEDIDOS (TRANSPARENTE E SOBE DE BAIXO) */}
       <motion.div
         initial={{ y: '80%' }}
         animate={{ y: aberto ? '20%' : '80%' }}
         transition={{ type: 'spring', damping: 20 }}
         style={sheetStyle}
       >
-        {/* Puxador para o dedo */}
         <div style={dragHandle} onClick={() => setAberto(!aberto)} />
-        
         <h3 style={{ textAlign: 'center', margin: '10px' }}>📦 Meus Pedidos</h3>
-        
-        {/* Lista que troca de lugar com o dedo */}
+
         <Reorder.Group axis="y" values={pedidos} onReorder={setPedidos} style={{ padding: 0 }}>
           {pedidos.map((item) => (
             <Reorder.Item key={item.id} value={item} style={cardStyle}>
@@ -57,14 +50,13 @@ export default function App() {
         </Reorder.Group>
       </motion.div>
 
-      {/* CAMADA 3: TELA DE ASSINATURA */}
       <AnimatePresence>
         {assinando && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={overlayModal}>
             <div style={modalCorpo}>
               <h3>Assinatura do Cliente</h3>
               <div style={{ background: '#fff', borderRadius: '8px' }}>
-                <SignatureCanvas canvasProps={{ width: 300, height: 180, className: 'sigCanvas' }} />
+                <SignatureCanvas ref={sigPad} canvasProps={{ width: 300, height: 180, className: 'sigCanvas' }} />
               </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
                 <button onClick={() => setAssinando(false)} style={btnCancelar}>Voltar</button>
@@ -95,14 +87,12 @@ const overlayModal = { position: 'fixed', top: 0, left: 0, width: '100%', height
 const modalCorpo = { background: '#222', padding: '20px', borderRadius: '20px', textAlign: 'center' };
 const btnCancelar = { background: '#444', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px' };
 const btnConfirmar = { background: '#28a745', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px' };
-import { Trash2, Plus, Send, Settings, CheckCircle, Clock, History, AlertCircle, XCircle, GripVertical, AlertTriangle, MessageCircle, Save, Eye, FileText, Box, Truck, Search, X, Users, MapPin, Activity, Navigation } from 'lucide-react';
-import { DndContext, closestCenter } from '@dnd-kit/core';
-import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
-// Importações do Mapa
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Autocomplete, Circle } from '@react-google-maps/api';
-import { humanizeSupabaseError, safeInsertMotorista } from './utils/supabaseHelpers';
+
+
+
+
+
 
 // Áudio curto para alertas (pode trocar por outro link se desejar)
 const SOM_ALARME_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
@@ -675,1231 +665,1049 @@ function WelcomeScreen({ onNext }) {
       </div>
     </div>
   );
-}
+}  // Ouvinte de novas entregas para o motorista logado: comparação flexível para aceitar número ou string
+useEffect(() => {
+  if (!motoristaIdLogado) return;
 
-function App() {
-  // Estado da view principal (welcome | motorista | gestor)
-  const [view, setView] = useState('welcome');
-
-  // Se estivermos na tela de boas-vindas, exibe e retorna (aparece sempre)
-  if (view === 'welcome') {
-    return <WelcomeScreen onNext={() => setView(window.innerWidth < 768 ? 'motorista' : 'gestor')} />;
-  }
-
-  // --- ESTADOS GERAIS ---
-  const [entregas, setEntregas] = useState([]);
-  const [motoristas, setMotoristas] = useState([]);
-
-  // --- ESTADO NOVO: WHATSAPP DO GESTOR ---
-  const [numeroGestor, setNumeroGestor] = useState('5500000000000');
-  const [inputZapConfig, setInputZapConfig] = useState('');
-
-  // --- ESTADOS MOTORISTA ---
-  const [motoristaLogado, setMotoristaLogado] = useState(localStorage.getItem('mot_v10_nome') || null);
-  const [motoristaIdLogado, setMotoristaIdLogado] = useState(localStorage.getItem('mot_v10_id') ? Number(localStorage.getItem('mot_v10_id')) : null);
-  const [configurado, setConfigurado] = useState(localStorage.getItem('mot_v10_checkin') === 'true');
-  const [form, setForm] = useState({ tel: '', senha: '' });
-  const [mostrarAssinatura, setMostrarAssinatura] = useState(false);
-  const [mostrarMotivo, setMostrarMotivo] = useState(false);
-  const [motivoSelecionado, setMotivoSelecionado] = useState('');
-  const [motivoTexto, setMotivoTexto] = useState('');
-  const [entregaFocada, setEntregaFocada] = useState(null);
-
-  const sigPad = useRef(null);
-
-  // --- ESTADOS GESTOR ---
-  const [rascunho, setRascunho] = useState([]);
-  const [inputCliente, setInputCliente] = useState('');
-  const [inputEndereco, setInputEndereco] = useState('');
-  const [inputInfo, setInputInfo] = useState('');
-  const [inputTipo, setInputTipo] = useState('entrega');
-  const [tipoPonto, setTipoPonto] = useState('Entrega'); // 'Entrega' ou 'Recolha'
-  const [motoristaSelecionado, setMotoristaSelecionado] = useState('');
-  const [coordsMotorista, setCoordsMotorista] = useState(null);
-  const [coordsGestor, setCoordsGestor] = useState(null);
-  const [tabAtiva, setTabAtiva] = useState('nova');
-  const [abaMotoristasAberta, setAbaMotoristasAberta] = useState(false);
-  const [abaAtiva, setAbaAtiva] = useState('rota'); // 'rota' ou 'historico'
-  const [autocomplete, setAutocomplete] = useState(null);
-  const [tempCoords, setTempCoords] = useState(null);
-  const [somHabilitado, setSomHabilitado] = useState(true);
-  const somNovaEntregaRef = useRef(null);
-
-  // Dev helper: limpa localStorage de motorista para testes
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      localStorage.removeItem('mot_v10_id');
-      localStorage.removeItem('motoristaId');
-      localStorage.removeItem('mot_v10_nome');
-      console.info('dev: cleared motorista localStorage keys');
-    }
-  }, []);
-
-  // Loader do Google Maps e InfoWindow selecionada
-  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  if (!googleMapsApiKey) console.error('VITE_GOOGLE_MAPS_API_KEY não definida — o mapa pode falhar ao carregar.');
-
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey,
-    libraries: GOOGLE_MAPS_LIBRARIES,
-  });
-  const [pontoAtivo, setPontoAtivo] = useState(null);
-  const [mapaInstancia, setMapaInstancia] = useState(null);
-  // Debug overlay (apenas em dev)
-  const [debugOverlayVisible, setDebugOverlayVisible] = useState(process.env.NODE_ENV !== 'production');
-
-  // Ajustes para mobile: força resize quando a viewport visual muda (barra de endereço aparece/some)
-  useEffect(() => {
-    const handleResize = () => {
-      try {
-        if (mapaInstancia && window.google && window.google.maps) {
-          console.info('Forçando resize do mapa por mudança de viewport/resize');
-          window.google.maps.event.trigger(mapaInstancia, 'resize');
-          // Recentraliza para evitar tiles pretos
-          if (entregas && entregas.length > 0) {
-            mapaInstancia.panTo({ lat: Number(entregas[0].lat) || centroMapa.lat, lng: Number(entregas[0].lng) || centroMapa.lng });
-          } else {
-            mapaInstancia.panTo(centroMapa);
-          }
-        }
-      } catch (e) {
-        console.warn('Erro no resize handler do mapa:', e);
-      }
-    };
-
-    const vv = window.visualViewport;
-    if (vv && vv.addEventListener) {
-      vv.addEventListener('resize', handleResize);
-    } else {
-      window.addEventListener('resize', handleResize);
-      window.addEventListener('orientationchange', handleResize);
-    }
-
-    return () => {
-      if (vv && vv.removeEventListener) {
-        vv.removeEventListener('resize', handleResize);
-      } else {
-        window.removeEventListener('resize', handleResize);
-        window.removeEventListener('orientationchange', handleResize);
-      }
-    };
-  }, [mapaInstancia, entregas]);
-
-  const [comprovanteAtivo, setComprovanteAtivo] = useState(null);
-  const [temposEstimados, setTemposEstimados] = useState([]);
-  const [direcoes, setDirecoes] = useState(null);
-  const [resumoRota, setResumoRota] = useState({ km: 0, tempo: 0 });
-
-  // --- BUSCA DE DADOS ---
-  const buscarDados = async () => {
-    // Versão simplificada para destravar o erro 400
-    if (view === 'motorista' && motoristaIdLogado) {
-      // No celular, busca direto pelo ID do motorista logado
-      const { data, error } = await supabase
-        .from('entregas')
-        .select('*')
-        .eq('motorista_id', motoristaIdLogado)
-        .order('ordem', { ascending: true });
-
-      if (error) {
-        console.error("ERRO DETALHADO DO SUPABASE:", error.message);
-        console.error("DICA DO ERRO:", error.hint);
-      } else {
-        setEntregas(data || []);
-      }
-    } else {
-      // No gestor, continua a busca normal
-      // 1) Motoristas primeiro (para descobrirmos o ID do selecionado)
-      const { data: m } = await supabase.from('motoristas').select('*');
-      let motoristaIdSelecionado = null;
-      if (m) {
-        const listaReal = m.filter(x => x.motoristas !== 'CONFIG_ZAP');
-        setMotoristas(listaReal);
-
-        const config = m.find(x => x.motoristas === 'CONFIG_ZAP');
-        if (config && config.tel) setNumeroGestor(config.tel);
-
-        if (motoristaSelecionado) {
-          const mot = listaReal.find(x => (x.nome || x.motoristas) === motoristaSelecionado);
-          if (mot) motoristaIdSelecionado = mot.id;
-          if (mot && mot.lat && mot.lng) setCoordsMotorista({ lat: mot.lat, lng: mot.lng });
-        }
-      }
-
-      // 2) Buscar entregas filtradas pelo motorista (preferência por motorista_id)
-      let baseQuery = supabase.from('entregas').select('*');
-      if (motoristaSelecionado) {
-        if (motoristaIdSelecionado) {
-          baseQuery = baseQuery.eq('motorista_id', motoristaIdSelecionado);
-        } else {
-          baseQuery = baseQuery.eq('motorista', motoristaSelecionado);
-        }
-      }
-
-      // Ordena por 'ordem'
-      let eRes = await baseQuery.order('ordem', { ascending: true });
-      if (eRes.data) setEntregas(eRes.data);
-      if (eRes.error) console.error("Erro ao buscar entregas:", eRes.error.message);
-    }
-  };
-
-  useEffect(() => {
-    buscarDados();
-    buscarZapGestor(); // Carregar número do WhatsApp do gestor
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setCoordsGestor({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        (err) => console.error(err)
-      );
-    }
-    const canal = supabase.channel('logistica_v10').on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, () => buscarDados()).subscribe();
-    return () => supabase.removeChannel(canal);
-  }, [entregas.length, motoristaSelecionado]);
-
-  // Ouvinte de novas entregas para o motorista logado: comparação flexível para aceitar número ou string
-  useEffect(() => {
-    if (!motoristaIdLogado) return;
-
-    // Criamos um canal único para evitar conflito com sessões antigas
-    const canalV2 = supabase
-      .channel(`rota-ativa-${Math.random()}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'entregas'
-        },
-        (payload) => {
-          console.log("Sinal recebido!", payload);
-          // Usamos == (dois iguais) para comparar 2 com "2" sem dar erro
-          if (String(payload.new.motorista_id) === String(motoristaIdLogado)) {
-            if (somHabilitado && somNovaEntregaRef.current) {
-              try {
-                somNovaEntregaRef.current.currentTime = 0;
-                somNovaEntregaRef.current.play();
-              } catch (e) {
-                console.log('Erro ao tocar áudio:', e);
-              }
+  // Criamos um canal único para evitar conflito com sessões antigas
+  const canalV2 = supabase
+    .channel(`rota-ativa-${Math.random()}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'entregas'
+      },
+      (payload) => {
+        console.log("Sinal recebido!", payload);
+        // Usamos == (dois iguais) para comparar 2 com "2" sem dar erro
+        if (String(payload.new.motorista_id) === String(motoristaIdLogado)) {
+          if (somHabilitado && somNovaEntregaRef.current) {
+            try {
+              somNovaEntregaRef.current.currentTime = 0;
+              somNovaEntregaRef.current.play();
+            } catch (e) {
+              console.log('Erro ao tocar áudio:', e);
             }
-
-            if (navigator.vibrate) {
-              navigator.vibrate([200, 100, 200]);
-            }
-
-            buscarDados();
           }
-        }
-      )
-      .subscribe();
 
-    return () => supabase.removeChannel(canalV2);
-  }, [motoristaIdLogado, somHabilitado]);
+          if (navigator.vibrate) {
+            navigator.vibrate([200, 100, 200]);
+          }
 
-  // Inicializa o som uma única vez para evitar recriações por render
-  useEffect(() => {
-    try {
-      somNovaEntregaRef.current = new Audio(SOM_ALARME_URL);
-      somNovaEntregaRef.current.preload = 'auto';
-      somNovaEntregaRef.current.volume = 1.0;
-    } catch { }
-  }, []);
-
-  // Restaura check-in salvo
-  useEffect(() => {
-    const salvo = localStorage.getItem('mot_v10_checkin');
-    if (salvo === 'true') setConfigurado(true);
-  }, []);
-
-  // Realtime: atualiza pinos e cores no mapa do gestor quando uma entrega é atualizada
-  useEffect(() => {
-    const canalUpdates = supabase
-      .channel('mudancas-entregas')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'entregas' }, (payload) => {
-        console.log('Mudança detectada!', payload);
-        buscarDados();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(canalUpdates); };
-  }, []);
-
-  // === CONFIGURAÇÃO DE EMERGÊNCIA (Reconexão Realtime) ===
-  useEffect(() => {
-    const canalV2 = supabase
-      .channel('db-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'entregas' },
-        (payload) => {
-          console.log("Mudança detectada no canal de emergência!", payload);
-          // Recarrega os dados se houver qualquer mudança na tabela
           buscarDados();
         }
-      )
-      .subscribe((status) => {
-        console.log("Status da conexão Realtime:", status);
+      }
+    )
+    .subscribe();
+
+  return () => supabase.removeChannel(canalV2);
+}, [motoristaIdLogado, somHabilitado]);
+
+// Inicializa o som uma única vez para evitar recriações por render
+useEffect(() => {
+  try {
+    somNovaEntregaRef.current = new Audio(SOM_ALARME_URL);
+    somNovaEntregaRef.current.preload = 'auto';
+    somNovaEntregaRef.current.volume = 1.0;
+  } catch { }
+}, []);
+
+// Restaura check-in salvo
+useEffect(() => {
+  const salvo = localStorage.getItem('mot_v10_checkin');
+  if (salvo === 'true') setConfigurado(true);
+}, []);
+
+// Realtime: atualiza pinos e cores no mapa do gestor quando uma entrega é atualizada
+useEffect(() => {
+  const canalUpdates = supabase
+    .channel('mudancas-entregas')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'entregas' }, (payload) => {
+      console.log('Mudança detectada!', payload);
+      buscarDados();
+    })
+    .subscribe();
+
+  return () => { supabase.removeChannel(canalUpdates); };
+}, []);
+
+// === CONFIGURAÇÃO DE EMERGÊNCIA (Reconexão Realtime) ===
+useEffect(() => {
+  const canalV2 = supabase
+    .channel('db-changes')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'entregas' },
+      (payload) => {
+        console.log("Mudança detectada no canal de emergência!", payload);
+        // Recarrega os dados se houver qualquer mudança na tabela
+        buscarDados();
+      }
+    )
+    .subscribe((status) => {
+      console.log("Status da conexão Realtime:", status);
+    });
+
+  return () => { supabase.removeChannel(canalV2); };
+}, []);
+
+// === AUTO-CORREÇÃO DE ENVIO (Canal de Emergência para INSERTs) ===
+useEffect(() => {
+  const canalEmergencia = supabase
+    .channel('reparo-envio')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entregas' }, (payload) => {
+      // Forçamos a atualização independente de filtros complexos
+      console.log("Nova entrega detectada no banco!");
+      buscarDados();
+    })
+    .subscribe();
+
+  return () => supabase.removeChannel(canalEmergencia);
+}, []);
+
+// Auto-zoom para mostrar rascunho e posição da moto
+useEffect(() => {
+  if (mapaInstancia && (rascunho.length > 0 || coordsMotorista)) {
+    try {
+      const bounds = new window.google.maps.LatLngBounds();
+
+      // Inclui a moto/gestor nos limites
+      if (coordsMotorista) {
+        bounds.extend({ lat: Number(coordsMotorista.lat), lng: Number(coordsMotorista.lng) });
+      } else {
+        bounds.extend({ lat: -27.6438, lng: -48.6674 });
+      }
+
+      // Inclui todos os pedidos do rascunho em Palhoça e região
+      rascunho.forEach((ponto) => {
+        if (ponto.lat && ponto.lng) {
+          bounds.extend({ lat: Number(ponto.lat), lng: Number(ponto.lng) });
+        }
       });
 
-    return () => { supabase.removeChannel(canalV2); };
-  }, []);
-
-  // === AUTO-CORREÇÃO DE ENVIO (Canal de Emergência para INSERTs) ===
-  useEffect(() => {
-    const canalEmergencia = supabase
-      .channel('reparo-envio')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entregas' }, (payload) => {
-        // Forçamos a atualização independente de filtros complexos
-        console.log("Nova entrega detectada no banco!");
-        buscarDados();
-      })
-      .subscribe();
-
-    return () => supabase.removeChannel(canalEmergencia);
-  }, []);
-
-  // Auto-zoom para mostrar rascunho e posição da moto
-  useEffect(() => {
-    if (mapaInstancia && (rascunho.length > 0 || coordsMotorista)) {
-      try {
-        const bounds = new window.google.maps.LatLngBounds();
-
-        // Inclui a moto/gestor nos limites
-        if (coordsMotorista) {
-          bounds.extend({ lat: Number(coordsMotorista.lat), lng: Number(coordsMotorista.lng) });
-        } else {
-          bounds.extend({ lat: -27.6438, lng: -48.6674 });
-        }
-
-        // Inclui todos os pedidos do rascunho em Palhoça e região
-        rascunho.forEach((ponto) => {
-          if (ponto.lat && ponto.lng) {
-            bounds.extend({ lat: Number(ponto.lat), lng: Number(ponto.lng) });
-          }
-        });
-
-        // Faz o mapa se distanciar para mostrar tudo
-        if (rascunho.length > 0 || coordsMotorista) {
-          mapaInstancia.fitBounds(bounds, 80);
-        }
-      } catch (e) {
-        console.warn('Erro ao ajustar zoom:', e);
+      // Faz o mapa se distanciar para mostrar tudo
+      if (rascunho.length > 0 || coordsMotorista) {
+        mapaInstancia.fitBounds(bounds, 80);
       }
+    } catch (e) {
+      console.warn('Erro ao ajustar zoom:', e);
     }
-  }, [rascunho, coordsMotorista, mapaInstancia]);
+  }
+}, [rascunho, coordsMotorista, mapaInstancia]);
 
 
-  // --- RASTREAMENTO DO MOTORISTA ---
-  useEffect(() => {
-    let watchId;
-    if (view === 'motorista' && motoristaLogado) {
-      if ("geolocation" in navigator) {
-        watchId = navigator.geolocation.watchPosition(async (pos) => {
-          await supabase.from('motoristas').update({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            ultimo_sinal: new Date().toISOString()
-          }).eq('nome', motoristaLogado);
-        }, (err) => console.error(err), { enableHighAccuracy: true });
-      }
+// --- RASTREAMENTO DO MOTORISTA ---
+useEffect(() => {
+  let watchId;
+  if (view === 'motorista' && motoristaLogado) {
+    if ("geolocation" in navigator) {
+      watchId = navigator.geolocation.watchPosition(async (pos) => {
+        await supabase.from('motoristas').update({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          ultimo_sinal: new Date().toISOString()
+        }).eq('nome', motoristaLogado);
+      }, (err) => console.error(err), { enableHighAccuracy: true });
     }
-    return () => { if (watchId) navigator.geolocation.clearWatch(watchId); }
-  }, [view, motoristaLogado]);
+  }
+  return () => { if (watchId) navigator.geolocation.clearWatch(watchId); }
+}, [view, motoristaLogado]);
 
 
-  // --- FUNÇÕES DO GESTOR ---
-  // Função para buscar o Zap do Gestor na tabela 'tel'
-  const buscarZapGestor = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('tel')
-        .select('numero')
-        .single();
+// --- FUNÇÕES DO GESTOR ---
+// Função para buscar o Zap do Gestor na tabela 'tel'
+const buscarZapGestor = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('tel')
+      .select('numero')
+      .single();
 
-      if (!error && data) {
-        setNumeroGestor(data.numero);
-      }
-    } catch (err) {
-      console.warn('Tabela tel não encontrada ou vazia:', err);
+    if (!error && data) {
+      setNumeroGestor(data.numero);
+    }
+  } catch (err) {
+    console.warn('Tabela tel não encontrada ou vazia:', err);
+    // Usa número padrão se tabela não existir
+  }
+};
+
+const salvarWhatsappGestor = async () => {
+  if (!inputZapConfig || inputZapConfig.length < 10) return alert("Digite um número válido com DDD (Ex: 5511999999999)");
+
+  try {
+    // Salvar na tabela 'tel'
+    const { data: existe } = await supabase.from('tel').select('*').single();
+
+    let error;
+    if (existe) {
+      const res = await supabase.from('tel').update({ numero: inputZapConfig });
+      error = res.error;
+    } else {
+      const res = await supabase.from('tel').insert({ numero: inputZapConfig });
+      error = res.error;
+    }
+
+    if (error) {
+      alert(humanizeSupabaseError(error));
+    } else {
+      alert("Número do WhatsApp atualizado com sucesso!");
+      setNumeroGestor(inputZapConfig);
+      setInputZapConfig('');
+      buscarDados();
+    }
+  } catch (err) {
+    console.error('Erro ao acessar tabela tel:', err);
+    alert('Tabela tel não existe. Crie a tabela no Supabase primeiro.');
+  }
+};
+
+const abrirWhatsapp = async () => {
+  try {
+    const { data, error } = await supabase.from('tel').select('numero').single();
+    if (!error && data?.numero) {
+      const numLimpo = data.numero.replace(/\D/g, '');
+      window.open(`https://wa.me/55${numLimpo}`, '_blank');
+    } else {
       // Usa número padrão se tabela não existir
-    }
-  };
-
-  const salvarWhatsappGestor = async () => {
-    if (!inputZapConfig || inputZapConfig.length < 10) return alert("Digite um número válido com DDD (Ex: 5511999999999)");
-
-    try {
-      // Salvar na tabela 'tel'
-      const { data: existe } = await supabase.from('tel').select('*').single();
-
-      let error;
-      if (existe) {
-        const res = await supabase.from('tel').update({ numero: inputZapConfig });
-        error = res.error;
-      } else {
-        const res = await supabase.from('tel').insert({ numero: inputZapConfig });
-        error = res.error;
-      }
-
-      if (error) {
-        alert(humanizeSupabaseError(error));
-      } else {
-        alert("Número do WhatsApp atualizado com sucesso!");
-        setNumeroGestor(inputZapConfig);
-        setInputZapConfig('');
-        buscarDados();
-      }
-    } catch (err) {
-      console.error('Erro ao acessar tabela tel:', err);
-      alert('Tabela tel não existe. Crie a tabela no Supabase primeiro.');
-    }
-  };
-
-  const abrirWhatsapp = async () => {
-    try {
-      const { data, error } = await supabase.from('tel').select('numero').single();
-      if (!error && data?.numero) {
-        const numLimpo = data.numero.replace(/\D/g, '');
-        window.open(`https://wa.me/55${numLimpo}`, '_blank');
-      } else {
-        // Usa número padrão se tabela não existir
-        const numLimpo = numeroGestor.replace(/\D/g, '');
-        window.open(`https://wa.me/${numLimpo}`, '_blank');
-      }
-    } catch (err) {
-      console.warn('Tabela tel não acessível, usando número padrão:', err);
       const numLimpo = numeroGestor.replace(/\D/g, '');
       window.open(`https://wa.me/${numLimpo}`, '_blank');
     }
-  };
+  } catch (err) {
+    console.warn('Tabela tel não acessível, usando número padrão:', err);
+    const numLimpo = numeroGestor.replace(/\D/g, '');
+    window.open(`https://wa.me/${numLimpo}`, '_blank');
+  }
+};
 
-  // Compartilhar comprovante/entrega via Web Share API (fallback alert)
-  const compartilharEntrega = (ent) => {
-    const texto = `Comprovante: ${ent.cliente} - Status: ${ent.status || '—'}`;
-    if (navigator.share) {
-      navigator.share({ title: 'Logística Ativa', text: texto, url: window.location.href }).catch(() => { });
+// Compartilhar comprovante/entrega via Web Share API (fallback alert)
+const compartilharEntrega = (ent) => {
+  const texto = `Comprovante: ${ent.cliente} - Status: ${ent.status || '—'}`;
+  if (navigator.share) {
+    navigator.share({ title: 'Logística Ativa', text: texto, url: window.location.href }).catch(() => { });
+  } else {
+    try {
+      navigator.clipboard?.writeText(texto);
+    } catch { }
+    alert('Copiado: ' + texto);
+  }
+};
+
+const buscarCoordenadas = (enderecoDigitado) => new Promise((resolve) => {
+  if (!window.google || !window.google.maps || !window.google.maps.Geocoder) {
+    resolve(null);
+    return;
+  }
+  const enderecoCompleto = `${enderecoDigitado}, Palhoça, SC, Brasil`;
+  const geocoder = new window.google.maps.Geocoder();
+  geocoder.geocode({ address: enderecoCompleto, region: 'BR' }, (results, status) => {
+    if (status === 'OK' && results && results.length > 0) {
+      const result = results[0];
+      resolve({
+        lat: result.geometry.location.lat(),
+        lng: result.geometry.location.lng(),
+        enderecoFormatado: result.formatted_address,
+      });
     } else {
-      try {
-        navigator.clipboard?.writeText(texto);
-      } catch { }
-      alert('Copiado: ' + texto);
-    }
-  };
-
-  const buscarCoordenadas = (enderecoDigitado) => new Promise((resolve) => {
-    if (!window.google || !window.google.maps || !window.google.maps.Geocoder) {
       resolve(null);
-      return;
     }
-    const enderecoCompleto = `${enderecoDigitado}, Palhoça, SC, Brasil`;
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ address: enderecoCompleto, region: 'BR' }, (results, status) => {
-      if (status === 'OK' && results && results.length > 0) {
-        const result = results[0];
-        resolve({
-          lat: result.geometry.location.lat(),
-          lng: result.geometry.location.lng(),
-          enderecoFormatado: result.formatted_address,
+  });
+});
+
+const onLoadAutocomplete = (auto) => setAutocomplete(auto);
+const onPlaceChanged = () => {
+  if (!autocomplete) return;
+  const place = autocomplete.getPlace();
+
+  if (place && place.geometry && place.geometry.location) {
+    const novaLat = place.geometry.location.lat();
+    const novaLng = place.geometry.location.lng();
+    const enderecoFormatado = place.formatted_address;
+
+    // Monta o novo ponto com dados do formulário
+    const novoPonto = {
+      id: Date.now(),
+      cliente: inputCliente || 'Cliente a definir',
+      endereco: enderecoFormatado,
+      info: inputInfo || 'Sem observações',
+      tipo: tipoPonto, // Usa o estado tipoPonto (Entrega ou Recolha)
+      status: 'Pendente',
+      lat: novaLat,
+      lng: novaLng,
+    };
+
+    // Origem: localização do Gestor (se disponível) ou Palhoça central
+    const origem = coordsGestor || { lat: -27.6438, lng: -48.6674 };
+    const novaListaBruta = [...rascunho, novoPonto];
+    const listaOtimizada = organizarPelaDistancia(origem, novaListaBruta);
+
+    setRascunho(listaOtimizada);
+    // Limpa os campos após adicionar
+    setInputCliente('');
+    setInputEndereco('');
+    setInputInfo('');
+    setTempCoords(null);
+  } else {
+    alert('Por favor, selecione um endereço da lista que aparece embaixo do texto.');
+  }
+};
+
+const adicionarAoRascunho = async () => {
+  // Nota: o Autocomplete já adiciona diretamente ao selecionar.
+  // Este botão serve apenas como fallback ou confirmação manual se necessário.
+  if (!inputEndereco) return alert("Selecione um endereço no campo de busca!");
+  alert('Use o campo de busca e selecione um endereço da lista para adicionar ao mapa.');
+};
+
+const removerDoRascunho = (id) => { setRascunho(rascunho.filter(item => item.id !== id)); };
+
+const calcularDistancia = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return 9999999;
+  const p = 0.017453292519943295;
+  const c = Math.cos;
+  const a = 0.5 - c((lat2 - lat1) * p) / 2 + c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p)) / 2;
+  return 12742 * Math.asin(Math.sqrt(a));
+};
+
+// Distância entre dois pontos no formato { lat, lng }
+const distanciaEntrePontos = (a, b) => {
+  if (!a || !b) return Infinity;
+  return calcularDistancia(a.lat, a.lng, b.lat, b.lng);
+};
+
+// Organiza a lista por vizinho mais próximo a partir de um ponto inicial
+const organizarPelaDistancia = (pontoInicial, listaParaOrdenar) => {
+  if (!pontoInicial || !listaParaOrdenar || listaParaOrdenar.length === 0) return listaParaOrdenar || [];
+  let ordenados = [];
+  let restantes = [...listaParaOrdenar];
+  let localAtual = { lat: Number(pontoInicial.lat), lng: Number(pontoInicial.lng) };
+
+  while (restantes.length > 0) {
+    let indiceMaisProximo = 0;
+    let menorD = distanciaEntrePontos(localAtual, restantes[0]);
+
+    for (let i = 1; i < restantes.length; i++) {
+      const d = distanciaEntrePontos(localAtual, restantes[i]);
+      if (d < menorD) {
+        menorD = d;
+        indiceMaisProximo = i;
+      }
+    }
+
+    const proximo = restantes.splice(indiceMaisProximo, 1)[0];
+    ordenados.push(proximo);
+    localAtual = { lat: Number(proximo.lat), lng: Number(proximo.lng) };
+  }
+  return ordenados;
+};
+
+// Otimiza a ordem do rascunho tomando o Gestor em Palhoça como referência
+const otimizarRascunhoComGestor = () => {
+  const origem = coordsGestor || { lat: -27.6438, lng: -48.6674 }; // Palhoça centro como fallback
+  const listaOrdenada = organizarPelaDistancia(origem, rascunho);
+  setRascunho(listaOrdenada);
+  alert('Ordem otimizada a partir do Gestor (Palhoça).');
+};
+
+// Limpa completamente o rascunho e zera o resumo/rota
+const limparRascunhoCompleto = () => {
+  if (window.confirm('Deseja realmente apagar todo o rascunho desta rota?')) {
+    setRascunho([]);
+    setResumoRota({ km: 0, tempo: 0 });
+    setDirecoes(null);
+    setInputEndereco('');
+    setInputCliente('');
+  }
+};
+
+const focarNoMotorista = (motorista) => {
+  if (!mapaInstancia || !motorista || !motorista.lat || !motorista.lng) return;
+  const novaPosicao = { lat: Number(motorista.lat), lng: Number(motorista.lng) };
+  mapaInstancia.panTo(novaPosicao);
+  mapaInstancia.setZoom(15);
+};
+
+// Calcula a rota pelas ruas e captura os tempos por trecho
+const calcularRotaPelasRuas = () => {
+  try {
+    if (!isLoaded || !window.google || !window.google.maps) return;
+    if (!rascunho || rascunho.length === 0) { setTemposEstimados([]); setDirecoes(null); return; }
+
+    const origem = coordsMotorista || coordsGestor || { lat: -27.6438, lng: -48.6674 };
+    const pontos = rascunho.filter(p => p.lat && p.lng).map(p => ({ lat: Number(p.lat), lng: Number(p.lng) }));
+    if (pontos.length === 0) { setTemposEstimados([]); setDirecoes(null); return; }
+
+    const destination = pontos[pontos.length - 1];
+    const waypoints = pontos.slice(0, -1).map(pt => ({ location: pt, stopover: true }));
+
+    const directionsService = new window.google.maps.DirectionsService();
+    const config = {
+      origin: origem,
+      destination,
+      waypoints,
+      travelMode: window.google.maps.TravelMode.DRIVING,
+      optimizeWaypoints: false,
+    };
+
+    directionsService.route(config, (result, status) => {
+      if (status === 'OK' && result && result.routes && result.routes[0]) {
+        setDirecoes(result);
+        const legs = result.routes[0].legs || [];
+        const novosTempos = legs.map(leg => leg.duration?.text || '—');
+        setTemposEstimados(novosTempos);
+
+        // Resumo: somatório de distância e tempo
+        let totalMetros = 0;
+        let totalSegundos = 0;
+        legs.forEach(leg => {
+          totalMetros += leg.distance?.value || 0;
+          totalSegundos += leg.duration?.value || 0;
         });
+        setResumoRota({ km: Number((totalMetros / 1000).toFixed(1)), tempo: Math.round(totalSegundos / 60) });
       } else {
-        resolve(null);
+        setDirecoes(null);
+        setTemposEstimados([]);
+        setResumoRota({ km: 0, tempo: 0 });
       }
     });
-  });
+  } catch (e) {
+    console.warn('Falha ao calcular rota/ETA:', e?.message || e);
+  }
+};
 
-  const onLoadAutocomplete = (auto) => setAutocomplete(auto);
-  const onPlaceChanged = () => {
-    if (!autocomplete) return;
-    const place = autocomplete.getPlace();
+// Recalcula ETA quando origem ou lista mudar
+useEffect(() => {
+  calcularRotaPelasRuas();
+}, [isLoaded, rascunho, coordsMotorista, coordsGestor]);
 
-    if (place && place.geometry && place.geometry.location) {
-      const novaLat = place.geometry.location.lat();
-      const novaLng = place.geometry.location.lng();
-      const enderecoFormatado = place.formatted_address;
+const otimizarRota = (pontos, inicioLat, inicioLng) => {
+  if (!inicioLat || !inicioLng) return pontos;
+  let rotaOrdenada = [];
+  let pontosRestantes = [...pontos];
+  let pontoAtual = { lat: inicioLat, lng: inicioLng };
 
-      // Monta o novo ponto com dados do formulário
-      const novoPonto = {
-        id: Date.now(),
-        cliente: inputCliente || 'Cliente a definir',
-        endereco: enderecoFormatado,
-        info: inputInfo || 'Sem observações',
-        tipo: tipoPonto, // Usa o estado tipoPonto (Entrega ou Recolha)
-        status: 'Pendente',
-        lat: novaLat,
-        lng: novaLng,
-      };
-
-      // Origem: localização do Gestor (se disponível) ou Palhoça central
-      const origem = coordsGestor || { lat: -27.6438, lng: -48.6674 };
-      const novaListaBruta = [...rascunho, novoPonto];
-      const listaOtimizada = organizarPelaDistancia(origem, novaListaBruta);
-
-      setRascunho(listaOtimizada);
-      // Limpa os campos após adicionar
-      setInputCliente('');
-      setInputEndereco('');
-      setInputInfo('');
-      setTempCoords(null);
-    } else {
-      alert('Por favor, selecione um endereço da lista que aparece embaixo do texto.');
-    }
-  };
-
-  const adicionarAoRascunho = async () => {
-    // Nota: o Autocomplete já adiciona diretamente ao selecionar.
-    // Este botão serve apenas como fallback ou confirmação manual se necessário.
-    if (!inputEndereco) return alert("Selecione um endereço no campo de busca!");
-    alert('Use o campo de busca e selecione um endereço da lista para adicionar ao mapa.');
-  };
-
-  const removerDoRascunho = (id) => { setRascunho(rascunho.filter(item => item.id !== id)); };
-
-  const calcularDistancia = (lat1, lon1, lat2, lon2) => {
-    if (!lat1 || !lon1 || !lat2 || !lon2) return 9999999;
-    const p = 0.017453292519943295;
-    const c = Math.cos;
-    const a = 0.5 - c((lat2 - lat1) * p) / 2 + c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p)) / 2;
-    return 12742 * Math.asin(Math.sqrt(a));
-  };
-
-  // Distância entre dois pontos no formato { lat, lng }
-  const distanciaEntrePontos = (a, b) => {
-    if (!a || !b) return Infinity;
-    return calcularDistancia(a.lat, a.lng, b.lat, b.lng);
-  };
-
-  // Organiza a lista por vizinho mais próximo a partir de um ponto inicial
-  const organizarPelaDistancia = (pontoInicial, listaParaOrdenar) => {
-    if (!pontoInicial || !listaParaOrdenar || listaParaOrdenar.length === 0) return listaParaOrdenar || [];
-    let ordenados = [];
-    let restantes = [...listaParaOrdenar];
-    let localAtual = { lat: Number(pontoInicial.lat), lng: Number(pontoInicial.lng) };
-
-    while (restantes.length > 0) {
-      let indiceMaisProximo = 0;
-      let menorD = distanciaEntrePontos(localAtual, restantes[0]);
-
-      for (let i = 1; i < restantes.length; i++) {
-        const d = distanciaEntrePontos(localAtual, restantes[i]);
-        if (d < menorD) {
-          menorD = d;
-          indiceMaisProximo = i;
-        }
+  while (pontosRestantes.length > 0) {
+    let maisProximo = null; let menorDistancia = Infinity; let indexMaisProximo = -1;
+    for (let i = 0; i < pontosRestantes.length; i++) {
+      const p = pontosRestantes[i];
+      if (!p.lat) continue;
+      if (p.lat && p.lng) {
+        const d = calcularDistancia(pontoAtual.lat, pontoAtual.lng, p.lat, p.lng);
+        if (d < menorDistancia) { menorDistancia = d; maisProximo = p; indexMaisProximo = i; }
       }
-
-      const proximo = restantes.splice(indiceMaisProximo, 1)[0];
-      ordenados.push(proximo);
-      localAtual = { lat: Number(proximo.lat), lng: Number(proximo.lng) };
     }
-    return ordenados;
-  };
+    if (maisProximo) { rotaOrdenada.push(maisProximo); pontoAtual = maisProximo; pontosRestantes.splice(indexMaisProximo, 1); }
+    else { rotaOrdenada.push(...pontosRestantes); break; }
+  }
+  return rotaOrdenada;
+};
 
-  // Otimiza a ordem do rascunho tomando o Gestor em Palhoça como referência
-  const otimizarRascunhoComGestor = () => {
-    const origem = coordsGestor || { lat: -27.6438, lng: -48.6674 }; // Palhoça centro como fallback
-    const listaOrdenada = organizarPelaDistancia(origem, rascunho);
-    setRascunho(listaOrdenada);
-    alert('Ordem otimizada a partir do Gestor (Palhoça).');
-  };
+const otimizarRotaOrdem = () => {
+  if (rascunho.length < 2) return alert("Adicione pelo menos 2 pontos para otimizar!");
 
-  // Limpa completamente o rascunho e zera o resumo/rota
-  const limparRascunhoCompleto = () => {
-    if (window.confirm('Deseja realmente apagar todo o rascunho desta rota?')) {
-      setRascunho([]);
-      setResumoRota({ km: 0, tempo: 0 });
-      setDirecoes(null);
-      setInputEndereco('');
-      setInputCliente('');
-    }
-  };
+  // Criamos o serviço de direções do Google
+  const directionsService = new google.maps.DirectionsService();
 
-  const focarNoMotorista = (motorista) => {
-    if (!mapaInstancia || !motorista || !motorista.lat || !motorista.lng) return;
-    const novaPosicao = { lat: Number(motorista.lat), lng: Number(motorista.lng) };
-    mapaInstancia.panTo(novaPosicao);
-    mapaInstancia.setZoom(15);
-  };
+  const pontosIntermediarios = rascunho.slice(1, -1).map(p => ({
+    location: { lat: p.lat, lng: p.lng },
+    stopover: true
+  }));
 
-  // Calcula a rota pelas ruas e captura os tempos por trecho
-  const calcularRotaPelasRuas = () => {
-    try {
-      if (!isLoaded || !window.google || !window.google.maps) return;
-      if (!rascunho || rascunho.length === 0) { setTemposEstimados([]); setDirecoes(null); return; }
+  directionsService.route(
+    {
+      origin: { lat: rascunho[0].lat, lng: rascunho[0].lng },
+      destination: { lat: rascunho[rascunho.length - 1].lat, lng: rascunho[rascunho.length - 1].lng },
+      waypoints: pontosIntermediarios,
+      optimizeWaypoints: true, // A MÁGICA ACONTECE AQUI
+      travelMode: google.maps.TravelMode.DRIVING,
+    },
+    (result, status) => {
+      if (status === "OK") {
+        const novaOrdemIndices = result.routes[0].waypoint_order;
+        const rascunhoOtimizado = [rascunho[0]];
 
-      const origem = coordsMotorista || coordsGestor || { lat: -27.6438, lng: -48.6674 };
-      const pontos = rascunho.filter(p => p.lat && p.lng).map(p => ({ lat: Number(p.lat), lng: Number(p.lng) }));
-      if (pontos.length === 0) { setTemposEstimados([]); setDirecoes(null); return; }
+        novaOrdemIndices.forEach(index => {
+          rascunhoOtimizado.push(rascunho[index + 1]);
+        });
 
-      const destination = pontos[pontos.length - 1];
-      const waypoints = pontos.slice(0, -1).map(pt => ({ location: pt, stopover: true }));
-
-      const directionsService = new window.google.maps.DirectionsService();
-      const config = {
-        origin: origem,
-        destination,
-        waypoints,
-        travelMode: window.google.maps.TravelMode.DRIVING,
-        optimizeWaypoints: false,
-      };
-
-      directionsService.route(config, (result, status) => {
-        if (status === 'OK' && result && result.routes && result.routes[0]) {
-          setDirecoes(result);
-          const legs = result.routes[0].legs || [];
-          const novosTempos = legs.map(leg => leg.duration?.text || '—');
-          setTemposEstimados(novosTempos);
-
-          // Resumo: somatório de distância e tempo
-          let totalMetros = 0;
-          let totalSegundos = 0;
-          legs.forEach(leg => {
-            totalMetros += leg.distance?.value || 0;
-            totalSegundos += leg.duration?.value || 0;
-          });
-          setResumoRota({ km: Number((totalMetros / 1000).toFixed(1)), tempo: Math.round(totalSegundos / 60) });
-        } else {
-          setDirecoes(null);
-          setTemposEstimados([]);
-          setResumoRota({ km: 0, tempo: 0 });
-        }
-      });
-    } catch (e) {
-      console.warn('Falha ao calcular rota/ETA:', e?.message || e);
-    }
-  };
-
-  // Recalcula ETA quando origem ou lista mudar
-  useEffect(() => {
-    calcularRotaPelasRuas();
-  }, [isLoaded, rascunho, coordsMotorista, coordsGestor]);
-
-  const otimizarRota = (pontos, inicioLat, inicioLng) => {
-    if (!inicioLat || !inicioLng) return pontos;
-    let rotaOrdenada = [];
-    let pontosRestantes = [...pontos];
-    let pontoAtual = { lat: inicioLat, lng: inicioLng };
-
-    while (pontosRestantes.length > 0) {
-      let maisProximo = null; let menorDistancia = Infinity; let indexMaisProximo = -1;
-      for (let i = 0; i < pontosRestantes.length; i++) {
-        const p = pontosRestantes[i];
-        if (!p.lat) continue;
-        if (p.lat && p.lng) {
-          const d = calcularDistancia(pontoAtual.lat, pontoAtual.lng, p.lat, p.lng);
-          if (d < menorDistancia) { menorDistancia = d; maisProximo = p; indexMaisProximo = i; }
-        }
+        rascunhoOtimizado.push(rascunho[rascunho.length - 1]);
+        setRascunho(rascunhoOtimizado);
+        alert("✅ Rota otimizada com sucesso!");
       }
-      if (maisProximo) { rotaOrdenada.push(maisProximo); pontoAtual = maisProximo; pontosRestantes.splice(indexMaisProximo, 1); }
-      else { rotaOrdenada.push(...pontosRestantes); break; }
     }
-    return rotaOrdenada;
-  };
+  );
+};
 
-  const otimizarRotaOrdem = () => {
-    if (rascunho.length < 2) return alert("Adicione pelo menos 2 pontos para otimizar!");
-
-    // Criamos o serviço de direções do Google
-    const directionsService = new google.maps.DirectionsService();
-
-    const pontosIntermediarios = rascunho.slice(1, -1).map(p => ({
-      location: { lat: p.lat, lng: p.lng },
-      stopover: true
-    }));
-
-    directionsService.route(
-      {
-        origin: { lat: rascunho[0].lat, lng: rascunho[0].lng },
-        destination: { lat: rascunho[rascunho.length - 1].lat, lng: rascunho[rascunho.length - 1].lng },
-        waypoints: pontosIntermediarios,
-        optimizeWaypoints: true, // A MÁGICA ACONTECE AQUI
-        travelMode: google.maps.TravelMode.DRIVING,
-      },
-      (result, status) => {
-        if (status === "OK") {
-          const novaOrdemIndices = result.routes[0].waypoint_order;
-          const rascunhoOtimizado = [rascunho[0]];
-
-          novaOrdemIndices.forEach(index => {
-            rascunhoOtimizado.push(rascunho[index + 1]);
-          });
-
-          rascunhoOtimizado.push(rascunho[rascunho.length - 1]);
-          setRascunho(rascunhoOtimizado);
-          alert("✅ Rota otimizada com sucesso!");
-        }
-      }
-    );
-  };
-
-  const enviarRotaParaSupabase = async () => {
-    if (!motoristaSelecionado) {
-      alert("Selecione um motorista na lista lateral!");
-      setAbaMotoristasAberta(true);
-      return;
-    }
-
-    if (rascunho.length === 0) {
-      alert("A lista está vazia! Adicione entregas antes de enviar.");
-      return;
-    }
-
-    // Descobre o objeto do motorista selecionado
-    const motoristaObj = motoristas.find(x => (x.nome || x.motoristas) === motoristaSelecionado);
-
-    if (!motoristaObj || !motoristaObj.id) {
-      alert('Não foi possível obter o ID do motorista selecionado. Atualize a lista em "Equipe" e tente novamente.');
-      return;
-    }
-
-    // Teste rápido: force o número 2 (seu ID de teste)
-    const idTeste = motoristaObj.id || 2;
-
-    const dadosParaEnviar = rascunho.map((ponto, index) => ({
-      cliente: ponto.cliente || "Cliente a definir",
-      endereco: ponto.endereco,
-      lat: Number(ponto.lat),
-      lng: Number(ponto.lng),
-      motorista_id: idTeste, // Use o nome exato da coluna no Supabase
-      motorista: motoristaObj.nome || motoristaObj.motoristas,
-      status: 'Pendente',
-      ordem: index + 1,
-      tipo: ponto.tipo || 'entrega',
-      assinatura: 'NAO'
-    }));
-
-    console.log("Enviando dados:", dadosParaEnviar);
-
-    const { error } = await supabase.from('entregas').insert(dadosParaEnviar);
-
-    if (!error) {
-      setRascunho([]);
-      alert("✅ Rota enviada! Verifique o celular.");
-      await buscarDados();
-    } else {
-      console.error(error);
-      alert(humanizeSupabaseError(error));
-    }
-  };
-
-  // --- FUNÇÕES MOTORISTA ---
-  const abrirMapa = (endereco) => {
-    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`;
-    window.open(url, '_blank');
-  };
-  const iniciarConclusao = (id) => { setEntregaFocada(id); setMostrarAssinatura(true); };
-  const iniciarNaoEntrega = (id) => { setEntregaFocada(id); setMostrarMotivo(true); setMotivoSelecionado(''); setMotivoTexto(''); };
-
-  const finalizarComAssinatura = async () => {
-    if (sigPad.current.isEmpty()) return alert("Assine primeiro!");
-    const assinaturaImagem = sigPad.current.toDataURL('image/png');
-    const { error } = await supabase.from('entregas').update({
-      status: 'Concluído',
-      assinatura: assinaturaImagem,
-      horario_conclusao: new Date().toISOString()
-    }).eq('id', entregaFocada);
-
-    if (error) { alert("Erro ao salvar no banco. Tente novamente."); }
-    else { setMostrarAssinatura(false); setEntregaFocada(null); buscarDados(); }
-  };
-
-  // Finaliza sem assinatura: atualiza status e toca som (se habilitado)
-  const finalizarEntrega = async (idEntrega) => {
-    try {
-      const { error } = await supabase
-        .from('entregas')
-        .update({ status: 'Concluído', horario_conclusao: new Date().toISOString(), assinatura: 'NAO' })
-        .eq('id', idEntrega);
-
-      if (error) throw error;
-
-      if (somHabilitado && somNovaEntregaRef.current) {
-        try { somNovaEntregaRef.current.currentTime = 0; somNovaEntregaRef.current.play(); } catch { }
-      }
-
-      alert("Entrega concluída com sucesso!");
-      buscarDados();
-    } catch (err) {
-      alert("Erro ao finalizar: " + err.message);
-    }
-  };
-
-  const finalizarSemEntrega = async () => {
-    let motivoFinal = motivoSelecionado;
-    if (motivoSelecionado === 'Outros (Digitar...)') motivoFinal = motivoTexto;
-    if (!motivoFinal) return alert("Selecione ou digite um motivo!");
-
-    const statusComMotivo = `Não Entregue: ${motivoFinal}`;
-    const { error } = await supabase.from('entregas').update({
-      status: statusComMotivo, assinatura: 'NAO', horario_conclusao: new Date().toISOString()
-    }).eq('id', entregaFocada);
-
-    if (error) { alert(humanizeSupabaseError(error)); }
-    else {
-      const entregaAtual = entregas.find(e => e.id === entregaFocada);
-      if (entregaAtual) {
-        const mensagem = `🚨 *ALERTA: NÃO ENTREGA* 🚨\n\n` +
-          `👤 *Motorista:* ${motoristaLogado}\n` +
-          `📦 *Cliente:* ${entregaAtual.cliente}\n` +
-          `📍 *Local:* ${entregaAtual.endereco}\n` +
-          `⚠️ *Motivo:* ${motivoFinal}`;
-        const linkZap = `https://wa.me/${numeroGestor}?text=${encodeURIComponent(mensagem)}`;
-        window.open(linkZap, '_blank');
-      }
-      setMostrarMotivo(false); setEntregaFocada(null); buscarDados();
-    }
-  };
-
-  const atualizarOrdemEntregas = async (novaOrdem) => {
-    setEntregas(novaOrdem);
-    for (let i = 0; i < novaOrdem.length; i++) {
-      await supabase.from('entregas').update({ ordem: i + 1 }).eq('id', novaOrdem[i].id);
-    }
-  };
-
-  const acaoLogin = async (e) => {
-    e.preventDefault();
-    const { data } = await supabase.from('motoristas').select('*').eq('tel', form.tel.trim()).eq('senha', form.senha.trim()).maybeSingle();
-    if (data) {
-      const nomeUsuario = data.motoristas || data.nome;
-      if (nomeUsuario === 'CONFIG_ZAP') return alert("Acesso negado.");
-      setMotoristaLogado(nomeUsuario);
-      setMotoristaIdLogado(data.id || null);
-      localStorage.setItem('mot_v10_nome', nomeUsuario);
-      if (data.id) {
-        localStorage.setItem('mot_v10_id', data.id);
-        localStorage.setItem('motoristaId', data.id);
-      }
-    } else { alert("Dados incorretos!"); }
-  };
-
-  // Removido cálculo de limites de mapa do Leaflet (não utilizado no Google Maps)
-
-  // --- RENDERIZAÇÃO ---
-  const historicoEnderecos = [...new Set(entregas.map(e => e.endereco))];
-  const historicoClientes = [...new Set(entregas.map(e => e.cliente))];
-
-  // --- FUNÇÃO CONCLUIR ENTREGA (COMPARTILHADA) ---
-  const concluirEntrega = async (id) => {
-    try {
-      const { error } = await supabase.from('entregas').delete().eq('id', id);
-      if (error) throw error;
-      await buscarDados();
-      alert('Tarefa concluída com sucesso!');
-    } catch (err) {
-      console.error('Erro ao concluir:', err.message);
-      alert('Erro ao salvar no banco.');
-    }
-  };
-
-  // 1. APP MOTORISTA
-  if (view === 'motorista') {
-    const minhasEntregas = entregas.filter(e => e.motorista_id === motoristaIdLogado || e.motorista_id === Number(localStorage.getItem('motoristaId')));
-    return <MotoristaRestaurado isLoaded={isLoaded} entregas={minhasEntregas} onConcluir={concluirEntrega} numeroGestor={numeroGestor} setMotoristaLogado={setMotoristaLogado} setMotoristaIdLogado={setMotoristaIdLogado} />;
+const enviarRotaParaSupabase = async () => {
+  if (!motoristaSelecionado) {
+    alert("Selecione um motorista na lista lateral!");
+    setAbaMotoristasAberta(true);
+    return;
   }
 
-  // 2. PAINEL GESTOR
-  const listaConcluidas = entregas
-    .filter(e => e.status === 'Concluído' && (!motoristaSelecionado || e.motorista === motoristaSelecionado))
-    .sort((a, b) => new Date(b.horario_conclusao) - new Date(a.horario_conclusao));
+  if (rascunho.length === 0) {
+    alert("A lista está vazia! Adicione entregas antes de enviar.");
+    return;
+  }
 
-  const listaFalhas = entregas
-    .filter(e => e.status && e.status.includes('Não Entregue') && (!motoristaSelecionado || e.motorista === motoristaSelecionado))
-    .sort((a, b) => new Date(b.horario_conclusao) - new Date(a.horario_conclusao));
+  // Descobre o objeto do motorista selecionado
+  const motoristaObj = motoristas.find(x => (x.nome || x.motoristas) === motoristaSelecionado);
 
-  const entregasFinalizadas = entregas
-    .filter(e => e.status && (e.status === 'Concluído' || e.status.startsWith('Não Entregue')) && (!motoristaSelecionado || e.motorista === motoristaSelecionado))
-    .sort((a, b) => new Date(b.horario_conclusao) - new Date(a.horario_conclusao));
+  if (!motoristaObj || !motoristaObj.id) {
+    alert('Não foi possível obter o ID do motorista selecionado. Atualize a lista em "Equipe" e tente novamente.');
+    return;
+  }
 
-  // --- ESTILOS GESTOR ---
-  const btnBranco = { background: '#fff', color: '#000', border: 'none', padding: '8px 15px', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' };
-  const btnCelular = { background: '#334155', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '5px', fontSize: '12px', cursor: 'pointer' };
+  // Teste rápido: force o número 2 (seu ID de teste)
+  const idTeste = motoristaObj.id || 2;
 
-  const inputDark = {
-    background: '#0b0e14', border: '1px solid #2d3748',
-    color: '#fff', padding: '12px', borderRadius: '5px', fontSize: '15px', outline: 'none', width: '100%', boxSizing: 'border-box'
-  };
+  const dadosParaEnviar = rascunho.map((ponto, index) => ({
+    cliente: ponto.cliente || "Cliente a definir",
+    endereco: ponto.endereco,
+    lat: Number(ponto.lat),
+    lng: Number(ponto.lng),
+    motorista_id: idTeste, // Use o nome exato da coluna no Supabase
+    motorista: motoristaObj.nome || motoristaObj.motoristas,
+    status: 'Pendente',
+    ordem: index + 1,
+    tipo: ponto.tipo || 'entrega',
+    assinatura: 'NAO'
+  }));
 
-  const btnAzul = {
-    background: '#3b82f6', color: '#fff', border: 'none',
-    padding: '12px', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px', width: '100%'
-  };
+  console.log("Enviando dados:", dadosParaEnviar);
 
-  const btnVerde = {
-    background: '#22c55e', color: '#fff', border: 'none',
-    padding: '15px', borderRadius: '5px', fontWeight: 'bold',
-    cursor: 'pointer', fontSize: '14px', width: '100%'
-  };
+  const { error } = await supabase.from('entregas').insert(dadosParaEnviar);
 
-  const cardEntrega = {
-    background: '#1e293b', padding: '12px', borderRadius: '8px', marginBottom: '8px',
-    display: 'flex', gap: '10px', alignItems: 'center', color: '#fff', fontSize: '13px'
-  };
+  if (!error) {
+    setRascunho([]);
+    alert("✅ Rota enviada! Verifique o celular.");
+    await buscarDados();
+  } else {
+    console.error(error);
+    alert(humanizeSupabaseError(error));
+  }
+};
 
-  return (
-    <>
-      {/* === VERIFICAÇÃO DE SEGURANÇA: Entregas ainda carregando === */}
-      {!entregas && (
-        <div style={{ background: '#000', height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '24px', marginBottom: '20px' }}>⏳</div>
-            <div>Carregando Logística...</div>
-          </div>
+// --- FUNÇÕES MOTORISTA ---
+const abrirMapa = (endereco) => {
+  const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`;
+  window.open(url, '_blank');
+};
+const iniciarConclusao = (id) => { setEntregaFocada(id); setMostrarAssinatura(true); };
+const iniciarNaoEntrega = (id) => { setEntregaFocada(id); setMostrarMotivo(true); setMotivoSelecionado(''); setMotivoTexto(''); };
+
+const finalizarComAssinatura = async () => {
+  if (sigPad.current.isEmpty()) return alert("Assine primeiro!");
+  const assinaturaImagem = sigPad.current.toDataURL('image/png');
+  const { error } = await supabase.from('entregas').update({
+    status: 'Concluído',
+    assinatura: assinaturaImagem,
+    horario_conclusao: new Date().toISOString()
+  }).eq('id', entregaFocada);
+
+  if (error) { alert("Erro ao salvar no banco. Tente novamente."); }
+  else { setMostrarAssinatura(false); setEntregaFocada(null); buscarDados(); }
+};
+
+// Finaliza sem assinatura: atualiza status e toca som (se habilitado)
+const finalizarEntrega = async (idEntrega) => {
+  try {
+    const { error } = await supabase
+      .from('entregas')
+      .update({ status: 'Concluído', horario_conclusao: new Date().toISOString(), assinatura: 'NAO' })
+      .eq('id', idEntrega);
+
+    if (error) throw error;
+
+    if (somHabilitado && somNovaEntregaRef.current) {
+      try { somNovaEntregaRef.current.currentTime = 0; somNovaEntregaRef.current.play(); } catch { }
+    }
+
+    alert("Entrega concluída com sucesso!");
+    buscarDados();
+  } catch (err) {
+    alert("Erro ao finalizar: " + err.message);
+  }
+};
+
+const finalizarSemEntrega = async () => {
+  let motivoFinal = motivoSelecionado;
+  if (motivoSelecionado === 'Outros (Digitar...)') motivoFinal = motivoTexto;
+  if (!motivoFinal) return alert("Selecione ou digite um motivo!");
+
+  const statusComMotivo = `Não Entregue: ${motivoFinal}`;
+  const { error } = await supabase.from('entregas').update({
+    status: statusComMotivo, assinatura: 'NAO', horario_conclusao: new Date().toISOString()
+  }).eq('id', entregaFocada);
+
+  if (error) { alert(humanizeSupabaseError(error)); }
+  else {
+    const entregaAtual = entregas.find(e => e.id === entregaFocada);
+    if (entregaAtual) {
+      const mensagem = `🚨 *ALERTA: NÃO ENTREGA* 🚨\n\n` +
+        `👤 *Motorista:* ${motoristaLogado}\n` +
+        `📦 *Cliente:* ${entregaAtual.cliente}\n` +
+        `📍 *Local:* ${entregaAtual.endereco}\n` +
+        `⚠️ *Motivo:* ${motivoFinal}`;
+      const linkZap = `https://wa.me/${numeroGestor}?text=${encodeURIComponent(mensagem)}`;
+      window.open(linkZap, '_blank');
+    }
+    setMostrarMotivo(false); setEntregaFocada(null); buscarDados();
+  }
+};
+
+const atualizarOrdemEntregas = async (novaOrdem) => {
+  setEntregas(novaOrdem);
+  for (let i = 0; i < novaOrdem.length; i++) {
+    await supabase.from('entregas').update({ ordem: i + 1 }).eq('id', novaOrdem[i].id);
+  }
+};
+
+const acaoLogin = async (e) => {
+  e.preventDefault();
+  const { data } = await supabase.from('motoristas').select('*').eq('tel', form.tel.trim()).eq('senha', form.senha.trim()).maybeSingle();
+  if (data) {
+    const nomeUsuario = data.motoristas || data.nome;
+    if (nomeUsuario === 'CONFIG_ZAP') return alert("Acesso negado.");
+    setMotoristaLogado(nomeUsuario);
+    setMotoristaIdLogado(data.id || null);
+    localStorage.setItem('mot_v10_nome', nomeUsuario);
+    if (data.id) {
+      localStorage.setItem('mot_v10_id', data.id);
+      localStorage.setItem('motoristaId', data.id);
+    }
+  } else { alert("Dados incorretos!"); }
+};
+
+// Removido cálculo de limites de mapa do Leaflet (não utilizado no Google Maps)
+
+// --- RENDERIZAÇÃO ---
+const historicoEnderecos = [...new Set(entregas.map(e => e.endereco))];
+const historicoClientes = [...new Set(entregas.map(e => e.cliente))];
+
+// --- FUNÇÃO CONCLUIR ENTREGA (COMPARTILHADA) ---
+const concluirEntrega = async (id) => {
+  try {
+    const { error } = await supabase.from('entregas').delete().eq('id', id);
+    if (error) throw error;
+    await buscarDados();
+    alert('Tarefa concluída com sucesso!');
+  } catch (err) {
+    console.error('Erro ao concluir:', err.message);
+    alert('Erro ao salvar no banco.');
+  }
+};
+
+// 1. APP MOTORISTA
+if (view === 'motorista') {
+  const minhasEntregas = entregas.filter(e => e.motorista_id === motoristaIdLogado || e.motorista_id === Number(localStorage.getItem('motoristaId')));
+  return <MotoristaRestaurado isLoaded={isLoaded} entregas={minhasEntregas} onConcluir={concluirEntrega} numeroGestor={numeroGestor} setMotoristaLogado={setMotoristaLogado} setMotoristaIdLogado={setMotoristaIdLogado} />;
+}
+
+// 2. PAINEL GESTOR
+const listaConcluidas = entregas
+  .filter(e => e.status === 'Concluído' && (!motoristaSelecionado || e.motorista === motoristaSelecionado))
+  .sort((a, b) => new Date(b.horario_conclusao) - new Date(a.horario_conclusao));
+
+const listaFalhas = entregas
+  .filter(e => e.status && e.status.includes('Não Entregue') && (!motoristaSelecionado || e.motorista === motoristaSelecionado))
+  .sort((a, b) => new Date(b.horario_conclusao) - new Date(a.horario_conclusao));
+
+const entregasFinalizadas = entregas
+  .filter(e => e.status && (e.status === 'Concluído' || e.status.startsWith('Não Entregue')) && (!motoristaSelecionado || e.motorista === motoristaSelecionado))
+  .sort((a, b) => new Date(b.horario_conclusao) - new Date(a.horario_conclusao));
+
+// --- ESTILOS GESTOR ---
+const btnBranco = { background: '#fff', color: '#000', border: 'none', padding: '8px 15px', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' };
+const btnCelular = { background: '#334155', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '5px', fontSize: '12px', cursor: 'pointer' };
+
+const inputDark = {
+  background: '#0b0e14', border: '1px solid #2d3748',
+  color: '#fff', padding: '12px', borderRadius: '5px', fontSize: '15px', outline: 'none', width: '100%', boxSizing: 'border-box'
+};
+
+const btnAzul = {
+  background: '#3b82f6', color: '#fff', border: 'none',
+  padding: '12px', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px', width: '100%'
+};
+
+const btnVerde = {
+  background: '#22c55e', color: '#fff', border: 'none',
+  padding: '15px', borderRadius: '5px', fontWeight: 'bold',
+  cursor: 'pointer', fontSize: '14px', width: '100%'
+};
+
+const cardEntrega = {
+  background: '#1e293b', padding: '12px', borderRadius: '8px', marginBottom: '8px',
+  display: 'flex', gap: '10px', alignItems: 'center', color: '#fff', fontSize: '13px'
+};
+
+return (
+  <>
+    {/* === VERIFICAÇÃO DE SEGURANÇA: Entregas ainda carregando === */}
+    {!entregas && (
+      <div style={{ background: '#000', height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', marginBottom: '20px' }}>⏳</div>
+          <div>Carregando Logística...</div>
         </div>
-      )}
+      </div>
+    )}
 
-      {entregas && (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', backgroundColor: '#0b0e14' }}>
-          {/* === HEADER === */}
-          <header style={{ height: '60px', backgroundColor: '#151a22', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px', borderBottom: '1px solid #2d3748', zIndex: 1000, boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <div style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e' }} />
-                LOGÍSTICA ATIVA
-              </div>
-              <button onClick={() => setAbaAtiva('rota')} style={btnBranco}>Gerenciar Rota</button>
-              <button onClick={() => setAbaAtiva('historico')} style={btnBranco}>Histórico</button>
-              <button onClick={() => setAbaMotoristasAberta(true)} style={btnBranco}>Equipe</button>
-              <button onClick={abrirWhatsapp} style={btnBranco}>WhatsApp</button>
+    {entregas && (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', backgroundColor: '#0b0e14' }}>
+        {/* === HEADER === */}
+        <header style={{ height: '60px', backgroundColor: '#151a22', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px', borderBottom: '1px solid #2d3748', zIndex: 1000, boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <div style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e' }} />
+              LOGÍSTICA ATIVA
             </div>
-            <button onClick={() => setView('motorista')} style={btnCelular}>Ver como Celular</button>
-          </header>
+            <button onClick={() => setAbaAtiva('rota')} style={btnBranco}>Gerenciar Rota</button>
+            <button onClick={() => setAbaAtiva('historico')} style={btnBranco}>Histórico</button>
+            <button onClick={() => setAbaMotoristasAberta(true)} style={btnBranco}>Equipe</button>
+            <button onClick={abrirWhatsapp} style={btnBranco}>WhatsApp</button>
+          </div>
+          <button onClick={() => setView('motorista')} style={btnCelular}>Ver como Celular</button>
+        </header>
 
-          {/* === MAIN CONTENT (SIDEBAR + MAP) === */}
-          {abaAtiva === 'historico' ? (
-            <div style={{ padding: '20px', overflowY: 'auto', background: '#151a22', flex: 1 }}>
-              <h2 style={{ color: '#fff', marginTop: 0 }}>Histórico de Entregas</h2>
-              <table style={{ width: '100%', color: '#fff', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #333' }}>
-                    <th style={{ textAlign: 'left', padding: '8px' }}>Cliente</th>
-                    <th style={{ textAlign: 'left', padding: '8px' }}>Status</th>
-                    <th style={{ textAlign: 'left', padding: '8px' }}>Assinatura</th>
-                    <th style={{ textAlign: 'left', padding: '8px' }}>Ações</th>
+        {/* === MAIN CONTENT (SIDEBAR + MAP) === */}
+        {abaAtiva === 'historico' ? (
+          <div style={{ padding: '20px', overflowY: 'auto', background: '#151a22', flex: 1 }}>
+            <h2 style={{ color: '#fff', marginTop: 0 }}>Histórico de Entregas</h2>
+            <table style={{ width: '100%', color: '#fff', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #333' }}>
+                  <th style={{ textAlign: 'left', padding: '8px' }}>Cliente</th>
+                  <th style={{ textAlign: 'left', padding: '8px' }}>Status</th>
+                  <th style={{ textAlign: 'left', padding: '8px' }}>Assinatura</th>
+                  <th style={{ textAlign: 'left', padding: '8px' }}>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entregasFinalizadas.map((ent) => (
+                  <tr key={ent.id} style={{ borderBottom: '1px solid #222' }}>
+                    <td style={{ padding: '8px' }}>{ent.cliente}</td>
+                    <td style={{ padding: '8px', color: ent.status === 'Concluído' ? '#22c55e' : '#ef4444' }}>{(ent.status || '').toUpperCase()}</td>
+                    <td style={{ padding: '8px' }}>
+                      {ent.assinatura && ent.assinatura !== 'NAO' && ent.assinatura.length > 20 ? (
+                        <img src={ent.assinatura} width="80" alt="Assinatura" style={{ filter: 'invert(1)', borderRadius: '4px' }} />
+                      ) : (
+                        <span style={{ color: '#94a3b8' }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '8px' }}>
+                      <button onClick={() => compartilharEntrega(ent)} style={{ background: '#334155', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer' }}>Compartilhar</button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {entregasFinalizadas.map((ent) => (
-                    <tr key={ent.id} style={{ borderBottom: '1px solid #222' }}>
-                      <td style={{ padding: '8px' }}>{ent.cliente}</td>
-                      <td style={{ padding: '8px', color: ent.status === 'Concluído' ? '#22c55e' : '#ef4444' }}>{(ent.status || '').toUpperCase()}</td>
-                      <td style={{ padding: '8px' }}>
-                        {ent.assinatura && ent.assinatura !== 'NAO' && ent.assinatura.length > 20 ? (
-                          <img src={ent.assinatura} width="80" alt="Assinatura" style={{ filter: 'invert(1)', borderRadius: '4px' }} />
-                        ) : (
-                          <span style={{ color: '#94a3b8' }}>—</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '8px' }}>
-                        <button onClick={() => compartilharEntrega(ent)} style={{ background: '#334155', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer' }}>Compartilhar</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-              {/* SIDEBAR */}
-              <aside style={{ width: '380px', backgroundColor: '#151a22', padding: '20px', display: 'flex', flexDirection: 'column', borderRight: '1px solid #2d3748', boxSizing: 'border-box', overflow: 'hidden' }}>
-                <h2 style={{ color: '#fff', fontSize: '16px', margin: '0 0 20px 0', fontWeight: 'bold', letterSpacing: '0.5px' }}>GERENCIAR ROTA</h2>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+            {/* SIDEBAR */}
+            <aside style={{ width: '380px', backgroundColor: '#151a22', padding: '20px', display: 'flex', flexDirection: 'column', borderRight: '1px solid #2d3748', boxSizing: 'border-box', overflow: 'hidden' }}>
+              <h2 style={{ color: '#fff', fontSize: '16px', margin: '0 0 20px 0', fontWeight: 'bold', letterSpacing: '0.5px' }}>GERENCIAR ROTA</h2>
 
-                {/* --- SELETOR DE TIPO (RECOLHA OU ENTREGA) --- */}
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                  <button
-                    onClick={() => setTipoPonto('Entrega')}
-                    style={{
-                      flex: 1, padding: '10px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                      background: tipoPonto === 'Entrega' ? '#3b82f6' : '#334155',
-                      color: '#fff', fontWeight: 'bold', fontSize: '12px', transition: '0.3s'
+              {/* --- SELETOR DE TIPO (RECOLHA OU ENTREGA) --- */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                <button
+                  onClick={() => setTipoPonto('Entrega')}
+                  style={{
+                    flex: 1, padding: '10px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                    background: tipoPonto === 'Entrega' ? '#3b82f6' : '#334155',
+                    color: '#fff', fontWeight: 'bold', fontSize: '12px', transition: '0.3s'
+                  }}
+                >
+                  📦 ENTREGA
+                </button>
+                <button
+                  onClick={() => setTipoPonto('Recolha')}
+                  style={{
+                    flex: 1, padding: '10px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                    background: tipoPonto === 'Recolha' ? '#f59e0b' : '#334155',
+                    color: '#fff', fontWeight: 'bold', fontSize: '12px', transition: '0.3s'
+                  }}
+                >
+                  🔄 RECOLHA
+                </button>
+              </div>
+
+              {/* Inputs */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px' }}>
+                <input type="text" placeholder="Nome do Cliente" value={inputCliente} onChange={(e) => setInputCliente(e.target.value)} style={inputDark} />
+                {isLoaded ? (
+                  <Autocomplete
+                    onLoad={onLoadAutocomplete}
+                    onPlaceChanged={onPlaceChanged}
+                    options={{
+                      componentRestrictions: { country: 'br' },
+                      bounds: { south: -28.0, north: -27.3, west: -49.0, east: -48.3 },
                     }}
                   >
-                    📦 ENTREGA
-                  </button>
-                  <button
-                    onClick={() => setTipoPonto('Recolha')}
-                    style={{
-                      flex: 1, padding: '10px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                      background: tipoPonto === 'Recolha' ? '#f59e0b' : '#334155',
-                      color: '#fff', fontWeight: 'bold', fontSize: '12px', transition: '0.3s'
-                    }}
-                  >
-                    🔄 RECOLHA
-                  </button>
-                </div>
-
-                {/* Inputs */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px' }}>
-                  <input type="text" placeholder="Nome do Cliente" value={inputCliente} onChange={(e) => setInputCliente(e.target.value)} style={inputDark} />
-                  {isLoaded ? (
-                    <Autocomplete
-                      onLoad={onLoadAutocomplete}
-                      onPlaceChanged={onPlaceChanged}
-                      options={{
-                        componentRestrictions: { country: 'br' },
-                        bounds: { south: -28.0, north: -27.3, west: -49.0, east: -48.3 },
-                      }}
-                    >
-                      <input
-                        list="historico-enderecos-list"
-                        value={inputEndereco}
-                        onChange={(e) => { setInputEndereco(e.target.value); setTempCoords(null); }}
-                        placeholder="Endereço da Entrega"
-                        style={inputDark}
-                      />
-                    </Autocomplete>
-                  ) : (
                     <input
                       list="historico-enderecos-list"
                       value={inputEndereco}
-                      onChange={(e) => setInputEndereco(e.target.value)}
+                      onChange={(e) => { setInputEndereco(e.target.value); setTempCoords(null); }}
                       placeholder="Endereço da Entrega"
                       style={inputDark}
                     />
-                  )}
-                  <datalist id="historico-enderecos-list">{historicoEnderecos.map((end, i) => (<option key={i} value={end} />))}</datalist>
-                  <button onClick={adicionarAoRascunho} style={btnAzul}>ADICIONAR AO MAPA</button>
-                </div>
-
-                {/* Rascunho List */}
-                <div style={{ flex: 1, overflowY: 'auto', marginBottom: '15px', paddingRight: '5px' }}>
-                  {rascunho.map((p, i) => (
-                    <div key={i} style={{
-                      background: '#1e293b', padding: '12px', borderRadius: '8px',
-                      marginBottom: '10px', color: '#fff',
-                      borderLeft: p.tipo === 'Recolha' ? '4px solid #f59e0b' : '4px solid #3b82f6',
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                        <b style={{ marginRight: '8px', color: '#3b82f6' }}>{i + 1}</b>
-                        <span style={{ fontSize: '13px' }}>{p.endereco}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{
-                          fontSize: '10px', padding: '2px 6px', borderRadius: '4px',
-                          background: p.tipo === 'Recolha' ? '#f59e0b' : '#3b82f6', color: '#000', fontWeight: 'bold'
-                        }}>
-                          {p.tipo === 'Recolha' ? 'REC' : 'ENT'}
-                        </span>
-                        <Trash2 size={14} color="#ef4444" style={{ cursor: 'pointer' }} onClick={() => removerDoRascunho(p.id)} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Bottom Buttons */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <button onClick={otimizarRotaOrdem} style={btnVerde}>OTIMIZAR</button>
-                  <button onClick={enviarRotaParaSupabase} style={btnVerde}>ENVIAR</button>
-                </div>
-              </aside>
-
-              {/* MAPA */}
-              <main style={{ flex: 1, background: '#000', position: 'relative', height: '100%', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
-                {isLoaded ? (
-                  <GoogleMap
-                    mapContainerStyle={{ height: '100%', width: '100%' }}
-                    center={coordsMotorista || coordsGestor || { lat: -27.6438, lng: -48.6674 }}
-                    zoom={13}
-                    options={{ disableDefaultUI: true, zoomControl: true }}
-                    onLoad={(mapInstance) => setMapaInstancia(mapInstance)}
-                  >
-                    {coordsGestor && (
-                      <Marker position={coordsGestor} icon={'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'} />
-                    )}
-                    {/* MARCADOR MOTORISTA */}
-                    {coordsMotorista && (
-                      <>
-                        <Marker
-                          position={{ lat: Number(coordsMotorista.lat), lng: Number(coordsMotorista.lng) }}
-                          icon={{
-                            url: 'https://cdn-icons-png.flaticon.com/512/1165/1165961.png',
-                            scaledSize: new window.google.maps.Size(45, 45),
-                            anchor: new window.google.maps.Point(22, 22),
-                          }}
-                          zIndex={100}
-                          title="Motorista em trânsito"
-                        />
-                        <Circle
-                          center={{ lat: Number(coordsMotorista.lat), lng: Number(coordsMotorista.lng) }}
-                          radius={100}
-                          options={{
-                            fillColor: '#38bdf8',
-                            fillOpacity: 0.2,
-                            strokeColor: '#38bdf8',
-                            strokeWeight: 1,
-                            clickable: false,
-                          }}
-                        />
-                      </>
-                    )}
-
-                    {/* MARCADORES RASCUNHO */}
-                    {rascunho.map((item, index) => (
-                      item.lat && item.lng ? (
-                        <Marker
-                          key={item.id}
-                          position={{ lat: Number(item.lat), lng: Number(item.lng) }}
-                          label={{
-                            text: (index + 1).toString(),
-                            color: 'white',
-                            fontWeight: 'bold',
-                            fontSize: '14px',
-                          }}
-                          icon={{
-                            path: window.google.maps.SymbolPath.CIRCLE,
-                            fillColor: '#38bdf8',
-                            fillOpacity: 0.7,
-                            strokeColor: 'white',
-                            strokeWeight: 2,
-                            scale: 10,
-                          }}
-                          onClick={() => setPontoAtivo(item)}
-                        />
-                      ) : null
-                    ))}
-
-                    {/* MARCADORES ENTREGAS BANCO */}
-                    {entregas.map((ent, index) => (
-                      ent.lat && ent.lng ? (
-                        <Marker
-                          key={`entrega-${ent.id}`}
-                          position={{ lat: Number(ent.lat), lng: Number(ent.lng) }}
-                          label={{
-                            text: (index + 1).toString(),
-                            color: 'white',
-                            fontWeight: 'bold',
-                            fontSize: '12px',
-                          }}
-                          icon={{
-                            path: window.google.maps.SymbolPath.CIRCLE,
-                            fillColor: ent.status === 'Concluído' ? '#22c55e' : '#ef4444',
-                            fillOpacity: 1,
-                            strokeColor: 'white',
-                            strokeWeight: 2,
-                            scale: 12,
-                          }}
-                          onClick={() => setPontoAtivo(ent)}
-                        />
-                      ) : null
-                    ))}
-
-                    {/* INFO WINDOW */}
-                    {pontoAtivo && (
-                      <InfoWindow
-                        position={{ lat: Number(pontoAtivo.lat), lng: Number(pontoAtivo.lng) }}
-                        onCloseClick={() => setPontoAtivo(null)}
-                      >
-                        <div style={{ color: '#000', padding: '5px' }}>
-                          <h4 style={{ margin: '0 0 5px 0' }}>{pontoAtivo.cliente}</h4>
-                          <p style={{ margin: 0, fontSize: '12px' }}>{pontoAtivo.endereco}</p>
-                          <hr />
-                          <p style={{ margin: '5px 0 0 0', fontWeight: 'bold', color: '#38bdf8' }}>
-                            Status: {pontoAtivo.status || 'Pendente'}
-                          </p>
-                          <p style={{ margin: '3px 0 0 0', color: '#64748b', fontSize: '12px' }}>
-                            ETA: {
-                              (() => {
-                                const idx = rascunho.findIndex(p => p.id === pontoAtivo.id);
-                                return temposEstimados[idx] || '—';
-                              })()
-                            }
-                          </p>
-                        </div>
-                      </InfoWindow>
-                    )}
-                  </GoogleMap>
+                  </Autocomplete>
                 ) : (
-                  <div style={{ color: '#94a3b8', padding: '10px' }}>Carregando mapa...</div>
+                  <input
+                    list="historico-enderecos-list"
+                    value={inputEndereco}
+                    onChange={(e) => setInputEndereco(e.target.value)}
+                    placeholder="Endereço da Entrega"
+                    style={inputDark}
+                  />
                 )}
-              </main>
-            </div>
-          )}
-
-          {/* === MODAL COMPROVANTE === */}
-          {comprovanteAtivo && (
-            <div style={styles.modal} onClick={() => setComprovanteAtivo(null)}>
-              <div style={{ ...styles.cardAssinatura, width: '400px', background: '#fff', color: '#000' }} onClick={e => e.stopPropagation()}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: 10, marginBottom: 15 }}>
-                  <h3 style={{ color: '#000', margin: 0 }}>Comprovante de Entrega</h3>
-                  <button onClick={() => setComprovanteAtivo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>✖</button>
-                </div>
-                <div style={{ textAlign: 'left', marginBottom: 20, lineHeight: '1.6' }}>
-                  <div><strong>Cliente:</strong> {comprovanteAtivo.cliente}</div>
-                  <div><strong>Endereço:</strong> {comprovanteAtivo.endereco}</div>
-                  <div style={{ color: '#3b82f6', fontWeight: 'bold', marginTop: 5 }}>
-                    📅 {comprovanteAtivo.horario_conclusao ? new Date(comprovanteAtivo.horario_conclusao).toLocaleDateString() : 'N/A'}
-                    ⏰ {comprovanteAtivo.horario_conclusao ? new Date(comprovanteAtivo.horario_conclusao).toLocaleTimeString() : 'N/A'}
-                  </div>
-                  <div style={{ fontWeight: 'bold', color: comprovanteAtivo.tipo === 'recolha' ? '#f97316' : '#10b981', marginTop: 5 }}>
-                    TIPO: {comprovanteAtivo.tipo === 'recolha' ? 'RECOLHA' : 'ENTREGA'}
-                  </div>
-                </div>
-                <div style={{ border: '1px dashed #ccc', padding: 10, borderRadius: 8, background: '#f8f9fa', minHeight: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {comprovanteAtivo.assinatura && comprovanteAtivo.assinatura !== 'NAO' && comprovanteAtivo.assinatura.length > 20 ? (
-                    <img src={comprovanteAtivo.assinatura} alt="Assinatura" style={{ maxWidth: '100%', maxHeight: '200px' }} />
-                  ) : (
-                    <div style={{ color: '#94a3b8', fontSize: 14, textAlign: 'center' }}>
-                      <FileText size={40} style={{ display: 'block', margin: '0 auto 10px auto', color: '#cbd5e1' }} />
-                      Assinatura não disponível.
-                    </div>
-                  )}
-                </div>
-                <p style={{ fontSize: 12, color: '#666', marginTop: 5, textAlign: 'center' }}>Assinatura do Recebedor</p>
-                <button onClick={() => setComprovanteAtivo(null)} style={{ ...styles.btnPrimary, marginTop: 20, width: '100%' }}>FECHAR</button>
+                <datalist id="historico-enderecos-list">{historicoEnderecos.map((end, i) => (<option key={i} value={end} />))}</datalist>
+                <button onClick={adicionarAoRascunho} style={btnAzul}>ADICIONAR AO MAPA</button>
               </div>
-            </div>
-          )}
 
-          {/* === ABA LATERAL MOTORISTAS === */}
-          {abaMotoristasAberta && (
-            <div onClick={() => setAbaMotoristasAberta(false)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999 }} />
-          )}
-          <div style={{
-            position: 'fixed', top: 0, right: abaMotoristasAberta ? 0 : '-350px',
-            width: '320px', height: '100vh', backgroundColor: '#0f172a',
-            boxShadow: '-5px 0 15px rgba(0,0,0,0.3)', transition: 'right 0.3s ease-in-out',
-            zIndex: 1000, padding: '20px', display: 'flex', flexDirection: 'column'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ color: '#fff', fontSize: '16px', margin: 0 }}>Equipe de Entrega</h2>
-              <button onClick={() => setAbaMotoristasAberta(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
-                <X size={20} />
-              </button>
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
-              {motoristas.map((mot) => {
-                const nomeMot = mot.nome || mot.motoristas;
-                let online = false;
-                try {
-                  if (mot.ultimo_sinal) {
-                    online = (Date.now() - new Date(mot.ultimo_sinal).getTime()) < (3 * 60 * 1000);
-                  }
-                } catch { }
-                const selecionado = motoristaSelecionado === nomeMot;
-                return (
-                  <div
-                    key={mot.id}
-                    onClick={() => {
-                      setMotoristaSelecionado(nomeMot);
-                      focarNoMotorista(mot);
-                      setAbaMotoristasAberta(false);
-                    }}
-                    style={{ padding: '12px', backgroundColor: selecionado ? '#1e40af' : '#1e293b', borderRadius: '8px', marginBottom: '8px', cursor: 'pointer', border: selecionado ? '1px solid #38bdf8' : '1px solid transparent' }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px' }}>{nomeMot}</span>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: online ? '#22c55e' : '#64748b' }} />
+              {/* Rascunho List */}
+              <div style={{ flex: 1, overflowY: 'auto', marginBottom: '15px', paddingRight: '5px' }}>
+                {rascunho.map((p, i) => (
+                  <div key={i} style={{
+                    background: '#1e293b', padding: '12px', borderRadius: '8px',
+                    marginBottom: '10px', color: '#fff',
+                    borderLeft: p.tipo === 'Recolha' ? '4px solid #f59e0b' : '4px solid #3b82f6',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                      <b style={{ marginRight: '8px', color: '#3b82f6' }}>{i + 1}</b>
+                      <span style={{ fontSize: '13px' }}>{p.endereco}</span>
                     </div>
-                    <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px' }}>Clique para focar</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        fontSize: '10px', padding: '2px 6px', borderRadius: '4px',
+                        background: p.tipo === 'Recolha' ? '#f59e0b' : '#3b82f6', color: '#000', fontWeight: 'bold'
+                      }}>
+                        {p.tipo === 'Recolha' ? 'REC' : 'ENT'}
+                      </span>
+                      <Trash2 size={14} color="#ef4444" style={{ cursor: 'pointer' }} onClick={() => removerDoRascunho(p.id)} />
+                    </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+
+              {/* Bottom Buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button onClick={otimizarRotaOrdem} style={btnVerde}>OTIMIZAR</button>
+                <button onClick={enviarRotaParaSupabase} style={btnVerde}>ENVIAR</button>
+              </div>
+            </aside>
+
+            {/* MAPA */}
+            <main style={{ flex: 1, background: '#000', position: 'relative', height: '100%', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
+              {isLoaded ? (
+                <GoogleMap
+                  mapContainerStyle={{ height: '100%', width: '100%' }}
+                  center={coordsMotorista || coordsGestor || { lat: -27.6438, lng: -48.6674 }}
+                  zoom={13}
+                  options={{ disableDefaultUI: true, zoomControl: true }}
+                  onLoad={(mapInstance) => setMapaInstancia(mapInstance)}
+                >
+                  {coordsGestor && (
+                    <Marker position={coordsGestor} icon={'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'} />
+                  )}
+                  {/* MARCADOR MOTORISTA */}
+                  {coordsMotorista && (
+                    <>
+                      <Marker
+                        position={{ lat: Number(coordsMotorista.lat), lng: Number(coordsMotorista.lng) }}
+                        icon={{
+                          url: 'https://cdn-icons-png.flaticon.com/512/1165/1165961.png',
+                          scaledSize: new window.google.maps.Size(45, 45),
+                          anchor: new window.google.maps.Point(22, 22),
+                        }}
+                        zIndex={100}
+                        title="Motorista em trânsito"
+                      />
+                      <Circle
+                        center={{ lat: Number(coordsMotorista.lat), lng: Number(coordsMotorista.lng) }}
+                        radius={100}
+                        options={{
+                          fillColor: '#38bdf8',
+                          fillOpacity: 0.2,
+                          strokeColor: '#38bdf8',
+                          strokeWeight: 1,
+                          clickable: false,
+                        }}
+                      />
+                    </>
+                  )}
+
+                  {/* MARCADORES RASCUNHO */}
+                  {rascunho.map((item, index) => (
+                    item.lat && item.lng ? (
+                      <Marker
+                        key={item.id}
+                        position={{ lat: Number(item.lat), lng: Number(item.lng) }}
+                        label={{
+                          text: (index + 1).toString(),
+                          color: 'white',
+                          fontWeight: 'bold',
+                          fontSize: '14px',
+                        }}
+                        icon={{
+                          path: window.google.maps.SymbolPath.CIRCLE,
+                          fillColor: '#38bdf8',
+                          fillOpacity: 0.7,
+                          strokeColor: 'white',
+                          strokeWeight: 2,
+                          scale: 10,
+                        }}
+                        onClick={() => setPontoAtivo(item)}
+                      />
+                    ) : null
+                  ))}
+
+                  {/* MARCADORES ENTREGAS BANCO */}
+                  {entregas.map((ent, index) => (
+                    ent.lat && ent.lng ? (
+                      <Marker
+                        key={`entrega-${ent.id}`}
+                        position={{ lat: Number(ent.lat), lng: Number(ent.lng) }}
+                        label={{
+                          text: (index + 1).toString(),
+                          color: 'white',
+                          fontWeight: 'bold',
+                          fontSize: '12px',
+                        }}
+                        icon={{
+                          path: window.google.maps.SymbolPath.CIRCLE,
+                          fillColor: ent.status === 'Concluído' ? '#22c55e' : '#ef4444',
+                          fillOpacity: 1,
+                          strokeColor: 'white',
+                          strokeWeight: 2,
+                          scale: 12,
+                        }}
+                        onClick={() => setPontoAtivo(ent)}
+                      />
+                    ) : null
+                  ))}
+
+                  {/* INFO WINDOW */}
+                  {pontoAtivo && (
+                    <InfoWindow
+                      position={{ lat: Number(pontoAtivo.lat), lng: Number(pontoAtivo.lng) }}
+                      onCloseClick={() => setPontoAtivo(null)}
+                    >
+                      <div style={{ color: '#000', padding: '5px' }}>
+                        <h4 style={{ margin: '0 0 5px 0' }}>{pontoAtivo.cliente}</h4>
+                        <p style={{ margin: 0, fontSize: '12px' }}>{pontoAtivo.endereco}</p>
+                        <hr />
+                        <p style={{ margin: '5px 0 0 0', fontWeight: 'bold', color: '#38bdf8' }}>
+                          Status: {pontoAtivo.status || 'Pendente'}
+                        </p>
+                        <p style={{ margin: '3px 0 0 0', color: '#64748b', fontSize: '12px' }}>
+                          ETA: {
+                            (() => {
+                              const idx = rascunho.findIndex(p => p.id === pontoAtivo.id);
+                              return temposEstimados[idx] || '—';
+                            })()
+                          }
+                        </p>
+                      </div>
+                    </InfoWindow>
+                  )}
+                </GoogleMap>
+              ) : (
+                <div style={{ color: '#94a3b8', padding: '10px' }}>Carregando mapa...</div>
+              )}
+            </main>
+          </div>
+        )}
+
+        {/* === MODAL COMPROVANTE === */}
+        {comprovanteAtivo && (
+          <div style={styles.modal} onClick={() => setComprovanteAtivo(null)}>
+            <div style={{ ...styles.cardAssinatura, width: '400px', background: '#fff', color: '#000' }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: 10, marginBottom: 15 }}>
+                <h3 style={{ color: '#000', margin: 0 }}>Comprovante de Entrega</h3>
+                <button onClick={() => setComprovanteAtivo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>✖</button>
+              </div>
+              <div style={{ textAlign: 'left', marginBottom: 20, lineHeight: '1.6' }}>
+                <div><strong>Cliente:</strong> {comprovanteAtivo.cliente}</div>
+                <div><strong>Endereço:</strong> {comprovanteAtivo.endereco}</div>
+                <div style={{ color: '#3b82f6', fontWeight: 'bold', marginTop: 5 }}>
+                  📅 {comprovanteAtivo.horario_conclusao ? new Date(comprovanteAtivo.horario_conclusao).toLocaleDateString() : 'N/A'}
+                  ⏰ {comprovanteAtivo.horario_conclusao ? new Date(comprovanteAtivo.horario_conclusao).toLocaleTimeString() : 'N/A'}
+                </div>
+                <div style={{ fontWeight: 'bold', color: comprovanteAtivo.tipo === 'recolha' ? '#f97316' : '#10b981', marginTop: 5 }}>
+                  TIPO: {comprovanteAtivo.tipo === 'recolha' ? 'RECOLHA' : 'ENTREGA'}
+                </div>
+              </div>
+              <div style={{ border: '1px dashed #ccc', padding: 10, borderRadius: 8, background: '#f8f9fa', minHeight: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {comprovanteAtivo.assinatura && comprovanteAtivo.assinatura !== 'NAO' && comprovanteAtivo.assinatura.length > 20 ? (
+                  <img src={comprovanteAtivo.assinatura} alt="Assinatura" style={{ maxWidth: '100%', maxHeight: '200px' }} />
+                ) : (
+                  <div style={{ color: '#94a3b8', fontSize: 14, textAlign: 'center' }}>
+                    <FileText size={40} style={{ display: 'block', margin: '0 auto 10px auto', color: '#cbd5e1' }} />
+                    Assinatura não disponível.
+                  </div>
+                )}
+              </div>
+              <p style={{ fontSize: 12, color: '#666', marginTop: 5, textAlign: 'center' }}>Assinatura do Recebedor</p>
+              <button onClick={() => setComprovanteAtivo(null)} style={{ ...styles.btnPrimary, marginTop: 20, width: '100%' }}>FECHAR</button>
             </div>
           </div>
+        )}
+
+        {/* === ABA LATERAL MOTORISTAS === */}
+        {abaMotoristasAberta && (
+          <div onClick={() => setAbaMotoristasAberta(false)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999 }} />
+        )}
+        <div style={{
+          position: 'fixed', top: 0, right: abaMotoristasAberta ? 0 : '-350px',
+          width: '320px', height: '100vh', backgroundColor: '#0f172a',
+          boxShadow: '-5px 0 15px rgba(0,0,0,0.3)', transition: 'right 0.3s ease-in-out',
+          zIndex: 1000, padding: '20px', display: 'flex', flexDirection: 'column'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2 style={{ color: '#fff', fontSize: '16px', margin: 0 }}>Equipe de Entrega</h2>
+            <button onClick={() => setAbaMotoristasAberta(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
+              <X size={20} />
+            </button>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
+            {motoristas.map((mot) => {
+              const nomeMot = mot.nome || mot.motoristas;
+              let online = false;
+              try {
+                if (mot.ultimo_sinal) {
+                  online = (Date.now() - new Date(mot.ultimo_sinal).getTime()) < (3 * 60 * 1000);
+                }
+              } catch { }
+              const selecionado = motoristaSelecionado === nomeMot;
+              return (
+                <div
+                  key={mot.id}
+                  onClick={() => {
+                    setMotoristaSelecionado(nomeMot);
+                    focarNoMotorista(mot);
+                    setAbaMotoristasAberta(false);
+                  }}
+                  style={{ padding: '12px', backgroundColor: selecionado ? '#1e40af' : '#1e293b', borderRadius: '8px', marginBottom: '8px', cursor: 'pointer', border: selecionado ? '1px solid #38bdf8' : '1px solid transparent' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px' }}>{nomeMot}</span>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: online ? '#22c55e' : '#64748b' }} />
+                  </div>
+                  <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px' }}>Clique para focar</div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      )}
-    </>
-  );
+      </div>
+    )}
+  </>
+);
 }
 
 // --- ESTILOS ---
@@ -1946,4 +1754,3 @@ const styles = {
   btnGestorVerde: { width: '100%', padding: '10px', backgroundColor: '#22c55e', color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '6px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }
 };
 
-export default App;
