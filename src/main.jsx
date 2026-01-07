@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.jsx'
+import App from './MotoristaSimple.jsx'
 
 // Dev-only: mostra um alert para qualquer erro global (temporário)
 if (process.env.NODE_ENV !== 'production') {
