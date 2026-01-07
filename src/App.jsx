@@ -132,11 +132,11 @@ const MinhaRotaOrdenavel = ({ entregas, setEntregas, onAssinar, onFalha }) => {
 };
 
 // --- APP MOTORISTA: GOOGLE MAPS + LAYOUT ANTIGO ---
-const MotoristaRestaurado = ({ isLoaded, entregas: entregasIniciais, onConcluir, numeroGestor }) => {
+const MotoristaRestaurado = ({ isLoaded, entregas: entregasIniciais, onConcluir, numeroGestor, setMotoristaLogado, setMotoristaIdLogado }) => {
   const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   if (!googleMapsApiKey) {
     return (
-      <div style={{ color:'#f87171', padding:20, display:'flex', alignItems:'center', justifyContent:'center', height:'100dvh', background:'#0b0e14' }}>
+      <div style={{ color: '#f87171', padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100dvh', background: '#0b0e14' }}>
         <div>
           <h3>Chave do Google Maps ausente</h3>
           <p>Configure a variável <code>VITE_GOOGLE_MAPS_API_KEY</code> para carregar o mapa.</p>
@@ -144,6 +144,10 @@ const MotoristaRestaurado = ({ isLoaded, entregas: entregasIniciais, onConcluir,
       </div>
     );
   }
+
+  // Fluxo interno do motorista: welcome -> register -> map
+  const [motoristaStep, setMotoristaStep] = useState('welcome');
+  const [regForm, setRegForm] = useState({ nome: '', tel: '', senha: '' });
 
   // 1) Estado do centro do mapa (inicial com valor padrão)
   const [centroMapa, setCentroMapa] = useState({ lat: -23.5505, lng: -46.6333 });
@@ -216,7 +220,65 @@ const MotoristaRestaurado = ({ isLoaded, entregas: entregasIniciais, onConcluir,
     }
   };
 
-  if (!isLoaded) {
+  // Se o motorista ainda não avançou para o mapa, mostramos o fluxo de boas-vindas / cadastro
+  if (motoristaStep === 'welcome') {
+    return (
+      <div style={{ height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0b0e14', color: '#fff', padding: 20 }}>
+        <div style={{ maxWidth: 480, textAlign: 'center' }}>
+          <h1 style={{ fontSize: 28, marginBottom: 8 }}>🚚 Bem-vindo, Motorista</h1>
+          <p style={{ color: '#94a3b8', marginBottom: 20 }}>Use o botão abaixo para criar sua conta e começar a receber entregas no app motorista.</p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <button onClick={() => setMotoristaStep('register')} style={{ padding: '12px 18px', background: '#22c55e', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold' }}>Criar Conta</button>
+            <button onClick={() => setMotoristaStep('map')} style={{ padding: '12px 18px', background: '#3b82f6', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold' }}>Entrar sem cadastro</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (motoristaStep === 'register') {
+    return (
+      <div style={{ height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0b0e14', color: '#fff', padding: 20 }}>
+        <div style={{ width: '100%', maxWidth: 480 }}>
+          <h2 style={{ marginTop: 0 }}>Criar Conta de Motorista</h2>
+          <label style={{ color: '#94a3b8' }}>Nome completo</label>
+          <input value={regForm.nome} onChange={(e) => setRegForm(r => ({ ...r, nome: e.target.value }))} style={{ width: '100%', padding: 10, marginBottom: 10 }} />
+          <label style={{ color: '#94a3b8' }}>Telefone (com DDD)</label>
+          <input value={regForm.tel} onChange={(e) => setRegForm(r => ({ ...r, tel: e.target.value }))} style={{ width: '100%', padding: 10, marginBottom: 10 }} />
+          <label style={{ color: '#94a3b8' }}>Senha</label>
+          <input type="password" value={regForm.senha} onChange={(e) => setRegForm(r => ({ ...r, senha: e.target.value }))} style={{ width: '100%', padding: 10, marginBottom: 20 }} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={async () => {
+              const telClean = (regForm.tel || '').replace(/\D/g, '');
+              if (!telClean || telClean.length < 10) return alert('Informe um telefone válido com DDD (ex: 5511999999999).');
+              try {
+                const payload = { nome: regForm.nome || regForm.tel, motoristas: regForm.nome || regForm.tel, tel: regForm.tel, telefone: regForm.tel, senha: regForm.senha };
+                const { data, error } = await supabase.from('motoristas').insert([payload]).select().maybeSingle();
+                if (error) {
+                  alert(humanizeSupabaseError(error));
+                } else {
+                  const nomeUsuario = data?.motoristas || data?.nome || payload.motoristas;
+                  setMotoristaLogado?.(nomeUsuario);
+                  setMotoristaIdLogado?.(data?.id || null);
+                  localStorage.setItem('mot_v10_nome', nomeUsuario);
+                  if (data?.id) { localStorage.setItem('mot_v10_id', data.id); localStorage.setItem('motoristaId', data.id); }
+                  setMotoristaStep('map');
+                  buscarEntregas();
+                }
+              } catch (err) {
+                console.error('Erro ao cadastrar motorista:', err);
+                alert('Erro ao cadastrar motorista. Tente novamente.');
+              }
+            }} style={{ padding: '12px 18px', background: '#22c55e', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold' }}>Cadastrar</button>
+            <button onClick={() => setMotoristaStep('welcome')} style={{ padding: '12px 18px', background: '#64748b', border: 'none', borderRadius: 8, cursor: 'pointer' }}>Voltar</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Somente quando for pra renderizar o mapa exigimos que o Google já esteja carregado
+  if (!isLoaded && motoristaStep === 'map') {
     return (
       <div style={{ background: '#0b0e14', height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
         <strong>Carregando GPS Ativo...</strong>
@@ -507,11 +569,29 @@ const MotoristaRestaurado = ({ isLoaded, entregas: entregasIniciais, onConcluir,
 };
 
 
+function WelcomeScreen({ onNext }) {
+  return (
+    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0b0e14', color: '#fff', padding: 20 }}>
+      <div style={{ maxWidth: 480, textAlign: 'center' }}>
+        <h1 style={{ fontSize: 28, marginBottom: 8 }}>🚚 Logística V2</h1>
+        <p style={{ color: '#94a3b8', marginBottom: 20 }}>Bem-vindo ao sistema. Clique em começar para acessar o app.</p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <button onClick={onNext} style={{ padding: '12px 18px', background: '#22c55e', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold' }}>Começar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
+  // Se estivermos na tela de boas-vindas, exibe e retorna (aparece sempre)
+  if (view === 'welcome') {
+    return <WelcomeScreen onNext={() => setView(window.innerWidth < 768 ? 'motorista' : 'gestor')} />;
+  }
+
   // --- ESTADOS GERAIS ---
   const [entregas, setEntregas] = useState([]);
   const [motoristas, setMotoristas] = useState([]);
-  const [view, setView] = useState(window.innerWidth < 768 ? 'motorista' : 'gestor');
 
   // --- ESTADO NOVO: WHATSAPP DO GESTOR ---
   const [numeroGestor, setNumeroGestor] = useState('5500000000000');
@@ -1317,7 +1397,7 @@ function App() {
   // 1. APP MOTORISTA
   if (view === 'motorista') {
     const minhasEntregas = entregas.filter(e => e.motorista_id === motoristaIdLogado || e.motorista_id === Number(localStorage.getItem('motoristaId')));
-    return <MotoristaRestaurado isLoaded={isLoaded} entregas={minhasEntregas} onConcluir={concluirEntrega} numeroGestor={numeroGestor} />;
+    return <MotoristaRestaurado isLoaded={isLoaded} entregas={minhasEntregas} onConcluir={concluirEntrega} numeroGestor={numeroGestor} setMotoristaLogado={setMotoristaLogado} setMotoristaIdLogado={setMotoristaIdLogado} />;
   }
 
   // 2. PAINEL GESTOR
