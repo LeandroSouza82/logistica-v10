@@ -81,6 +81,9 @@ const MapScreen = () => {
           icon={{ url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' }}
         />
       </GoogleMap>
+
+      {/* Painel deslizante de pedidos */}
+      <DeliveryApp />
     </div>
   );
 };
