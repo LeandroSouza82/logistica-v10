@@ -4,6 +4,10 @@ import { GoogleMap, Marker, Polyline } from '@react-google-maps/api';
 const centroPalhoca = { lat: -27.6438, lng: -48.6674 };
 
 function MapaGestor({ pedidosNoRascunho = [], posicaoMoto = null, height = 500, isLoaded = true }) {
+    const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!googleMapsApiKey) {
+        return <div style={{ color: '#f87171', padding: 12 }}>Chave do Google Maps não configurada. Configure a variável `VITE_GOOGLE_MAPS_API_KEY`.</div>;
+    }
     const [map, setMap] = useState(null);
 
     const onLoad = useCallback((mapInstance) => setMap(mapInstance), []);

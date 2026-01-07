@@ -8,6 +8,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 // Importações do Mapa
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Autocomplete, Circle } from '@react-google-maps/api';
+import { humanizeSupabaseError, safeInsertMotorista } from './utils/supabaseHelpers';
 
 // Áudio curto para alertas (pode trocar por outro link se desejar)
 const SOM_ALARME_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
@@ -132,6 +133,18 @@ const MinhaRotaOrdenavel = ({ entregas, setEntregas, onAssinar, onFalha }) => {
 
 // --- APP MOTORISTA: GOOGLE MAPS + LAYOUT ANTIGO ---
 const MotoristaRestaurado = ({ isLoaded, entregas: entregasIniciais, onConcluir, numeroGestor }) => {
+  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  if (!googleMapsApiKey) {
+    return (
+      <div style={{ color:'#f87171', padding:20, display:'flex', alignItems:'center', justifyContent:'center', height:'100dvh', background:'#0b0e14' }}>
+        <div>
+          <h3>Chave do Google Maps ausente</h3>
+          <p>Configure a variável <code>VITE_GOOGLE_MAPS_API_KEY</code> para carregar o mapa.</p>
+        </div>
+      </div>
+    );
+  }
+
   // 1) Estado do centro do mapa (inicial com valor padrão)
   const [centroMapa, setCentroMapa] = useState({ lat: -23.5505, lng: -46.6333 });
   // Container fixo do mapa (usa dvh para altura real no mobile)
@@ -852,7 +865,7 @@ function App() {
       }
 
       if (error) {
-        alert("Erro ao salvar número: " + error.message);
+        alert(humanizeSupabaseError(error));
       } else {
         alert("Número do WhatsApp atualizado com sucesso!");
         setNumeroGestor(inputZapConfig);
@@ -1187,7 +1200,7 @@ function App() {
       await buscarDados();
     } else {
       console.error(error);
-      alert("❌ Erro no banco: " + error.message);
+      alert(humanizeSupabaseError(error));
     }
   };
 
@@ -1243,7 +1256,7 @@ function App() {
       status: statusComMotivo, assinatura: 'NAO', horario_conclusao: new Date().toISOString()
     }).eq('id', entregaFocada);
 
-    if (error) { alert("Erro ao salvar: " + error.message); }
+    if (error) { alert(humanizeSupabaseError(error)); }
     else {
       const entregaAtual = entregas.find(e => e.id === entregaFocada);
       if (entregaAtual) {
