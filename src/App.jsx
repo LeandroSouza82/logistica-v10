@@ -546,9 +546,12 @@ function App() {
   }, []);
 
   // Loader do Google Maps e InfoWindow selecionada
+  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  if (!googleMapsApiKey) console.error('VITE_GOOGLE_MAPS_API_KEY não definida — o mapa pode falhar ao carregar.');
+
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: 'AIzaSyBeec8r4DWBdNIEFSEZg1CgRxIHjYMV9dM',
+    googleMapsApiKey,
     libraries: GOOGLE_MAPS_LIBRARIES,
   });
   const [pontoAtivo, setPontoAtivo] = useState(null);
