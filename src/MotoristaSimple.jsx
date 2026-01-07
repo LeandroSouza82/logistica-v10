@@ -62,13 +62,24 @@ const MapScreen = () => {
         center={position || defaultCenter}
         zoom={position ? 15 : 13}
       >
-        {/* Marcador do motorista (posição atual) */}
+        {/* Marcador do motorista (posição atual) com ícone de moto */}
         {position && (
-          <Marker position={position} label={{ text: 'Você', color: 'white' }} />
+          <Marker
+            position={position}
+            title="Você"
+            icon={window.google && window.google.maps ? {
+              url: 'https://maps.google.com/mapfiles/kml/shapes/motorcycling.png',
+              scaledSize: new window.google.maps.Size(36, 36)
+            } : 'https://maps.google.com/mapfiles/kml/shapes/motorcycling.png'}
+          />
         )}
 
-        {/* Marcador de destino/entrega (exemplo estático) */}
-        <Marker position={{ lat: -23.56, lng: -46.65 }} label={{ text: 'Entrega #01', color: 'white' }} />
+        {/* Marcador de destino/entrega (exemplo estático) com ícone de pino */}
+        <Marker
+          position={{ lat: -23.56, lng: -46.65 }}
+          title="Entrega #01"
+          icon={{ url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' }}
+        />
       </GoogleMap>
     </div>
   );
