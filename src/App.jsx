@@ -584,6 +584,9 @@ function WelcomeScreen({ onNext }) {
 }
 
 function App() {
+  // Estado da view principal (welcome | motorista | gestor)
+  const [view, setView] = useState('welcome');
+
   // Se estivermos na tela de boas-vindas, exibe e retorna (aparece sempre)
   if (view === 'welcome') {
     return <WelcomeScreen onNext={() => setView(window.innerWidth < 768 ? 'motorista' : 'gestor')} />;
