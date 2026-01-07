@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useJsApiLoader, GoogleMap } from '@react-google-maps/api';
+import React, { useState, useEffect } from 'react';
+import { useJsApiLoader, GoogleMap, Marker } from '@react-google-maps/api';
 
 const containerStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#121212', color: 'white' };
 const buttonStyle = { padding: '15px 40px', fontSize: '1.2rem', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', marginTop: '20px' };
@@ -30,17 +30,43 @@ const MapScreen = () => {
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
   });
 
-  const center = { lat: -23.5505, lng: -46.6333 };
+  const defaultCenter = { lat: -23.5505, lng: -46.6333 };
+  const [position, setPosition] = useState(null);
+  const [geoError, setGeoError] = useState(null);
+
+  useEffect(() => {
+    if (!('geolocation' in navigator)) {
+      setGeoError('Geolocalização não suportada pelo navegador.');
+      return;
+    }
+
+    // Pega posição inicial e atualiza continuamente
+    const watchId = navigator.geolocation.watchPosition((pos) => {
+      setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    }, (err) => {
+      console.warn('Geolocation error:', err);
+      setGeoError(err.message || 'Erro ao acessar GPS');
+    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 });
+
+    return () => { if (watchId) navigator.geolocation.clearWatch(watchId); };
+  }, []);
 
   if (loadError) return <div style={containerStyle}>Erro ao carregar o mapa. Verifique a chave.</div>;
   if (!isLoaded) return <div style={containerStyle}>Carregando Google Maps...</div>;
 
   return (
-    <GoogleMap
-      mapContainerStyle={{ width: '100vw', height: '100vh' }}
-      center={center}
-      zoom={14}
-    />
+    <div style={{ position: 'relative' }}>
+      {geoError && <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 2000, background: '#f87171', color: '#000', padding: '6px 10px', borderRadius: 6 }}>{geoError}</div>}
+      <GoogleMap
+        mapContainerStyle={{ width: '100vw', height: '100vh' }}
+        center={position || defaultCenter}
+        zoom={position ? 15 : 13}
+      >
+        {position && (
+          <Marker position={position} label={{ text: 'Você', color: 'white' }} />
+        )}
+      </GoogleMap>
+    </div>
   );
 };
 
