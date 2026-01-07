@@ -62,9 +62,13 @@ const MapScreen = () => {
         center={position || defaultCenter}
         zoom={position ? 15 : 13}
       >
+        {/* Marcador do motorista (posição atual) */}
         {position && (
           <Marker position={position} label={{ text: 'Você', color: 'white' }} />
         )}
+
+        {/* Marcador de destino/entrega (exemplo estático) */}
+        <Marker position={{ lat: -23.56, lng: -46.65 }} label={{ text: 'Entrega #01', color: 'white' }} />
       </GoogleMap>
     </div>
   );
