@@ -2,14 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import SignatureCanvas from 'react-signature-canvas';
-import { createClient } from '@supabase/supabase-js';
 import Dashboard from './Dashboard.jsx';
-
-// Use as chaves que você copiou do painel API do Supabase
-const supabaseUrl = 'https://xdsoctyzmsxbhtjehsqd.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkc29jdHl6bXN4Ymh0amVoc3FkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYzMjcxMDMsImV4cCI6MjA4MTkwMzEwM30.WjvJ9E52JXJzjnWAocxQsS9vSAZmrndUuAjUKW_pyCk';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabase } from './supabaseClient';
 
 // ⚠️ COLOQUE O SEU NÚMERO DE WHATSAPP AQUI (Com DDD)
 const WHATSAPP_GESTOR = "5511999999999";
@@ -22,15 +16,11 @@ export default function App() {
     { id: '2', cliente: 'Padaria Central', local: 'Av. Brasil, 450', status: 'pendente' },
   ]);
 
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-  });
-
-  if (!isLoaded) return <div style={{ color: 'white', textAlign: 'center', marginTop: '50vh' }}>Carregando...</div>;
+  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY, libraries: ['maps'] });
 
   // Renderiza o painel do gestor (Dashboard com Realtime) quando for admin
   return isAdmin ? (
-    <Dashboard />
+    <Dashboard isLoaded={isLoaded} />
   ) : (
     <DriverView pedidos={pedidos} setPedidos={setPedidos} />
   );

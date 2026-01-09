@@ -1,19 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+import { GoogleMap, Marker } from '@react-google-maps/api';
 import { supabase } from './supabaseClient';
 
-// Definição reutilizável do estilo do container do mapa
+// Definição reutilizável do estilo do container do dashboard/mapa
 const containerStyle = {
     width: '100%',
-    height: '100%',
+    height: '100vh',
+    display: 'flex',
+    flexDirection: 'row',
+    backgroundColor: '#ff0000',
+    color: 'white',
+};
+
+// Centro padrão do mapa (Palhoça)
+const center = {
+    lat: -27.612,
+    lng: -48.675,
 };
 
 
 
-export default function PainelGestor() {
-    const [motoristaPos, setMotoristaPos] = useState({ lat: -27.6, lng: -48.6 });
+export default function PainelGestor({ isLoaded }) {
+    // inicia centralizado no `center` e atualiza com posições do Supabase
+    const [motoristaPos, setMotoristaPos] = useState(center);
     const [entregas, setEntregas] = useState([]);
-    const { isLoaded } = useJsApiLoader({ googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY });
+
+    // Estilo específico do container do GoogleMap (usa 100% do bloco pai)
+    const mapContainerStyle = { width: '100%', height: '100%' };
 
     useEffect(() => {
         // busca entregas iniciais
@@ -54,11 +67,11 @@ export default function PainelGestor() {
     }, []);
 
     return (
-        <div className="containerPrincipal">
-            {/* MAPA DO GESTOR */}
-            <div className="mapaContainer">
+        <div style={containerStyle}>
+            {/* Conteúdo do Dashboard: Mapa e Lista de Pedidos */}
+            <div style={{ flex: 2 }}>
                 {isLoaded ? (
-                    <GoogleMap mapContainerStyle={containerStyle} center={motoristaPos} zoom={13} options={{ disableDefaultUI: true }}>
+                    <GoogleMap mapContainerStyle={mapContainerStyle} center={motoristaPos} zoom={13} options={{ disableDefaultUI: true }}>
                         <Marker position={motoristaPos} />
                     </GoogleMap>
                 ) : (
@@ -66,8 +79,7 @@ export default function PainelGestor() {
                 )}
             </div>
 
-            {/* TABELA LATERAL DE ENTREGAS */}
-            <div className="sidebar">
+            <div style={{ flex: 1, backgroundColor: '#0a1a33', padding: 20, overflowY: 'auto' }}>
                 <h2 style={{ marginTop: 0 }}>Entregas do Dia</h2>
                 {entregas.map(e => (
                     <div key={e.id} className="cardEntrega">

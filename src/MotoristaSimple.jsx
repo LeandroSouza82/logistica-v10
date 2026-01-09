@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useJsApiLoader, GoogleMap, Marker } from '@react-google-maps/api';
+import { GoogleMap, Marker } from '@react-google-maps/api';
 import DeliveryApp from './components/DeliveryApp.jsx';
 
 const containerStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#121212', color: 'white' };
@@ -27,9 +27,9 @@ const RegisterScreen = ({ onRegister }) => (
 
 // 3. TELA DO MAPA
 const MapScreen = () => {
-    const { isLoaded, loadError } = useJsApiLoader({
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-    });
+    // Dependemos do loader único do Dashboard — aqui verificamos se a API já foi carregada
+    const loadError = false;
+    const isLoaded = typeof window !== 'undefined' && window.google && window.google.maps;
 
     const defaultCenter = { lat: -23.5505, lng: -46.6333 };
     const [position, setPosition] = useState(null);
