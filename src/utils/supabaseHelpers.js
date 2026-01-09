@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient';
+import { supabase } from '../supabase';
 
 // Converte erros do Supabase em mensagens amigáveis para exibição ao usuário
 export function humanizeSupabaseError(error) {

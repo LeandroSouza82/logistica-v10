@@ -3,7 +3,7 @@ import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import SignatureCanvas from 'react-signature-canvas';
 import Dashboard from './Dashboard.jsx';
-import { supabase } from './supabaseClient';
+import { supabase } from './supabase';
 
 // ⚠️ COLOQUE O SEU NÚMERO DE WHATSAPP AQUI (Com DDD)
 const WHATSAPP_GESTOR = "5511999999999";

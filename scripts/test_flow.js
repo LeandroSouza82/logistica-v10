@@ -1,4 +1,4 @@
-import { supabase } from '../src/supabaseClient.js';
+import { supabase } from '../src/supabase.js';
 
 async function main() {
     console.log('Iniciando script de teste (inserir motorista + pedido + simular falha)');

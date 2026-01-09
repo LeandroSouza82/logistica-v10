@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { GoogleMap, Marker } from '@react-google-maps/api';
-import { supabase } from './supabaseClient';
+import { supabase } from './supabase';
 
 // Definição reutilizável do estilo do container do dashboard/mapa
 const containerStyle = {
