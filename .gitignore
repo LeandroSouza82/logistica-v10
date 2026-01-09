@@ -28,3 +28,9 @@ dist-ssr
 
 .vercel
 .env*.local
+
+# Mobile audio assets (avoid committing large or sensitive audio files)
+mobile/assets/*.mp3
+
+# Expo local state (should not be committed)
+.expo/

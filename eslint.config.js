@@ -2,6 +2,7 @@ import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
+import reactNative from 'eslint-plugin-react-native'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
@@ -25,5 +26,21 @@ export default defineConfig([
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
-  },
-])
+  },  // Regras específicas para o app React Native dentro de /mobile
+  {
+    files: ['mobile/**/*.{js,jsx}'],
+    plugins: { 'react-native': reactNative },
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.browser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        ecmaFeatures: { jsx: true },
+        sourceType: 'module',
+      },
+    },
+    rules: {
+      // Evita texto cru fora de <Text> no app mobile
+      'react-native/no-raw-text': ['error', { skip: ['StyledText', 'Icon'] }],
+    },
+  }])

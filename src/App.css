@@ -285,6 +285,38 @@ body,
   gap: 10px;
 }
 
+/* Dashboard custom styles do usuário */
+.containerPrincipal {
+  display: flex;
+  height: 100vh;
+  background-color: #000c1d;
+  color: white;
+}
+
+.sidebar {
+  width: 350px;
+  background-color: #0a1a33;
+  padding: 20px;
+  border-left: 1px solid #1e3a5f;
+  overflow-y: auto;
+}
+
+.cardEntrega {
+  background-color: #162a47;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  border-left: 4px solid #00ff00;
+}
+
+.mapaContainer {
+  flex: 1;
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0f0f0f;
+}
+
 /* Card de Ponto (Entrega) */
 .card-ponto {
   display: flex;

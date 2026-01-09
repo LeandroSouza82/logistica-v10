@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useJsApiLoader, GoogleMap, Marker } from '@react-google-maps/api';
+import DeliveryApp from './components/DeliveryApp.jsx';
 
 const containerStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#121212', color: 'white' };
 const buttonStyle = { padding: '15px 40px', fontSize: '1.2rem', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', marginTop: '20px' };

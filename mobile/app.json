@@ -1,0 +1,23 @@
+{
+    "expo": {
+        "name": "App Motorista",
+        "slug": "app-motorista",
+        "version": "1.0.0",
+        "android": {
+            "package": "com.seuusuario.logistica",
+            "config": {
+                "googleMaps": {
+                    "apiKey": "SUA_CHAVE_AQUI_DO_GOOGLE_MAPS"
+                }
+            }
+        },
+        "plugins": [
+            "expo-av"
+        ],
+        "ios": {
+            "infoPlist": {
+                "NSLocationWhenInUseUsageDescription": "Usamos sua localização para mostrar rotas de entrega."
+            }
+        }
+    }
+}
