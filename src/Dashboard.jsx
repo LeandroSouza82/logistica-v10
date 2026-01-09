@@ -41,15 +41,7 @@ export default function PainelGestor({ isLoaded }) {
 
         buscarEntregas();
 
-        // 1. Escutar a posição do motorista em tempo real
-        const canalMotorista = supabase
-            .channel('monitoramento')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'motoristas' }, payload => {
-                const lat = Number(payload.new.lat);
-                const lng = Number(payload.new.lng);
-                setMotoristaPos({ lat, lng });
-            })
-            .subscribe();
+        // (listener de motorista removido daqui — agora será o useEffect específico abaixo)
 
         // 2. Escutar novos pedidos concluídos
         const canalEntregas = supabase
@@ -61,9 +53,27 @@ export default function PainelGestor({ isLoaded }) {
             .subscribe();
 
         return () => {
-            try { supabase.removeChannel(canalMotorista); } catch (e) { /* ignore */ }
             try { supabase.removeChannel(canalEntregas); } catch (e) { /* ignore */ }
         };
+    }, []);
+
+    // Isso aqui faz o Dashboard "ouvir" o sinal do seu celular
+    useEffect(() => {
+        // Isso aqui faz o Dashboard "ouvir" o sinal do seu celular
+        const canal = supabase
+            .channel('rastreio-motorista')
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'motoristas'
+            }, (payload) => {
+                console.log("Sinal recebido do celular!", payload.new);
+                // Aqui o ponto vermelho se move no mapa do Vercel:
+                setMotoristaPos({ lat: payload.new.lat, lng: payload.new.lng });
+            })
+            .subscribe();
+
+        return () => supabase.removeChannel(canal);
     }, []);
 
     return (
