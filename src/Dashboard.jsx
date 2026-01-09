@@ -28,6 +28,16 @@ export default function PainelGestor({ isLoaded }) {
     // Estilo específico do container do GoogleMap (usa 100% do bloco pai)
     const mapContainerStyle = { width: '100%', height: '100%' };
 
+    // Proteção rápida: avisa se o loader do Google Maps não estiver pronto
+    useEffect(() => {
+        if (typeof isLoaded === 'undefined') return;
+        if (!isLoaded) {
+            console.warn('Google Maps API não carregada ainda (isLoaded=false). Verifique a variável de ambiente VITE_GOOGLE_MAPS_API_KEY e se há apenas um loader.');
+        } else {
+            console.log('Google Maps API carregada (isLoaded=true).');
+        }
+    }, [isLoaded]);
+
     useEffect(() => {
         // busca entregas iniciais
         const buscarEntregas = async () => {
