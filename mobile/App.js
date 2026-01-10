@@ -7,9 +7,11 @@ import { supabase } from './src/supabaseClient';
 import * as SecureStore from 'expo-secure-store';
 
 export default function App() {
-    const [showWelcome, setShowWelcome] = useState(true);
+    // Forçar o app como logado para testes locais
+    const [showWelcome, setShowWelcome] = useState(false);
     const [showLogin, setShowLogin] = useState(false);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(true);
+    // Força motoristaId = 1 por padrão
     const [motoristaId, setMotoristaId] = useState(1);
 
     useEffect(() => {
