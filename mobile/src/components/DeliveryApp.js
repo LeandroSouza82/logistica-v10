@@ -331,7 +331,7 @@ export default function DeliveryApp(props) {
             const subscription = await Location.watchPositionAsync(
                 {
                     accuracy: Location.Accuracy.High,
-                    timeInterval: 1000,
+                    timeInterval: 5000,
                     distanceInterval: 1,
                 },
                 (location) => {
@@ -370,7 +370,7 @@ export default function DeliveryApp(props) {
                     }
 
                     // Envia posição ao Supabase (forçando id=1)
-                    enviarPosicao(coords);
+                    enviarPosicao(location.coords);
                 }
             );
 
@@ -413,7 +413,7 @@ export default function DeliveryApp(props) {
             const subscription = await Location.watchPositionAsync(
                 {
                     accuracy: Location.Accuracy.High,
-                    timeInterval: 1000,
+                    timeInterval: 5000,
                     distanceInterval: 1,
                 },
                 (location) => {
@@ -447,7 +447,7 @@ export default function DeliveryApp(props) {
                             }, 1000);
                         } catch (e) { /* ignore */ }
 
-                        enviarPosicao(coords);
+                        enviarPosicao(location.coords);
                     } catch (e) { console.warn('Erro no watchPosition callback:', e?.message || e); }
                 }
             );
