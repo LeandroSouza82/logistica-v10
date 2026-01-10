@@ -49,16 +49,18 @@ export default function PainelGestor() {
         };
         buscarDados();
 
-        const canalMotoristas = supabase
-            .channel('rastreio-geral')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'motoristas' }, payload => {
-                setMotoristas(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
-            })
-            .subscribe();
+        const canal = supabase
+          .channel('schema-db-changes')
+          .on('postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'motoristas' },
+            (payload) => {
+              console.log('Mudança recebida!', payload.new);
+              setMotoristas(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
+            }
+          )
+          .subscribe();
 
-        return () => {
-            supabase.removeChannel(canalMotoristas);
-        };
+        return () => supabase.removeChannel(canal);
     }, []);
 
     if (loadError) return <div style={{ color: '#f88', padding: 20 }}>Erro no Google Maps.</div>;
