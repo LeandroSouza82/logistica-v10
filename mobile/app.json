@@ -3,11 +3,16 @@
         "name": "App Motorista",
         "slug": "app-motorista",
         "version": "1.0.0",
+        "extra": {
+            "VITE_SUPABASE_URL": "https://xdsoctyzmsxbhtjehqsd.supabase.co",
+            "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "VITE_GOOGLE_MAPS_API_KEY": "AIzaSyBeec8r4DWBdNIEFSEZg1CgRxIHjYMV9dM"
+        },
         "android": {
             "package": "com.seuusuario.logistica",
             "config": {
                 "googleMaps": {
-                    "apiKey": "SUA_CHAVE_AQUI_DO_GOOGLE_MAPS"
+                    "apiKey": "AIzaSyBeec8r4DWBdNIEFSEZg1CgRxIHjYMV9dM"
                 }
             }
         },

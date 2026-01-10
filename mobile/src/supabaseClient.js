@@ -1,7 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js'
+import Constants from 'expo-constants'
 
-const supabaseUrl = "https://xdsoctyzmsxbhtjehqsd.supabase.co"
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." // Cole a chave ANON completa aqui
+// Prefere valores em app.json -> expo.extra (seguros para builds) e depois usa env vars
+const extras = Constants.expoConfig?.extra || Constants.manifest?.extra || {}
+const supabaseUrl = extras.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://xdsoctyzmsxbhtjehqsd.supabase.co"
+const supabaseKey = extras.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+if (!supabaseKey) {
+  // Em desenvolvimento exibimos erro amigável
+  throw new Error('[runtime not ready]: supabaseKey is required. Defina as chaves em expo.extra (app.json) ou via variáveis de ambiente')
+}
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
