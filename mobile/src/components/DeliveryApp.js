@@ -323,7 +323,7 @@ export default function DeliveryApp(props) {
         (async () => {
             let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert("Erro", "Precisamos do GPS para a moto aparecer no mapa!");
+                Alert.alert('Erro', 'Precisamos da permissão de localização para rastrear!');
                 return;
             }
 
@@ -405,7 +405,7 @@ export default function DeliveryApp(props) {
 
             let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Erro', 'Precisamos do GPS para a moto aparecer no mapa!');
+                Alert.alert('Erro', 'Precisamos da permissão de localização para rastrear!');
                 return;
             }
 
