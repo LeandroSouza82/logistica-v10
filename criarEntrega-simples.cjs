@@ -6,8 +6,8 @@ const oldFunc = `  const criarEntregaTeste = async () => {
       endereco: "Rua de Teste, 123",
       motorista: "Motorista Teste", // Precisa ser igual ao nome na tabela
       status: "Pendente",
-      lat: -23.5505, // Coordenada inicial
-      lng: -46.6333,
+      lat: -27.612, // Coordenada inicial (Palhoça)
+      lng: -48.675,
       criado_em: new Date().toISOString()
     };
 

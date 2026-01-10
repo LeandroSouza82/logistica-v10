@@ -8,6 +8,7 @@ Write-Host "ProjectId: $projId"
 $envs = @(
     @{ key = 'VITE_SUPABASE_URL'; value = 'https://xdsoctyzmsxbhtjehsqd.supabase.co'; type = 'encrypted'; target = @('production', 'preview') },
     @{ key = 'VITE_SUPABASE_ANON_KEY'; value = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkc29jdHl6bXN4Ymh0amVoc3FkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYzMjcxMDMsImV4cCI6MjA4MTkwMzEwM30.WjvJ9E52JXJzjnWAocxQsS9vSAZmrndUuAjUKW_pyCk'; type = 'encrypted'; target = @('production', 'preview') }
+    @{ key = 'VITE_GOOGLE_MAPS_API_KEY'; value = 'AIzaSyBeec8r4DWBdNIEFSEZg1CgRxIHjYMV9dM'; type = 'encrypted'; target = @('production', 'preview') }
 )
 foreach ($e in $envs) {
     $body = $e | ConvertTo-Json -Depth 6

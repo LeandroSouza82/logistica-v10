@@ -2,110 +2,119 @@ import React, { useEffect, useState } from 'react';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import { supabase } from './supabase';
 
-// Definição reutilizável do estilo do container do dashboard/mapa
 const containerStyle = {
     width: '100%',
     height: '100vh',
     display: 'flex',
     flexDirection: 'row',
-    backgroundColor: '#ff0000',
+    backgroundColor: '#0B1F3A',
     color: 'white',
 };
 
-// Centro padrão do mapa (Palhoça)
-const center = {
-    lat: -27.612,
-    lng: -48.675,
+const center = { lat: -27.612, lng: -48.675 };
+
+// Cria um ícone SVG maior com círculo pulsante e um emoji de moto como fallback.
+const pulsingMotoSvg = (color = '#3b82f6') => {
+    const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <circle cx="48" cy="48" r="10" fill="${color}" fill-opacity="0.95">
+    <animate attributeName="r" from="10" to="40" dur="1.6s" repeatCount="indefinite" />
+    <animate attributeName="opacity" from="0.9" to="0" dur="1.6s" repeatCount="indefinite" />
+  </circle>
+  <g transform="translate(48,48)">
+    <text x="-18" y="18" font-size="36" font-family="Arial, Helvetica, sans-serif" fill="#fff">🏍️</text>
+  </g>
+</svg>`;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 };
 
-
-
 export default function PainelGestor({ isLoaded }) {
-    // inicia centralizado no `center` e atualiza com posições do Supabase
-    const [motoristaPos, setMotoristaPos] = useState(center);
+    const [motoristas, setMotoristas] = useState([]); // Lista de todas as motos
     const [entregas, setEntregas] = useState([]);
 
-    // Estilo específico do container do GoogleMap (usa 100% do bloco pai)
     const mapContainerStyle = { width: '100%', height: '100%' };
 
-    // Proteção rápida: avisa se o loader do Google Maps não estiver pronto
     useEffect(() => {
-        if (typeof isLoaded === 'undefined') return;
-        if (!isLoaded) {
-            console.warn('Google Maps API não carregada ainda (isLoaded=false). Verifique a variável de ambiente VITE_GOOGLE_MAPS_API_KEY e se há apenas um loader.');
-        } else {
-            console.log('Google Maps API carregada (isLoaded=true).');
-        }
-    }, [isLoaded]);
+        // 1. Busca inicial de entregas e motoristas
+        const buscarDados = async () => {
+            const { data: mData } = await supabase.from('motoristas').select('*');
+            if (mData) setMotoristas(mData);
 
-    useEffect(() => {
-        // busca entregas iniciais
-        const buscarEntregas = async () => {
-            const { data } = await supabase
-                .from('entregas')
-                .select('*')
-                .order('horario_conclusao', { ascending: false })
-                .limit(50);
-            if (data) setEntregas(data);
+            const { data: eData } = await supabase.from('entregas').select('*').order('id', { ascending: false }).limit(20);
+            if (eData) setEntregas(eData);
         };
+        buscarDados();
 
-        buscarEntregas();
+        // 2. Realtime para Motoristas (Moto 1 e Moto 2)
+        const canalMotoristas = supabase
+            .channel('rastreio-geral')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'motoristas' }, payload => {
+                setMotoristas(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
+            })
+            .subscribe();
 
-        // (listener de motorista removido daqui — agora será o useEffect específico abaixo)
-
-        // 2. Escutar novos pedidos concluídos
+        // 3. Realtime para Entregas
         const canalEntregas = supabase
             .channel('entregas')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entregas' }, payload => {
-                // adiciona no topo da lista
                 setEntregas(prev => [payload.new, ...prev]);
             })
             .subscribe();
 
         return () => {
-            try { supabase.removeChannel(canalEntregas); } catch (e) { /* ignore */ }
+            supabase.removeChannel(canalMotoristas);
+            supabase.removeChannel(canalEntregas);
         };
-    }, []);
-
-    // Isso aqui faz o Dashboard "ouvir" o sinal do seu celular
-    useEffect(() => {
-        // Isso aqui faz o Dashboard "ouvir" o sinal do seu celular
-        const canal = supabase
-            .channel('rastreio-motorista')
-            .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'motoristas'
-            }, (payload) => {
-                console.log("Sinal recebido do celular!", payload.new);
-                // Aqui o ponto vermelho se move no mapa do Vercel:
-                setMotoristaPos({ lat: payload.new.lat, lng: payload.new.lng });
-            })
-            .subscribe();
-
-        return () => supabase.removeChannel(canal);
     }, []);
 
     return (
         <div style={containerStyle}>
-            {/* Conteúdo do Dashboard: Mapa e Lista de Pedidos */}
             <div style={{ flex: 2 }}>
                 {isLoaded ? (
-                    <GoogleMap mapContainerStyle={mapContainerStyle} center={motoristaPos} zoom={13} options={{ disableDefaultUI: true }}>
-                        <Marker position={motoristaPos} />
+                    <GoogleMap
+                        mapContainerStyle={mapContainerStyle}
+                        center={motoristas.find(m => m.id === 1) || center}
+                        zoom={14}
+                    >
+                        {motoristas.map(m => {
+                            // Só mostra no mapa se enviou sinal nos últimos 5 minutos
+                            const online = (new Date() - new Date(m.ultimo_sinal)) < (5 * 60 * 1000);
+                            if (!online || !m.lat) return null;
+
+                            const icon = (typeof window !== 'undefined' && window.google) ? {
+                                url: pulsingMotoSvg('#3b82f6'),
+                                scaledSize: new window.google.maps.Size(96, 96),
+                                anchor: new window.google.maps.Point(48, 48)
+                            } : undefined;
+
+                            return (
+                                <Marker
+                                    key={m.id}
+                                    position={{ lat: Number(m.lat), lng: Number(m.lng) }}
+                                    icon={icon}
+                                    title={m.nome ? m.nome : `MOTO ${m.id}`}
+                                    label={{
+                                        text: m.nome ? m.nome : (m.id === 1 ? "MOTO 1 (VOCÊ)" : `MOTO ${m.id}`),
+                                        color: "white",
+                                        fontWeight: "bold",
+                                        fontSize: "14px",
+                                        className: "marker-label"
+                                    }}
+                                />
+                            );
+                        })}
                     </GoogleMap>
                 ) : (
                     <div style={{ color: '#ccc', padding: 20 }}>Carregando mapa...</div>
                 )}
             </div>
 
-            <div style={{ flex: 1, backgroundColor: '#0a1a33', padding: 20, overflowY: 'auto' }}>
-                <h2 style={{ marginTop: 0 }}>Entregas do Dia</h2>
+            <div style={{ flex: 1, backgroundColor: '#0a1a33', padding: 20, overflowY: 'auto', borderLeft: '1px solid #1e293b' }}>
+                <h2 style={{ marginTop: 0, color: '#3b82f6' }}>Entregas Realizadas</h2>
                 {entregas.map(e => (
-                    <div key={e.id} className="cardEntrega">
+                    <div key={e.id} style={{ background: '#112240', padding: 15, borderRadius: 8, marginBottom: 10, border: '1px solid #233554' }}>
                         <p style={{ margin: 0 }}><strong>Cliente:</strong> {e.cliente}</p>
-                        <p style={{ margin: 0 }}><strong>Status:</strong> ✅ Concluído</p>
-                        {e.assinatura && <img src={e.assinatura} alt="assinatura" style={{ width: '100px', marginTop: 8, borderRadius: 6 }} />}
+                        <p style={{ margin: 0, fontSize: 12, color: '#10b981' }}>✅ Concluído</p>
                     </div>
                 ))}
             </div>

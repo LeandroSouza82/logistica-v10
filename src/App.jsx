@@ -4,6 +4,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SignatureCanvas from 'react-signature-canvas';
 import Dashboard from './Dashboard.jsx';
 import { supabase } from './supabase';
+import AdvancedMarker from './components/AdvancedMarker';
+
+// Fora da função para não recriar na memória a cada renderização
+const GOOGLE_MAPS_LIBRARIES = ['places', 'geometry'];
+
+// Adicione isso para definir o tamanho do mapa
+const containerStyle = {
+  width: '100%',
+  height: '500px' // Defina uma altura fixa para o mapa aparecer
+};
 
 // ⚠️ COLOQUE O SEU NÚMERO DE WHATSAPP AQUI (Com DDD)
 const WHATSAPP_GESTOR = "5511999999999";
@@ -16,13 +26,13 @@ export default function App() {
     { id: '2', cliente: 'Padaria Central', local: 'Av. Brasil, 450', status: 'pendente' },
   ]);
 
-  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY, libraries: ['maps'] });
+  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY, libraries: GOOGLE_MAPS_LIBRARIES });
 
   // Renderiza o painel do gestor (Dashboard com Realtime) quando for admin
   return isAdmin ? (
     <Dashboard isLoaded={isLoaded} />
   ) : (
-    <DriverView pedidos={pedidos} setPedidos={setPedidos} />
+    <DriverView pedidos={pedidos} setPedidos={setPedidos} isLoaded={isLoaded} />
   );
 }
 
@@ -91,19 +101,49 @@ function ManagerDashboard({ isLoaded }) {
     });
   };
 
+  // Toca um beep curto via WebAudio (padrão client-side, pode exigir interação do usuário)
+  const playBeep = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const ac = new AudioContext();
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(880, ac.currentTime);
+      g.gain.setValueAtTime(0.001, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.2, ac.currentTime + 0.01);
+      o.connect(g);
+      g.connect(ac.destination);
+      o.start();
+      o.stop(ac.currentTime + 0.15);
+      setTimeout(() => { try { ac.close(); } catch (e) { } }, 250);
+    } catch (e) {
+      // falha silenciosa: alguns browsers bloqueiam autoplay
+    }
+  };
+
   useEffect(() => {
-    buscarEntregas();
-    buscarMotoristas();
+    // Deferir chamadas que chamam setState para evitar renderizações em cascata durante o efeito inicial
+    setTimeout(() => {
+      buscarEntregas();
+      buscarMotoristas();
+    }, 0);
   }, []);
 
   useEffect(() => {
-    // Inscreve canal Realtime para atualizações na tabela motoristas
+    // Inscreve canal Realtime para atualizações na tabela motoristas (filtro para motorista id=2)
     const canal = supabase
-      .channel('mudanca-posicao')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'motoristas' }, payload => {
-        const { lat, lng, id, ultimo_sinal } = payload.new;
-        atualizarPosicaoNoMapaGestor(Number(lat), Number(lng), id, ultimo_sinal);
-      })
+      .channel('rastreio-motorista')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'motoristas', filter: 'id=eq.2' },
+        (payload) => {
+          const { lat, lng, id, ultimo_sinal } = payload.new;
+          console.log('Sinal recebido do motorista 2!', payload.new);
+          playBeep();
+          atualizarPosicaoNoMapaGestor(Number(lat), Number(lng), id, ultimo_sinal);
+        }
+      )
       .subscribe();
 
     return () => {
@@ -126,14 +166,14 @@ function ManagerDashboard({ isLoaded }) {
       {/* MAPA DO GESTOR (mostra motoristas em tempo real) */}
       <div style={{ height: 380, marginBottom: 16, borderRadius: 8, overflow: 'hidden' }}>
         {isLoaded ? (
-          <GoogleMap mapContainerStyle={{ width: '100%', height: '100%' }} center={center} zoom={12} options={{ disableDefaultUI: true }}>
+          <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={12} options={{ disableDefaultUI: true }}>
             {motoristas.map(m => {
               const svg = pulsingSvg('#ff3b30');
               const iconUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
               return (
                 <Marker
                   key={m.id}
-                  position={{ lat: m.lat, lng: m.lng }}
+                  position={{ lat: Number(m.lat), lng: Number(m.lng) }}
                   icon={{ url: iconUrl, scaledSize: { width: 40, height: 40 } }}
                 />
               );
@@ -147,7 +187,7 @@ function ManagerDashboard({ isLoaded }) {
       {/* Lista de motoristas com último sinal */}
       <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
         {motoristas.map(m => (
-          <div key={m.id} style={{ background: '#121212', padding: 10, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div key={m.id} style={{ background: '#0B1F3A', padding: 10, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <strong>Motorista {m.id}</strong>
               <div style={{ fontSize: 12, color: '#aaa' }}>{m.lat?.toFixed?.(5)}, {m.lng?.toFixed?.(5)}</div>
@@ -169,7 +209,7 @@ function ManagerDashboard({ isLoaded }) {
             <div>Nenhuma entrega encontrada.</div>
           ) : (
             listaEntregas.map(e => (
-              <div key={e.id} style={{ background: '#1f1f1f', padding: 12, borderRadius: 8 }}>
+              <div key={e.id} style={{ background: '#0B1F3A', padding: 12, borderRadius: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <strong style={{ fontSize: 16 }}>{e.cliente}</strong>
                   <span style={{ fontSize: 12, color: '#aaa' }}>{e.status}</span>
@@ -195,10 +235,134 @@ function ManagerDashboard({ isLoaded }) {
 }
 
 // --- VISÃO DO MOTORISTA (CELULAR) ---
-function DriverView({ pedidos, setPedidos }) {
+function DriverView({ pedidos, setPedidos, isLoaded }) {
+  // Adicione esta definição de estilo para o painel de entregas
+  const sheetStyle = {
+    backgroundColor: 'white',
+    padding: '20px',
+    borderTopLeftRadius: '20px',
+    borderTopRightRadius: '20px',
+    boxShadow: '0 -2px 10px rgba(0,0,0,0.1)',
+    maxHeight: '300px',
+    overflowY: 'auto'
+  };
+
+  // Estilo para a barrinha de arrastar do painel inferior
+  const dragHandleStyle = {
+    width: '40px',
+    height: '5px',
+    backgroundColor: '#ccc',
+    borderRadius: '3px',
+    margin: '0 auto 10px auto',
+    cursor: 'pointer'
+  };
+
+  // Lista de estilos reutilizados no DriverView
+  const scrollListStyle = {
+    maxHeight: '220px',
+    overflowY: 'auto',
+    display: 'grid',
+    gap: '8px',
+    paddingRight: '6px'
+  };
+
+  const cardStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '10px',
+    background: '#0B1F3A',
+    borderRadius: '10px'
+  };
+
+  const btnConcluir = {
+    background: '#28a745',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    border: 'none'
+  };
+
+  const btnNaoEntregue = {
+    padding: '8px',
+    borderRadius: '6px',
+    background: '#fff',
+    cursor: 'pointer',
+    border: '1px solid #ddd'
+  };
+
+  const overlay = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000
+  };
+
+  const modalCorpo = {
+    background: '#0B1F3A',
+    color: '#fff',
+    padding: '20px',
+    borderRadius: '12px',
+    width: '90%',
+    maxWidth: '420px'
+  };
+
+  const btnVoltar = {
+    background: '#6c757d',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '6px',
+    border: 'none',
+    cursor: 'pointer'
+  };
+
+  const btnFinal = {
+    background: '#007bff',
+    color: '#fff',
+    padding: '8px 12px',
+    borderRadius: '6px',
+    border: 'none',
+    cursor: 'pointer'
+  };
+
+  // 1. Defina o estilo aqui se não existir
+  const containerStyle = {
+    width: '100%',
+    height: '500px'
+  };
+
+  // 2. Posição do motorista (pode ser atualizada por Realtime/mocks)
+  const [posicaoMotorista, setPosicaoMotorista] = useState({ lat: -23.55, lng: -46.63 });
+
   const [aberto, setAberto] = useState(false);
   const [assinando, setAssinando] = useState(null);
   const sigRef = useRef({});
+
+  // Inscreve Realtime para atualizar a posição do motorista (id = 2)
+  useEffect(() => {
+    const canal = supabase
+      .channel('rastreio-motorista')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'motoristas', filter: 'id=eq.2' },
+        (payload) => {
+          const { lat, lng } = payload.new;
+          setPosicaoMotorista({ lat: Number(lat), lng: Number(lng) });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try { supabase.removeChannel(canal); } catch (e) { /* ignore */ }
+    };
+  }, []);
 
   const abrirWhatsApp = (item, motivo) => {
     const texto = `Relatório: Pedido ${item.id} - ${motivo}`;
@@ -211,7 +375,24 @@ function DriverView({ pedidos, setPedidos }) {
 
   return (
     <div style={containerStyle}>
-      <GoogleMap mapContainerStyle={mapStyle} center={{ lat: -23.55, lng: -46.63 }} zoom={14} options={{ disableDefaultUI: true }} />
+      {isLoaded ? (
+        <GoogleMap mapContainerStyle={containerStyle} center={posicaoMotorista} zoom={14} options={{ disableDefaultUI: true }}>
+          {/* Marcador da moto (garante números puros e ícone simples de teste) */}
+          {posicaoMotorista && (
+            (typeof window !== 'undefined' && window.google && window.google.maps && window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement) ? (
+              <AdvancedMarker position={{ lat: Number(posicaoMotorista.lat), lng: Number(posicaoMotorista.lng) }} icon={'https://maps.google.com/mapfiles/ms/icons/motorcycling.png'} title="Sua Moto" />
+            ) : (
+              <Marker
+                position={{ lat: Number(posicaoMotorista.lat), lng: Number(posicaoMotorista.lng) }}
+                // Ícone de moto para teste
+                icon={'https://maps.google.com/mapfiles/ms/icons/motorcycling.png'}
+              />
+            )
+          )}
+        </GoogleMap>
+      ) : (
+        <div style={{ padding: 20, color: '#ccc' }}>Carregando Google Maps...</div>
+      )}
 
       {/* PAINEL DINÂMICO (BOTTOM SHEET) */}
       <motion.div
@@ -229,7 +410,7 @@ function DriverView({ pedidos, setPedidos }) {
         style={sheetStyle}
       >
         {/* Barra de Arrastar (Handle) */}
-        <div style={dragHandle} onClick={() => setAberto(!aberto)} />
+        <div style={dragHandleStyle} onClick={() => setAberto(!aberto)} />
 
         {/* Cabeçalho que mostra o número de entregas */}
         <div style={{ textAlign: 'center', paddingBottom: '20px' }}>

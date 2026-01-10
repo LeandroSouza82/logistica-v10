@@ -6,12 +6,7 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import SignatureScreen from 'react-native-signature-canvas';
 import * as Location from 'expo-location'; // Biblioteca para o GPS
-import { createClient } from '@supabase/supabase-js';
-
-// Supabase (teste de conexão) - substitua por variáveis de ambiente em produção
-const supabaseUrl = 'https://xdsoctyzmsxbhtjehsqd.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkc29jdHl6bXN4Ymh0amVoc3FkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYzMjcxMDMsImV4cCI6MjA4MTkwMzEwM30.WjvJ9E52JXJzjnWAocxQsS9vSAZmrndUuAjUKW_pyCk';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '../supabaseClient';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -22,7 +17,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 // Altura da status bar para ajustar modals translúcidos no Android
 const STATUSBAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0;
-export default function DeliveryApp() {
+export default function DeliveryApp(props) {
     // Número padrão do motorista (use seu número real em produção ou carregue via config)
     const MOTORISTA_PHONE = '+5511999999999';
 
@@ -74,6 +69,60 @@ export default function DeliveryApp() {
         Animated.spring(panY, { toValue: SCREEN_HEIGHT / 2.2, useNativeDriver: false }).start();
     }, []);
 
+    // LISTENER REALTIME: atualiza a posição quando o Supabase enviar updates (mesma frequência do banco)
+    useEffect(() => {
+        const channel = supabase
+            .channel('schema-db-changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE', // Quando o GPS do celular mudar
+                    schema: 'public',
+                    table: 'motoristas',
+                },
+                (payload) => {
+                    try {
+                        const motoristaId = props?.motoristaId ?? 1;
+                        if (Number(payload.new?.id) !== Number(motoristaId)) return; // Ignore updates for outros motoristas
+
+                        console.log('Posição nova chegando do celular!', payload.new);
+                        const lat = Number(payload.new.lat);
+                        const lng = Number(payload.new.lng);
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            const newPos = { latitude: lat, longitude: lng };
+                            if (payload.new.heading != null) {
+                                const h = Number(payload.new.heading);
+                                if (!isNaN(h)) {
+                                    newPos.heading = h;
+                                    setHeading(h);
+                                }
+                            }
+                            setPosicaoMotorista(newPos);
+
+                            // centraliza a câmera no motorista quando chegar o novo sinal
+                            try {
+                                mapRef.current?.animateToRegion({
+                                    latitude: lat,
+                                    longitude: lng,
+                                    latitudeDelta: 0.01,
+                                    longitudeDelta: 0.01,
+                                }, 500);
+                            } catch (e) { /* silent */ }
+                        } else {
+                            console.warn('Supabase enviou dados de posição inválidos:', payload.new);
+                        }
+                    } catch (e) {
+                        console.warn('Erro no listener realtime:', e?.message || e);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            try { supabase.removeChannel(channel); } catch (e) { /* ignore */ }
+        };
+    }, []);
+
     // (UX) Mapa de Animated.Value para cada card e helper de acesso
     const scalesRef = useRef({});
     const getScale = (id) => {
@@ -110,6 +159,58 @@ export default function DeliveryApp() {
     const [posicaoMotorista, setPosicaoMotorista] = useState(null);
     const [heading, setHeading] = useState(0);
     const prevPosRef = useRef(null);
+    // evita enviar atualizações ao Supabase mais de 1 vez por segundo
+    const lastUpdateRef = useRef(0);
+    // referência para a subscription do Location.watchPositionAsync
+    const locationSubscriptionRef = useRef(null);
+    // timer para limpar posição após logout
+    const logoutTimerRef = useRef(null);
+    // marca se componente está montado
+    const mountedRef = useRef(true);
+
+    // helper retry com backoff exponencial
+    const retryWithBackoff = async (fn, attempts = 3) => {
+        let attempt = 0;
+        let delay = 500;
+        while (attempt < attempts) {
+            try {
+                return await fn();
+            } catch (e) {
+                attempt++;
+                if (attempt >= attempts) throw e;
+                await new Promise(r => setTimeout(r, delay));
+                delay *= 2;
+            }
+        }
+    };
+
+    // Envia a posição atual para o Supabase (garante ultimo_sinal)
+    async function enviarLocalizacao(coords) {
+        const now = Date.now();
+        if (now - lastUpdateRef.current < 1000) return; // limita a 1 atualização por segundo
+        lastUpdateRef.current = now;
+
+        const motoristaId = props?.motoristaId ?? 1;
+
+        try {
+            await retryWithBackoff(async () => {
+                const { error } = await supabase
+                    .from('motoristas')
+                    .update({
+                        lat: coords.latitude.toString(),
+                        lng: coords.longitude.toString(),
+                        heading: heading != null ? heading : null,
+                        ultimo_sinal: new Date().toISOString()
+                    })
+                    .eq('id', motoristaId);
+
+                if (error) throw error;
+            }, 3);
+        } catch (err) {
+            console.warn('Exception ao enviar posição ao Supabase (depois de retries):', err?.message || err);
+            try { const sc = require('../sentryClient'); sc && sc.captureException && sc.captureException(err); } catch (e) { /* ignore */ }
+        }
+    }
 
     // Animação suave de rotação para o ícone da moto
     const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -124,10 +225,11 @@ export default function DeliveryApp() {
     useEffect(() => {
         const testarConexao = async () => {
             try {
+                const motoristaId = props?.motoristaId ?? 1;
                 const { data, error } = await supabase
                     .from('motoristas')
-                    .update({ nome: 'Leandro - Moto 01' })
-                    .eq('id', 1);
+                    .update({ nome: `Leandro - Moto ${motoristaId}` })
+                    .eq('id', motoristaId);
 
                 if (error) console.log('Erro ao conectar:', error.message);
                 else console.log('Conectado ao Supabase com sucesso!', data);
@@ -183,6 +285,44 @@ export default function DeliveryApp() {
         Linking.openURL(`tel:${tel}`);
     };
 
+    // Logout controlador: confirma e delega a limpeza da posição para o container (App)
+    const handleLogoutPress = () => {
+        Alert.alert('Sair', 'Deseja encerrar a sessão? A sua posição ficará visível por 10s e será removida em seguida.', [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+                text: 'Sair', style: 'destructive', onPress: () => {
+                    try {
+                        // Para de observar a localização e de enviar updates
+                        try { locationSubscriptionRef.current?.remove?.(); } catch (e) { /* ignore */ }
+                        locationSubscriptionRef.current = null;
+
+                        // Notifica o container (App) para finalizar logout e agendar limpeza da posição
+                        try { props?.onLogout?.(); } catch (e) { /* ignore */ }
+
+                        // Feedback: permite remover a posição imediatamente através de um botão
+                        try {
+                            Alert.alert('Sair', 'Sua posição será removida em 10s.', [
+                                { text: 'Cancelar', style: 'cancel' },
+                                {
+                                    text: 'Remover agora', onPress: async () => {
+                                        try {
+                                            const motoristaId = props?.motoristaId ?? 1;
+                                            await supabase.from('motoristas').update({ lat: null, lng: null, ultimo_sinal: null }).eq('id', motoristaId);
+                                            if (mountedRef.current) setPosicaoMotorista(null);
+                                        } catch (err) {
+                                            console.warn('Erro ao remover posição agora:', err?.message || err);
+                                            try { const sc = require('../sentryClient'); sc && sc.captureException && sc.captureException(err); } catch (e) { /* ignore */ }
+                                        }
+                                    }
+                                }
+                            ]);
+                        } catch (e) { /* ignore */ }
+                    } catch (e) { console.warn('Erro ao iniciar logout:', e?.message || e); }
+                }
+            },
+        ]);
+    };
+
     // Confirma a entrega do pedido atualmente selecionado
     const confirmarEntrega = () => {
         if (!pedidoSelecionado) return;
@@ -193,6 +333,7 @@ export default function DeliveryApp() {
 
     // LOGICA PARA PEGAR A LOCALIZAÇÃO REAL EM TEMPO REAL
     useEffect(() => {
+        mountedRef.current = true;
         (async () => {
             let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
@@ -201,7 +342,7 @@ export default function DeliveryApp() {
             }
 
             // 'watchPositionAsync' atualiza a moto conforme o motorista se move
-            await Location.watchPositionAsync(
+            const subscription = await Location.watchPositionAsync(
                 {
                     accuracy: Location.Accuracy.High,
                     timeInterval: 1000,
@@ -233,20 +374,42 @@ export default function DeliveryApp() {
                     // FAZ O MAPA SEMPRE CENTRALIZAR NO MOTORISTA
                     try {
                         mapRef.current?.animateToRegion({
-                            ...coords,
+                            latitude: coords.latitude,
+                            longitude: coords.longitude,
                             latitudeDelta: 0.01,
                             longitudeDelta: 0.01,
                         }, 1000);
                     } catch (e) {
                         // falha silenciosa se a ref não existir
                     }
+
+                    // Envia posição ao Supabase (com throttle simples e ultimo_sinal)
+                    enviarLocalizacao(coords);
                 }
             );
+
+            locationSubscriptionRef.current = subscription;
         })();
+
+        return () => {
+            mountedRef.current = false;
+            // remove listener se existir
+            try { locationSubscriptionRef.current?.remove?.(); } catch (e) { /* ignore */ }
+            locationSubscriptionRef.current = null;
+            // limpa timer agendado de logout se houver
+            if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+        };
     }, []);
 
     return (
         <View style={styles.container}>
+            {/* Top bar com ações */}
+            <View style={styles.topBar} pointerEvents="box-none">
+                <TouchableOpacity style={styles.logoutButton} onPress={handleLogoutPress} accessibilityLabel="Sair">
+                    <Text style={styles.logoutText}>Sair</Text>
+                </TouchableOpacity>
+            </View>
+
             <MapView
                 ref={mapRef}
                 style={styles.map}
@@ -262,8 +425,14 @@ export default function DeliveryApp() {
                 }}
             >
                 {/* MARCADOR PULSANTE DO MOTORISTA (usando animações) */}
-                {posicaoMotorista && (
-                    <Marker coordinate={posicaoMotorista} anchor={{ x: 0.5, y: 0.5 }}>
+                {posicaoMotorista && posicaoMotorista.latitude != null && posicaoMotorista.longitude != null && (
+                    <Marker
+                        coordinate={{
+                            latitude: Number(posicaoMotorista.latitude),
+                            longitude: Number(posicaoMotorista.longitude)
+                        }}
+                        anchor={{ x: 0.5, y: 0.5 }}
+                    >
                         <View style={styles.containerPulsante}>
                             {/* Círculo que Pulsa */}
                             <Animated.View
@@ -284,11 +453,13 @@ export default function DeliveryApp() {
 
                 {/* MARKERS DOS PEDIDOS */}
                 {pedidos.map(p => (
-                    <Marker
-                        key={p.id}
-                        coordinate={{ latitude: p.lat, longitude: p.lng }}
-                        pinColor={p.status === 'entregue' ? 'green' : 'orange'}
-                    />
+                    (p.lat != null && p.lng != null) ? (
+                        <Marker
+                            key={p.id}
+                            coordinate={{ latitude: Number(p.lat), longitude: Number(p.lng) }}
+                            pinColor={p.status === 'entregue' ? 'green' : 'orange'}
+                        />
+                    ) : null
                 ))}
             </MapView>
 
@@ -645,6 +816,11 @@ const styles = StyleSheet.create({
         height: 50,
         resizeMode: 'contain', // Garante que a imagem apareça inteira
     },
+
+    /* Top bar e botão de logout */
+    topBar: { position: 'absolute', top: STATUSBAR_HEIGHT + 8, right: 12, zIndex: 200, alignItems: 'flex-end' },
+    logoutButton: { backgroundColor: '#ef4444', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, elevation: 10 },
+    logoutText: { color: '#fff', fontWeight: '700' },
 
     /* FEIÇÃO DE BOLINHA REALÇADA (3 camadas) */
     fundoBolinha: {

@@ -1,9 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js'
 
-// Cria o cliente Supabase uma vez, fora de qualquer componente
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// No Vite, usamos import.meta.env e o prefixo VITE_
+const supabaseUrl = 'https://xdsoctyzmsxbhtjehsqd.supabase.co'
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseKey)
 
-export default supabase;

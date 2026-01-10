@@ -1,15 +1,12 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, Marker, Polyline } from '@react-google-maps/api';
+import AdvancedMarker from './AdvancedMarker';
 
 const centroPalhoca = { lat: -27.6438, lng: -48.6674 };
 
 function MapaGestor({ pedidosNoRascunho = [], posicaoMoto = null, isLoaded = true }) {
     const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY; // NOTE: map container uses fixed vw/vh to avoid 0px height issues
-    if (!googleMapsApiKey) {
-        return <div style={{ color: '#f87171', padding: 12 }}>Chave do Google Maps não configurada. Configure a variável `VITE_GOOGLE_MAPS_API_KEY`.</div>;
-    }
     const [map, setMap] = useState(null);
-
     const onLoad = useCallback((mapInstance) => setMap(mapInstance), []);
 
     // Ajusta o zoom automaticamente para mostrar todos os pinos da região
@@ -25,6 +22,10 @@ function MapaGestor({ pedidosNoRascunho = [], posicaoMoto = null, isLoaded = tru
             }
         }
     }, [map, pedidosNoRascunho, posicaoMoto]);
+
+    if (!googleMapsApiKey) {
+        return <div style={{ color: '#f87171', padding: 12 }}>Chave do Google Maps não configurada. Configure a variável `VITE_GOOGLE_MAPS_API_KEY`.</div>;
+    }
 
     const rotaPath = posicaoMoto
         ? [posicaoMoto, ...pedidosNoRascunho.map((p) => ({ lat: p.lat, lng: p.lng }))]
@@ -44,12 +45,15 @@ function MapaGestor({ pedidosNoRascunho = [], posicaoMoto = null, isLoaded = tru
         >
             {/* Pino da Moto (Onde o motorista está agora) */}
             {posicaoMoto && (
-                <Marker
-                    position={posicaoMoto}
-                    // Ícone de moto dos KML shapes do Google
-                    icon="https://maps.google.com/mapfiles/kml/shapes/motorcycling.png"
-                    title="Motorista Atual"
-                />
+                (typeof window !== 'undefined' && window.google && window.google.maps && window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement) ? (
+                    <AdvancedMarker position={posicaoMoto} icon={'https://maps.google.com/mapfiles/kml/shapes/motorcycling.png'} title="Motorista Atual" />
+                ) : (
+                    <Marker
+                        position={posicaoMoto}
+                        icon={'https://maps.google.com/mapfiles/kml/shapes/motorcycling.png'}
+                        title="Motorista Atual"
+                    />
+                )
             )}
 
             {/* Pinos dos Pedidos (O que o gestor está adicionando) */}

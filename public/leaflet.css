@@ -1,0 +1,38 @@
+/* Minimal Leaflet CSS fallback (trimmed). For full behavior, replace with the real leaflet.css content if available. */
+.leaflet-container {
+    position: relative;
+    outline: 0
+}
+
+.leaflet-tile {
+    filter: none
+}
+
+.leaflet-pane,
+.leaflet-tile-pane,
+.leaflet-marker-pane,
+.leaflet-shadow-pane,
+.leaflet-overlay-pane {
+    position: absolute;
+    left: 0;
+    top: 0
+}
+
+.leaflet-container img {
+    max-width: none
+}
+
+.leaflet-tile,
+.leaflet-marker-icon {
+    display: block
+}
+
+.leaflet-popup-content-wrapper {
+    padding: 1px
+}
+
+.leaflet-control {
+    box-shadow: none
+}
+
+/* If you need complete styling, copy https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css into this file. */

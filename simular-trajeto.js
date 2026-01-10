@@ -7,12 +7,12 @@ const simularTrajeto = async () => {
     setSimulando(true);
     console.log("Iniciando simulação para:", motoristaLogado);
 
-    // Pontos de teste (ajuste para sua cidade se necessário)
+    // Pontos de teste (ajuste para Palhoça)
     const pontos = [
-        { lat: -23.5505, lng: -46.6333 },
-        { lat: -23.5515, lng: -46.6343 },
-        { lat: -23.5525, lng: -46.6353 },
-        { lat: -23.5535, lng: -46.6363 }
+        { lat: -27.612, lng: -48.675 },
+        { lat: -27.613, lng: -48.676 },
+        { lat: -27.614, lng: -48.677 },
+        { lat: -27.615, lng: -48.678 }
     ];
 
     let i = 0;

@@ -70,7 +70,7 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#121212' },
+    container: { flex: 1, backgroundColor: '#0B1F3A' },
     headerPesquisa: {
         position: 'absolute',
         top: 0, // barra colada no topo da tela
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
         right: 0,
         bottom: 0,
         height: SCREEN_HEIGHT,
-        backgroundColor: '#1C1C1C',
+        backgroundColor: '#0B1F3A',
         borderTopLeftRadius: 30,
         borderTopRightRadius: 30,
         padding: 20,

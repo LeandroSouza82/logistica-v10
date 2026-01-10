@@ -74,7 +74,7 @@ export default function DeliveryApp() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#000' },
+    container: { flex: 1, backgroundColor: '#0B1F3A' },
     headerPesquisa: {
         position: 'absolute',
         top: 0, // Encostado no topo da tela
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
         right: 0,
         bottom: 0,
         height: SCREEN_HEIGHT,
-        backgroundColor: '#1C1C1C', // Cor do fundo das suas imagens
+        backgroundColor: '#0B1F3A', // Cor do fundo das suas imagens
         borderTopLeftRadius: 30,
         borderTopRightRadius: 30,
         padding: 20,
