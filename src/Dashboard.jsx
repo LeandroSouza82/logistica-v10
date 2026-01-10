@@ -50,15 +50,15 @@ export default function PainelGestor() {
         buscarDados();
 
         const canal = supabase
-          .channel('schema-db-changes')
-          .on('postgres_changes',
-            { event: 'UPDATE', schema: 'public', table: 'motoristas' },
-            (payload) => {
-              console.log('Mudança recebida!', payload.new);
-              setMotoristas(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
-            }
-          )
-          .subscribe();
+            .channel('schema-db-changes')
+            .on('postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'motoristas' },
+                (payload) => {
+                    console.log('Mudança recebida!', payload.new);
+                    setMotoristas(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
+                }
+            )
+            .subscribe();
 
         return () => supabase.removeChannel(canal);
     }, []);
