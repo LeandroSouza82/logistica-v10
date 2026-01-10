@@ -23,6 +23,7 @@
     "react-signature-canvas": "^1.1.0-alpha.2"
   },
   "devDependencies": {
+    "@secretlint/secretlint-rule-preset-recommend": "^11.2.5",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "latest",
@@ -32,7 +33,9 @@
     "eslint-plugin-react-native": "^5.0.0",
     "eslint-plugin-react-refresh": "latest",
     "globals": "^17.0.0",
+    "husky": "^9.1.7",
     "playwright": "^1.57.0",
+    "secretlint": "^11.2.5",
     "vite": "latest"
   }
 }

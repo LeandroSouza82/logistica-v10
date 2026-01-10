@@ -1,5 +1,5 @@
 param(
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false)]
     [string]$token = $env:VERCEL_TOKEN
 )
 

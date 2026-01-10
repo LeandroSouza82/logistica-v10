@@ -1,0 +1,7 @@
+[
+  {
+    "type": "requestfailed",
+    "url": "http://localhost:5173/",
+    "failure": "net::ERR_CONNECTION_REFUSED"
+  }
+]

@@ -1,11 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://xdsoctyzmsxbhtjehsqd.supabase.co';
-// Use environment variable for the anon key instead of hard-coding it here
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-if (!supabaseAnonKey) {
-    console.warn('VITE_SUPABASE_ANON_KEY is not set in the environment. Configure it in your CI or local env.');
+// Use variáveis de ambiente para evitar expor chaves no código-fonte
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('[runtime not ready]: supabaseKey is required. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY or SUPABASE_* env vars')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-export default supabase;
+export const supabase = createClient(supabaseUrl, supabaseKey)
