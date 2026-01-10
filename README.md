@@ -31,4 +31,17 @@ If this variable is not set, the app will show a clear message and will not atte
 2. Try to submit a registration without filling the `telefone` field — the app will now show a friendly message: "Telefone obrigatório. Por favor, informe um número com DDD (ex: 5511999999999)."
 3. If the backend returns a database error about `telefone` (NOT NULL), you should now see a friendly message instead of a raw DB error.
 
-If you want me to open a PR with these changes and a short description, say "abrir PR".
+### Deploying to Vercel (securely)
+
+This repository previously included a `.vercel-set-env.ps1` script with secrets hard-coded. I removed hard-coded secrets and updated the script to read the following environment variables instead:
+
+- `VERCEL_TOKEN` (required to run `.vercel-set-env.ps1` locally) — set this in your local session or CI environment.
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_GOOGLE_MAPS_API_KEY`
+
+Do NOT commit secrets to the repository. Instead, set them in Vercel's dashboard (or provide them as environment variables when running the script).
+
+If you want me to rotate the exposed token and scrub it from git history, tell me and I will proceed (this will rewrite history and require force-push or coordination with collaborators).
+
+If you want me to open a PR with the changes and a short description, say "abrir PR".
