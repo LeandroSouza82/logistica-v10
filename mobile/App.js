@@ -49,11 +49,13 @@ export default function App() {
     };
 
     const handleLogin = async (id, nome) => {
-        setMotoristaId(id);
-        setIsAuthenticated(true);
+        // Forçando ID 1 para testes locais conforme solicitado
+        const forcedId = 1;
+        setMotoristaId(forcedId); // Força o ID 1
+        setIsAuthenticated(true); // Força o estado de logado
         setShowLogin(false);
         try {
-            await SecureStore.setItemAsync('motoristaId', String(id));
+            await SecureStore.setItemAsync('motoristaId', String(forcedId));
         } catch (e) { /* ignore */ }
     };
 
