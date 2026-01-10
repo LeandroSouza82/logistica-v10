@@ -69,8 +69,9 @@ export default function PainelGestor() {
                 {isLoaded ? (
                     <GoogleMap
                         mapContainerStyle={{ width: '100%', height: '100%' }}
-                        center={motoristas.find(m => m.id === 1) || center}
-                        zoom={14}
+                        // Se existir motorista, centraliza nele. Se não, usa o centro padrão.
+                        center={motoristas.length > 0 ? { lat: Number(motoristas[0].lat), lng: Number(motoristas[0].lng) } : center}
+                        zoom={15}
                     >
                         {motoristas.map(m => {
                             const online = true; // Força a moto a aparecer sempre para teste
