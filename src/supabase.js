@@ -1,11 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Leia variáveis de ambiente (import.meta.env para Vite, fallback para process.env)
-const supabaseUrl = import.meta?.env?.VITE_SUPABASE_URL || process.env?.VITE_SUPABASE_URL || process.env?.SUPABASE_URL
-const supabaseAnonKey = import.meta?.env?.VITE_SUPABASE_ANON_KEY || process.env?.VITE_SUPABASE_ANON_KEY || process.env?.SUPABASE_ANON_KEY
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('[runtime warning]: VITE_SUPABASE_* ou SUPABASE_* não definidos — configure as variáveis de ambiente para habilitar o Supabase')
-}
+// Usando as chaves reais que você me passou para desbloquear o acesso
+const supabaseUrl = "https://xdsoctyzmsxbhtjehqsd.supabase.co"
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkc29jdHl6bXN4Ymh0amVoc3FkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYzMjcxMDMsImV4cCI6MjA4MTkwMzEwM30.WjvJ9E52JXJzjnWAocxQsS9vSAZmrndUuAjUKW_pyCk"
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
