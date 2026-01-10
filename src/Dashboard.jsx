@@ -73,8 +73,8 @@ export default function PainelGestor() {
                         zoom={14}
                     >
                         {motoristas.map(m => {
-                            const online = (new Date() - new Date(m.ultimo_sinal)) < (5 * 60 * 1000);
-                            if (!online || !m.lat) return null;
+                            const online = true; // Força a moto a aparecer sempre para teste
+                            if (!m.lat) return null;
 
                             return (
                                 <Marker
