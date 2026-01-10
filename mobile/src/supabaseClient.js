@@ -7,8 +7,8 @@ const supabaseUrl = extras.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL ||
 const supabaseKey = extras.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
 if (!supabaseKey) {
-  // Em desenvolvimento exibimos erro amigável
-  throw new Error('[runtime not ready]: supabaseKey is required. Defina as chaves em expo.extra (app.json) ou via variáveis de ambiente')
+    // Em desenvolvimento exibimos erro amigável
+    throw new Error('[runtime not ready]: supabaseKey is required. Defina as chaves em expo.extra (app.json) ou via variáveis de ambiente')
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
