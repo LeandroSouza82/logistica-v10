@@ -26,7 +26,12 @@ export default function App() {
     { id: '2', cliente: 'Padaria Central', local: 'Av. Brasil, 450', status: 'pendente' },
   ]);
 
-  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY, libraries: GOOGLE_MAPS_LIBRARIES });
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    // Sua chave real do Google Maps
+    googleMapsApiKey: "AIzaSyBeec8r4DWBdNIEFSEZg1CgRxIHjYMV9dM",
+    libraries: ['places', 'geometry']
+  });
 
   // Renderiza o painel do gestor (Dashboard com Realtime) quando for admin
   return isAdmin ? (
@@ -187,7 +192,7 @@ function ManagerDashboard({ isLoaded }) {
       {/* Lista de motoristas com último sinal */}
       <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
         {motoristas.map(m => (
-          <div key={m.id} style={{ background: '#0B1F3A', padding: 10, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div key={m.id} style={{ background: '#121212', padding: 10, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <strong>Motorista {m.id}</strong>
               <div style={{ fontSize: 12, color: '#aaa' }}>{m.lat?.toFixed?.(5)}, {m.lng?.toFixed?.(5)}</div>
@@ -209,7 +214,7 @@ function ManagerDashboard({ isLoaded }) {
             <div>Nenhuma entrega encontrada.</div>
           ) : (
             listaEntregas.map(e => (
-              <div key={e.id} style={{ background: '#0B1F3A', padding: 12, borderRadius: 8 }}>
+              <div key={e.id} style={{ background: '#1f1f1f', padding: 12, borderRadius: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <strong style={{ fontSize: 16 }}>{e.cliente}</strong>
                   <span style={{ fontSize: 12, color: '#aaa' }}>{e.status}</span>
@@ -271,7 +276,7 @@ function DriverView({ pedidos, setPedidos, isLoaded }) {
     alignItems: 'center',
     gap: '12px',
     padding: '10px',
-    background: '#0B1F3A',
+    background: '#1f1f1f',
     borderRadius: '10px'
   };
 
@@ -306,7 +311,7 @@ function DriverView({ pedidos, setPedidos, isLoaded }) {
   };
 
   const modalCorpo = {
-    background: '#0B1F3A',
+    background: '#121212',
     color: '#fff',
     padding: '20px',
     borderRadius: '12px',
