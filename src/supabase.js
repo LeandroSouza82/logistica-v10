@@ -1,8 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-// No Vite, usamos import.meta.env e o prefixo VITE_
-const supabaseUrl = 'https://xdsoctyzmsxbhtjehsqd.supabase.co'
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+// Se as variáveis estiverem vazias, o código vai te avisar no console
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("ERRO: Chaves do Supabase não encontradas no arquivo .env.local")
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
