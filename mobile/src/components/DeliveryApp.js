@@ -184,33 +184,19 @@ export default function DeliveryApp(props) {
         }
     };
 
-    // Envia a posição atual para o Supabase (garante ultimo_sinal)
-    async function enviarLocalizacao(coords) {
-        const now = Date.now();
-        if (now - lastUpdateRef.current < 1000) return; // limita a 1 atualização por segundo
-        lastUpdateRef.current = now;
+    // Envia a posição atual para o Supabase (forçando id = 1)
+    const enviarPosicao = async (coords) => {
+        const { error } = await supabase
+            .from('motoristas')
+            .update({
+                lat: coords.latitude,
+                lng: coords.longitude,
+                ultimo_sinal: new Date().toISOString()
+            })
+            .eq('id', 1); // <--- Forçamos o ID 1 que já existe no seu Supabase
 
-        const motoristaId = props?.motoristaId ?? 1;
-
-        try {
-            await retryWithBackoff(async () => {
-                const { error } = await supabase
-                    .from('motoristas')
-                    .update({
-                        lat: coords.latitude.toString(),
-                        lng: coords.longitude.toString(),
-                        heading: heading != null ? heading : null,
-                        ultimo_sinal: new Date().toISOString()
-                    })
-                    .eq('id', motoristaId);
-
-                if (error) throw error;
-            }, 3);
-        } catch (err) {
-            console.warn('Exception ao enviar posição ao Supabase (depois de retries):', err?.message || err);
-            try { const sc = require('../sentryClient'); sc && sc.captureException && sc.captureException(err); } catch (e) { /* ignore */ }
-        }
-    }
+        if (error) console.error('Erro ao enviar:', error.message);
+    };
 
     // Animação suave de rotação para o ícone da moto
     const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -383,12 +369,13 @@ export default function DeliveryApp(props) {
                         // falha silenciosa se a ref não existir
                     }
 
-                    // Envia posição ao Supabase (com throttle simples e ultimo_sinal)
-                    enviarLocalizacao(coords);
+                    // Envia posição ao Supabase (forçando id=1)
+                    enviarPosicao(coords);
                 }
             );
 
             locationSubscriptionRef.current = subscription;
+            setTrackingActive(true);
         })();
 
         return () => {
@@ -400,6 +387,78 @@ export default function DeliveryApp(props) {
             if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
         };
     }, []);
+
+    // Estado para controle manual de rastreio (botão)
+    const [trackingActive, setTrackingActive] = useState(false);
+
+    // Função que inicia/parar o rastreio de localização (usada pelo botão flutuante)
+    const iniciarRastreio = async () => {
+        try {
+            if (locationSubscriptionRef.current) {
+                // Se já está ativo, removemos
+                try { locationSubscriptionRef.current.remove(); } catch (e) { /* ignore */ }
+                locationSubscriptionRef.current = null;
+                setTrackingActive(false);
+                Alert.alert('Rastreamento', 'Rastreamento parado');
+                return;
+            }
+
+            let { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Erro', 'Precisamos do GPS para a moto aparecer no mapa!');
+                return;
+            }
+
+            const subscription = await Location.watchPositionAsync(
+                {
+                    accuracy: Location.Accuracy.High,
+                    timeInterval: 1000,
+                    distanceInterval: 1,
+                },
+                (location) => {
+                    try {
+                        const coords = {
+                            latitude: location.coords.latitude,
+                            longitude: location.coords.longitude,
+                        };
+
+                        const deviceHeading = (typeof location.coords.heading === 'number') ? location.coords.heading : null;
+                        let finalHeading = deviceHeading;
+
+                        if (finalHeading === null && prevPosRef.current) {
+                            const b = calculateBearing(prevPosRef.current.latitude, prevPosRef.current.longitude, coords.latitude, coords.longitude);
+                            finalHeading = b;
+                        }
+
+                        if (finalHeading !== null) {
+                            setHeading(finalHeading);
+                        }
+
+                        prevPosRef.current = coords;
+                        setPosicaoMotorista({ ...coords, heading: finalHeading });
+
+                        try {
+                            mapRef.current?.animateToRegion({
+                                latitude: coords.latitude,
+                                longitude: coords.longitude,
+                                latitudeDelta: 0.01,
+                                longitudeDelta: 0.01,
+                            }, 1000);
+                        } catch (e) { /* ignore */ }
+
+                        enviarPosicao(coords);
+                    } catch (e) { console.warn('Erro no watchPosition callback:', e?.message || e); }
+                }
+            );
+
+            locationSubscriptionRef.current = subscription;
+            setTrackingActive(true);
+            Alert.alert('Rastreamento', 'Rastreamento iniciado');
+        } catch (err) {
+            console.warn('Erro ao iniciar/parar rastreio:', err?.message || err);
+            Alert.alert('Erro', 'Não foi possível iniciar o rastreio');
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -464,6 +523,39 @@ export default function DeliveryApp(props) {
             </MapView>
 
 
+
+            {/* Botão flutuante sobre o mapa (parte inferior) */}
+            <View style={{
+                position: 'absolute',
+                bottom: 50,
+                width: '100%',
+                alignItems: 'center',
+                paddingHorizontal: 20
+            }}>
+                <TouchableOpacity
+                    onPress={iniciarRastreio}
+                    style={{
+                        backgroundColor: '#10b981', // Verde chamativo
+                        paddingVertical: 18,
+                        width: '100%',
+                        borderRadius: 15,
+                        elevation: 5, // Sombra no Android
+                        shadowColor: '#000', // Sombra no iOS
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.25,
+                        shadowRadius: 3.84,
+                    }}
+                >
+                    <Text style={{
+                        color: 'white',
+                        textAlign: 'center',
+                        fontWeight: 'bold',
+                        fontSize: 18
+                    }}>
+                        {trackingActive ? '⏸ PARAR RASTREIO' : '🚀 INICIAR MEU RASTREIO'}
+                    </Text>
+                </TouchableOpacity>
+            </View>
 
             <Animated.View {...panResponder.panHandlers} style={[styles.aba, { transform: [{ translateY: panY }] }]}>
                 <View style={styles.handleContainer}>
