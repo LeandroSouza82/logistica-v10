@@ -389,7 +389,8 @@ export default function DeliveryApp(props) {
     }, []);
 
     // Estado para controle manual de rastreio (botão)
-    const [trackingActive, setTrackingActive] = useState(false);
+    // Forçando rastreio ativo por padrão para testes
+    const [trackingActive, setTrackingActive] = useState(true);
 
     // Função que inicia/parar o rastreio de localização (usada pelo botão flutuante)
     const iniciarRastreio = async () => {
@@ -459,6 +460,17 @@ export default function DeliveryApp(props) {
             Alert.alert('Erro', 'Não foi possível iniciar o rastreio');
         }
     };
+
+    // Se o estado de trackingActive estiver true por padrão, garante que o rastreio seja iniciado
+    useEffect(() => {
+        (async () => {
+            try {
+                if (trackingActive && !locationSubscriptionRef.current) {
+                    await iniciarRastreio();
+                }
+            } catch (e) { /* ignore */ }
+        })();
+    }, [trackingActive]);
 
     return (
         <View style={styles.container}>
