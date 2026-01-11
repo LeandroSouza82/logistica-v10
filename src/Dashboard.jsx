@@ -111,8 +111,8 @@ export default function PainelGestor() {
     if (loadError) return <div style={{ color: '#f88', padding: 20 }}>Erro no Google Maps.</div>;
 
     return (
-        <div style={containerStyle}>
-            <div style={{ flex: 2 }}>
+        <main className="content-grid">
+            <div className="map-wrapper">
                 {/* Menu superior - visual apenas (não altera lógicas existentes) */}
                 <nav className="top-nav" role="navigation" aria-label="Menu principal">
                     <button className="nav-button active">VISÃO GERAL</button>
@@ -141,7 +141,7 @@ export default function PainelGestor() {
 
                 {isLoaded ? (
                     <GoogleMap
-                        mapContainerStyle={{ width: '100%', height: '100%' }}
+                        mapContainerStyle={{ width: '100%', height: '500px' }}
                         // Se existir posição da moto (estado), centraliza nela; senão, tenta o primeiro motorista com coords; se nada, usa centroPadrao.
                         center={motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao)}
                         zoom={15}
@@ -177,15 +177,22 @@ export default function PainelGestor() {
                 )}
             </div>
 
-            <div style={{ flex: 1, backgroundColor: '#0a1a33', padding: 20, overflowY: 'auto', borderLeft: '1px solid #1e293b' }}>
-                <h2 style={{ color: '#3b82f6' }}>Monitoramento Realtime</h2>
-                {entregas.map(e => (
-                    <div key={e.id} style={{ background: '#112240', padding: 12, borderRadius: 8, marginBottom: 8 }}>
-                        <p style={{ margin: 0, fontSize: 14 }}><strong>{e.cliente}</strong></p>
-                        <span style={{ fontSize: 11, color: '#10b981' }}>● Entregue</span>
-                    </div>
-                ))}
-            </div>
-        </div>
+            <aside className="status-panel">
+                <h2 style={{ color: '#fff', marginTop: 0 }}>Status da Operação</h2>
+                {entregas.length === 0 ? (
+                    <p style={{ color: '#94a3b8' }}>Nenhuma rota despachada no momento.</p>
+                ) : (
+                    <>
+                        <p style={{ color: '#94a3b8' }}>Rotas recentes:</p>
+                        {entregas.map(e => (
+                            <div key={e.id} style={{ background: '#112240', padding: 12, borderRadius: 8, marginBottom: 8 }}>
+                                <p style={{ margin: 0, fontSize: 14 }}><strong>{e.cliente}</strong></p>
+                                <span style={{ fontSize: 11, color: '#10b981' }}>● Entregue</span>
+                            </div>
+                        ))}
+                    </>
+                )}
+            </aside>
+        </main>
     );
 }

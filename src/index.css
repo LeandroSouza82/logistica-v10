@@ -169,3 +169,33 @@ button:focus-visible {
   .summary-grid { grid-template-columns: 1fr; padding: 1rem; }
 }
 
+/* Layout principal - mapa + status */
+.content-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr; /* equivalente a col-span 8/4 */
+  gap: 1.5rem;
+  padding: 1.5rem;
+  min-height: 100vh;
+  background-color: var(--bg-main);
+}
+
+.map-wrapper {
+  background: var(--card);
+  padding: 1rem;
+  border-radius: 1.75rem;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(2,6,23,0.45);
+}
+
+.status-panel {
+  background: var(--card);
+  padding: 2rem;
+  border-radius: 1.75rem;
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(2,6,23,0.45);
+}
+
+@media (max-width: 900px) {
+  .content-grid { grid-template-columns: 1fr; padding: 1rem; }
+}
+
