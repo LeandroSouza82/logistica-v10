@@ -201,6 +201,13 @@ button:focus-visible {
   }
 }
 
+@media (max-width: 600px) {
+  /* Em telas pequenas, borda lateral um pouco mais fina para melhor proporção */
+  .summary-card {
+    border-left-width: 6px;
+  }
+}
+
 /* Layout principal - mapa + status */
 .content-grid {
   display: grid;
