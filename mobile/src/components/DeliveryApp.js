@@ -187,18 +187,27 @@ export default function DeliveryApp(props) {
         }
     };
 
-    // Envia a posição atual para o Supabase (forçando id = 1)
+    // Envia a posição atual para o Supabase (usa motoristaId do props ou fallback 1)
     const enviarPosicao = async (coords) => {
-        const { error } = await supabase
-            .from('motoristas')
-            .update({
-                lat: coords.latitude,
-                lng: coords.longitude,
-                ultimo_sinal: new Date().toISOString()
-            })
-            .eq('id', 1); // <--- Forçamos o ID 1 que já existe no seu Supabase
+        const motoristaId = props?.motoristaId ?? 1;
+        const payload = {
+            lat: coords.latitude,
+            lng: coords.longitude,
+            // Campo novo solicitado
+            ultima_atualizacao: new Date().toISOString(),
+            // Mantemos o campo antigo por compatibilidade com bancos que usam 'ultimo_sinal'
+            ultimo_sinal: new Date().toISOString()
+        };
 
-        if (error) console.error('Erro ao enviar:', error.message);
+        const { data, error } = await supabase
+            .from('motoristas')
+            .update(payload)
+            .eq('id', motoristaId)
+            .select('*');
+
+        if (error) {
+            console.error('Erro ao enviar posição:', error.message);
+        }
     };
 
     // Animação suave de rotação para o ícone da moto

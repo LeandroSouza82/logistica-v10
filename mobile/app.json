@@ -5,7 +5,7 @@
         "version": "1.0.0",
         "extra": {
             "VITE_SUPABASE_URL": "https://xdsoctyzmsxbhtjehsqd.supabase.co",
-            "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "VITE_SUPABASE_ANON_KEY": "sb_publishable_h1241fMOb-5_FOoChqERQw_B0VLvAt2",
             "VITE_GOOGLE_MAPS_API_KEY": "AIzaSyBeec8r4DWBdNIEFSEZg1CgRxIHjYMV9dM"
         },
         "android": {
