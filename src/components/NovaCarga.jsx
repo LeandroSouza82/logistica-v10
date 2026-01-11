@@ -73,13 +73,15 @@ function solveTspNearestNeighbor(distMatrix, startIndex = 0) {
 const NovaCarga = () => {
   const [destinos, setDestinos] = useState([]);
   const [novoEndereco, setNovoEndereco] = useState('');
+  const [novoTipo, setNovoTipo] = useState('Entrega');
   const [carregando, setCarregando] = useState(false);
 
   // 1. Adicionar endereço à lista temporária
   const adicionarParada = () => {
     if (!novoEndereco) return;
-    setDestinos([...destinos, { endereco: novoEndereco, id: Date.now() }]);
+    setDestinos([...destinos, { endereco: novoEndereco, id: Date.now(), tipo: novoTipo }]);
     setNovoEndereco('');
+    setNovoTipo('Entrega');
   };
 
   // 2. FUNÇÃO CAIXEIRO VIAJANTE (Otimização usando OSRM reais)
@@ -132,6 +134,7 @@ const NovaCarga = () => {
     const rows = destinos.map(d => ({
       endereco: d.endereco,
       ordem: d.ordem || 999,
+      tipo: d.tipo || 'Entrega',
       status: 'pendente',
       motorista_id: 1,
       lat: d.lat || null,
@@ -153,7 +156,13 @@ const NovaCarga = () => {
         <p className="text-slate-500 mb-6 italic">Adicione os pontos e o sistema organizará a melhor sequência.</p>
 
         {/* Campo de Entrada */}
-        <div className="flex gap-2 mb-8">
+        <div className="flex gap-2 mb-8 items-center">
+          <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} className="border-2 border-slate-100 p-3 rounded-xl bg-white">
+            <option>Entrega</option>
+            <option>Recolha</option>
+            <option>Outros</option>
+          </select>
+
           <input 
             value={novoEndereco}
             onChange={(e) => setNovoEndereco(e.target.value)}
@@ -174,7 +183,10 @@ const NovaCarga = () => {
                   {index + 1}
                 </span>
                 <div>
-                  <div className="font-semibold text-slate-700">{item.endereco}</div>
+                  <div className="flex items-center gap-3">
+                    <div className="font-semibold text-slate-700">{item.endereco}</div>
+                    <span className="text-xs px-2 py-1 rounded-full bg-slate-200 text-slate-700">{item.tipo || 'Entrega'}</span>
+                  </div>
                   {item.lat && item.lng && (
                     <div className="text-xs text-slate-400">{item.lat.toFixed(6)}, {item.lng.toFixed(6)}</div>
                   )}
