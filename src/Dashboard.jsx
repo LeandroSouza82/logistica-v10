@@ -201,19 +201,62 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
             </div>
 
             <aside className="status-panel">
-                <h2 style={{ color: '#fff', marginTop: 0 }}>Status da Operação</h2>
-                {entregas.length === 0 ? (
-                    <p style={{ color: '#94a3b8' }}>Nenhuma rota despachada no momento.</p>
+                {abaAtiva === 'equipe' ? (
+                  <div className="p-6">
+                    <div className="bg-[#1a2b4d] rounded-3xl p-6 shadow-xl">
+                      <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-white">Equipe de Motoristas</h2>
+                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold transition">
+                          + NOVO MOTORISTA
+                        </button>
+                      </div>
+                      
+                      <table className="w-full text-left text-white">
+                        <thead>
+                          <tr className="border-b border-slate-700 text-slate-400 uppercase text-xs">
+                            <th className="py-4">Motorista</th>
+                            <th>Status</th>
+                            <th>Última Posição</th>
+                            <th>Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-slate-800 hover:bg-slate-800/50">
+                            <td className="py-4 flex items-center gap-3">
+                              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">LM</div>
+                              Leandro Motoka
+                            </td>
+                            <td>
+                              <span className="bg-emerald-500/20 text-emerald-500 px-3 py-1 rounded-full text-xs font-bold">
+                                ● ONLINE
+                              </span>
+                            </td>
+                            <td className="text-slate-400 text-sm">Palhoça, SC - há 2 min</td>
+                            <td>
+                              <button className="text-blue-400 hover:underline">Ver no Mapa</button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 ) : (
-                    <>
-                        <p style={{ color: '#94a3b8' }}>Rotas recentes:</p>
-                        {entregas.map(e => (
-                            <div key={e.id} style={{ background: '#112240', padding: 12, borderRadius: 8, marginBottom: 8 }}>
-                                <p style={{ margin: 0, fontSize: 14 }}><strong>{e.cliente}</strong></p>
-                                <span style={{ fontSize: 11, color: '#10b981' }}>● Entregue</span>
-                            </div>
-                        ))}
-                    </>
+                  <>
+                    <h2 style={{ color: '#fff', marginTop: 0 }}>Status da Operação</h2>
+                    {entregas.length === 0 ? (
+                        <p style={{ color: '#94a3b8' }}>Nenhuma rota despachada no momento.</p>
+                    ) : (
+                        <>
+                            <p style={{ color: '#94a3b8' }}>Rotas recentes:</p>
+                            {entregas.map(e => (
+                                <div key={e.id} style={{ background: '#112240', padding: 12, borderRadius: 8, marginBottom: 8 }}>
+                                    <p style={{ margin: 0, fontSize: 14 }}><strong>{e.cliente}</strong></p>
+                                    <span style={{ fontSize: 11, color: '#10b981' }}>● Entregue</span>
+                                </div>
+                            ))}
+                        </>
+                    )}
+                  </>
                 )}
             </aside>
         </main>
