@@ -88,7 +88,8 @@ button:focus-visible {
 
 /* Paleta adicionada conforme solicitação (Dark theme values) */
 :root {
-  --bg-main: #0a1631; /* Dark Navy */
+  --bg-main: #0a1631;
+  /* Dark Navy */
   --card: #1a2b4d;
   --status-online: #22c55e;
   --btn-primary: #3b82f6;
@@ -109,24 +110,36 @@ button:focus-visible {
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   border: 1px solid transparent;
-  background-color: rgba(59,130,246,0.08); /* subtle */
+  background-color: rgba(59, 130, 246, 0.08);
+  /* subtle */
   color: #ffffff;
   cursor: pointer;
   transition: opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.nav-button:hover { opacity: 1; }
-.nav-button.inactive { opacity: 0.7; }
+.nav-button:hover {
+  opacity: 1;
+}
+
+.nav-button.inactive {
+  opacity: 0.7;
+}
+
 .nav-button.active {
-  background-color: rgba(59,130,246,0.18);
-  border-color: rgba(59,130,246,0.5);
-  box-shadow: 0 2px 10px rgba(59,130,246,0.08);
+  background-color: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.08);
 }
 
 /* Small responsive helper */
 @media (max-width: 800px) {
-  .top-nav { gap: 0.75rem; }
-  .nav-button { padding: 0.45rem 0.8rem; }
+  .top-nav {
+    gap: 0.75rem;
+  }
+
+  .nav-button {
+    padding: 0.45rem 0.8rem;
+  }
 }
 
 /* Summary cards (top) */
@@ -143,13 +156,20 @@ button:focus-visible {
   border-radius: 1.25rem;
   border-left-width: 8px;
   border-left-style: solid;
-  box-shadow: 0 6px 18px rgba(2,6,23,0.4);
+  /* sombra mais suave para efeito de elevação */
+  box-shadow: 0 6px 20px rgba(2, 6, 23, 0.12);
+}
+
+/* Utilitário de sombra mais pronunciada porém suave — usado por formulários/cards brancos maiores */
+.shadow-2xl {
+  box-shadow: 0 10px 40px rgba(2, 6, 23, 0.12) !important;
 }
 
 .summary-card h3 {
   margin: 0 0 0.5rem 0;
   font-size: 0.75rem;
-  color: #94a3b8; /* slate-400 */
+  color: #94a3b8;
+  /* slate-400 */
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -158,21 +178,34 @@ button:focus-visible {
   margin: 0;
   font-size: 2.25rem;
   font-weight: 900;
-  color: #0f172a; /* slate-900 */
+  color: #0f172a;
+  /* slate-900 */
 }
 
-.summary-card.status { border-left-color: var(--status-online); }
-.summary-card.blue { border-left-color: #3b82f6; }
-.summary-card.indigo { border-left-color: #6366f1; }
+.summary-card.status {
+  border-left-color: var(--status-online);
+}
+
+.summary-card.blue {
+  border-left-color: #3b82f6;
+}
+
+.summary-card.indigo {
+  border-left-color: #6366f1;
+}
 
 @media (max-width: 900px) {
-  .summary-grid { grid-template-columns: 1fr; padding: 1rem; }
+  .summary-grid {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
 }
 
 /* Layout principal - mapa + status */
 .content-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr; /* equivalente a col-span 8/4 */
+  grid-template-columns: 2fr 1fr;
+  /* equivalente a col-span 8/4 */
   gap: 1.5rem;
   padding: 1.5rem;
   min-height: 100vh;
@@ -184,7 +217,7 @@ button:focus-visible {
   padding: 1rem;
   border-radius: 1.75rem;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(2,6,23,0.45);
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
 }
 
 .status-panel {
@@ -192,10 +225,12 @@ button:focus-visible {
   padding: 2rem;
   border-radius: 1.75rem;
   color: #fff;
-  box-shadow: 0 10px 30px rgba(2,6,23,0.45);
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
 }
 
 @media (max-width: 900px) {
-  .content-grid { grid-template-columns: 1fr; padding: 1rem; }
+  .content-grid {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
 }
-
