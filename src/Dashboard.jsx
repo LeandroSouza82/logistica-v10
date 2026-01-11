@@ -1,7 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
+import AdvancedMarker from './components/AdvancedMarker';
+import CentralDespacho from './CentralDespacho';
 import { supabase } from './supabase';
 import NovaCarga from './components/NovaCarga';
+
+// Mantém o array de libraries estático para evitar re-criações (evita warning de performance)
+const GOOGLE_MAP_LIBRARIES = ['places', 'geometry'];
 
 const containerStyle = {
     width: '100%',
@@ -34,7 +39,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
         id: 'google-map-script',
         // CHAVE INJETADA DIRETAMENTE PARA FUNCIONAR AGORA
         googleMapsApiKey: "AIzaSyBeec8r4DWBdNIEFSEZg1CgRxIHjYMV9dM",
-        libraries: ['places', 'geometry']
+        libraries: GOOGLE_MAP_LIBRARIES
     });
 
     const [motoristas, setMotoristas] = useState([]);
@@ -181,6 +186,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
                 {abaAtiva === 'nova-carga' ? (
                     <NovaCarga />
+                ) : abaAtiva === 'central-despacho' ? (
+                    <CentralDespacho />
                 ) : (
                     isLoaded ? (
                         <GoogleMap
@@ -194,6 +201,20 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                             {motoristas.map(m => {
                                 const online = true; // Força a moto a aparecer sempre para teste
                                 if (!m.lat) return null;
+
+                                const advancedAvailable = (typeof window !== 'undefined' && window.google && window.google.maps && window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement);
+
+                                // Usa AdvancedMarkerElement quando disponível (recomendado pelo Google), caso contrário mantém Marker como fallback
+                                if (advancedAvailable) {
+                                    return (
+                                        <AdvancedMarker
+                                            key={m.id}
+                                            position={{ lat: Number(m.lat), lng: Number(m.lng) }}
+                                            icon={pulsingMotoSvg(m.id === 1 ? '#3b82f6' : '#10b981')}
+                                            title={m.nome || `MOTO ${m.id}`}
+                                        />
+                                    );
+                                }
 
                                 return (
                                     <Marker
