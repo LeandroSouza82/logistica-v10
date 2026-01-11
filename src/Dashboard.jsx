@@ -43,6 +43,19 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
     // Ref para o objeto do Google Map (usado para panTo quando a posição muda)
     const mapRef = useRef(null);
 
+    // Handler simples de logout (tentativa de signOut e reload)
+    const handleLogout = async () => {
+        try {
+            if (supabase?.auth?.signOut) {
+                await supabase.auth.signOut();
+            }
+        } catch (e) {
+            console.warn('Erro ao deslogar:', e?.message || e);
+        } finally {
+            // Reload para limpar o estado local; quando tivermos fluxo de login, redirecionaremos corretamente
+            try { window.location.reload(); } catch (e) { /* ignore */ }
+        }
+    };
     // Normalizador: converte latitude/longitude ou lat/lng para lat/lng numéricos
     const normalizeMotorista = (m) => {
         if (!m) return m;
@@ -144,6 +157,9 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     </button>
                 </nav>
 
+                {/* Botão de logout no topo direito */}
+                <button className="logout-button" onClick={handleLogout} aria-label="Sair da sessão">Sair</button>
+
                 {/* Cards de Resumo (Topo) */}
                 <div className="summary-grid" aria-hidden={false}>
                     <div className="summary-card blue">
@@ -163,69 +179,69 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 </div>
 
                 {abaAtiva === 'nova-carga' ? (
-                  <div className="p-6 max-w-4xl mx-auto">
-                    <div className="bg-white rounded-3xl p-8 shadow-2xl">
-                      <h2 className="text-2xl font-black text-slate-800 mb-6 uppercase">Cadastrar Nova Entrega</h2>
-                      
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="flex flex-col gap-2">
-                          <label className="text-xs font-bold text-slate-500 uppercase">Cliente / Destinatário</label>
-                          <input type="text" className="border-2 border-slate-100 p-3 rounded-xl focus:border-blue-500 outline-none" placeholder="Ex: Padaria do João" />
-                        </div>
-                        
-                        <div className="flex flex-col gap-2">
-                          <label className="text-xs font-bold text-slate-500 uppercase">Valor do Frete (R$)</label>
-                          <input type="number" className="border-2 border-slate-100 p-3 rounded-xl focus:border-blue-500 outline-none" placeholder="0,00" />
-                        </div>
+                    <div className="p-6 max-w-4xl mx-auto">
+                        <div className="bg-white rounded-3xl p-8 shadow-2xl">
+                            <h2 className="text-2xl font-black text-slate-800 mb-6 uppercase">Cadastrar Nova Entrega</h2>
 
-                        <div className="col-span-2 flex flex-col gap-2">
-                          <label className="text-xs font-bold text-slate-500 uppercase">Endereço de Entrega</label>
-                          <input type="text" className="border-2 border-slate-100 p-3 rounded-xl focus:border-blue-500 outline-none" placeholder="Rua, Número, Bairro - Palhoça" />
-                        </div>
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Cliente / Destinatário</label>
+                                    <input type="text" className="border-2 border-slate-100 p-3 rounded-xl focus:border-blue-500 outline-none" placeholder="Ex: Padaria do João" />
+                                </div>
 
-                        <button className="col-span-2 bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 uppercase mt-4">
-                          Confirmar e Enviar para Motorista
-                        </button>
-                      </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Valor do Frete (R$)</label>
+                                    <input type="number" className="border-2 border-slate-100 p-3 rounded-xl focus:border-blue-500 outline-none" placeholder="0,00" />
+                                </div>
+
+                                <div className="col-span-2 flex flex-col gap-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Endereço de Entrega</label>
+                                    <input type="text" className="border-2 border-slate-100 p-3 rounded-xl focus:border-blue-500 outline-none" placeholder="Rua, Número, Bairro - Palhoça" />
+                                </div>
+
+                                <button className="col-span-2 bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 uppercase mt-4">
+                                    Confirmar e Enviar para Motorista
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                  </div>
                 ) : (
-                  isLoaded ? (
-                    <GoogleMap
-                        mapContainerStyle={{ width: '100%', height: '500px' }}
-                        // Se existir posição da moto (estado), centraliza nela; senão, tenta o primeiro motorista com coords; se nada, usa centroPadrao.
-                        center={motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao)}
-                        zoom={15}
-                        onLoad={(mapInstance) => (mapRef.current = mapInstance)}
-                        onUnmount={() => (mapRef.current = null)}
-                    >
-                        {motoristas.map(m => {
-                            const online = true; // Força a moto a aparecer sempre para teste
-                            if (!m.lat) return null;
+                    isLoaded ? (
+                        <GoogleMap
+                            mapContainerStyle={{ width: '100%', height: '500px' }}
+                            // Se existir posição da moto (estado), centraliza nela; senão, tenta o primeiro motorista com coords; se nada, usa centroPadrao.
+                            center={motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao)}
+                            zoom={15}
+                            onLoad={(mapInstance) => (mapRef.current = mapInstance)}
+                            onUnmount={() => (mapRef.current = null)}
+                        >
+                            {motoristas.map(m => {
+                                const online = true; // Força a moto a aparecer sempre para teste
+                                if (!m.lat) return null;
 
-                            return (
-                                <Marker
-                                    key={m.id}
-                                    position={{ lat: Number(m.lat), lng: Number(m.lng) }}
-                                    icon={{
-                                        url: pulsingMotoSvg(m.id === 1 ? '#3b82f6' : '#10b981'),
-                                        scaledSize: new window.google.maps.Size(80, 80),
-                                        anchor: new window.google.maps.Point(40, 40)
-                                    }}
-                                    label={{
-                                        text: m.nome || `MOTO ${m.id}`,
-                                        color: "white",
-                                        fontWeight: "bold",
-                                        fontSize: "14px",
-                                        className: "marker-label"
-                                    }}
-                                />
-                            );
-                        })}
-                    </GoogleMap>
-                  ) : (
-                    <div style={{ color: '#ccc', padding: 20 }}>Iniciando Radar...</div>
-                  )
+                                return (
+                                    <Marker
+                                        key={m.id}
+                                        position={{ lat: Number(m.lat), lng: Number(m.lng) }}
+                                        icon={{
+                                            url: pulsingMotoSvg(m.id === 1 ? '#3b82f6' : '#10b981'),
+                                            scaledSize: new window.google.maps.Size(80, 80),
+                                            anchor: new window.google.maps.Point(40, 40)
+                                        }}
+                                        label={{
+                                            text: m.nome || `MOTO ${m.id}`,
+                                            color: "white",
+                                            fontWeight: "bold",
+                                            fontSize: "14px",
+                                            className: "marker-label"
+                                        }}
+                                    />
+                                );
+                            })}
+                        </GoogleMap>
+                    ) : (
+                        <div style={{ color: '#ccc', padding: 20 }}>Iniciando Radar...</div>
+                    )
                 )}
             </div>
 

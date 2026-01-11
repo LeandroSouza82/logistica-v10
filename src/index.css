@@ -225,8 +225,36 @@ button:focus-visible {
   border-radius: 1.75rem;
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
+  position: relative; /* necessário para posicionar o botão de logout */
 }
 
+/* Botão de logout no topo direito */
+.logout-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(0,0,0,0.12);
+  color: #f87171; /* red-400 */
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.6rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.logout-button:hover {
+  background: rgba(248,113,113,0.08);
+}
+
+@media (max-width: 600px) {
+  .logout-button {
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.85rem;
+  }
+}
 .status-panel {
   background: var(--card);
   padding: 2rem;
