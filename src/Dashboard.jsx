@@ -115,10 +115,33 @@ export default function PainelGestor() {
             <div className="map-wrapper">
                 {/* Menu superior - visual apenas (não altera lógicas existentes) */}
                 <nav className="top-nav" role="navigation" aria-label="Menu principal">
-                    <button className="nav-button active">VISÃO GERAL</button>
-                    <button className="nav-button inactive">NOVA CARGA</button>
-                    <button className="nav-button inactive">CENTRAL DE DESPACHO</button>
-                    <button className="nav-button inactive">EQUIPE</button>
+                    <button
+                        className={`nav-button ${abaAtiva === 'visao-geral' ? 'active' : 'inactive'}`}
+                        onClick={() => setAbaAtiva('visao-geral')}
+                    >
+                        VISÃO GERAL
+                    </button>
+
+                    <button
+                        className={`nav-button ${abaAtiva === 'nova-carga' ? 'active' : 'inactive'}`}
+                        onClick={() => setAbaAtiva('nova-carga')}
+                    >
+                        NOVA CARGA
+                    </button>
+
+                    <button
+                        className={`nav-button ${abaAtiva === 'central-despacho' ? 'active' : 'inactive'}`}
+                        onClick={() => setAbaAtiva('central-despacho')}
+                    >
+                        CENTRAL DE DESPACHO
+                    </button>
+
+                    <button
+                        className={`nav-button ${abaAtiva === 'equipe' ? 'active' : 'inactive'}`}
+                        onClick={() => setAbaAtiva('equipe')}
+                    >
+                        EQUIPE
+                    </button>
                 </nav>
 
                 {/* Cards de Resumo (Topo) */}
