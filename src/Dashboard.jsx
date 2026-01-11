@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import { supabase } from './supabase';
+import NovaCarga from './components/NovaCarga';
 
 const containerStyle = {
     width: '100%',
@@ -179,32 +180,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 </div>
 
                 {abaAtiva === 'nova-carga' ? (
-                    <div className="p-6 max-w-4xl mx-auto">
-                        <div className="bg-white rounded-3xl p-8 shadow-2xl">
-                            <h2 className="text-2xl font-black text-slate-800 mb-6 uppercase">Cadastrar Nova Entrega</h2>
-
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Cliente / Destinatário</label>
-                                    <input type="text" className="border-2 border-slate-100 p-3 rounded-xl focus:border-blue-500 outline-none" placeholder="Ex: Padaria do João" />
-                                </div>
-
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Valor do Frete (R$)</label>
-                                    <input type="number" className="border-2 border-slate-100 p-3 rounded-xl focus:border-blue-500 outline-none" placeholder="0,00" />
-                                </div>
-
-                                <div className="col-span-2 flex flex-col gap-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Endereço de Entrega</label>
-                                    <input type="text" className="border-2 border-slate-100 p-3 rounded-xl focus:border-blue-500 outline-none" placeholder="Rua, Número, Bairro - Palhoça" />
-                                </div>
-
-                                <button className="col-span-2 bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 uppercase mt-4">
-                                    Confirmar e Enviar para Motorista
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    <NovaCarga />
                 ) : (
                     isLoaded ? (
                         <GoogleMap
