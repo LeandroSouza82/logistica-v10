@@ -85,3 +85,46 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* Paleta adicionada conforme solicitação (Dark theme values) */
+:root {
+  --bg-main: #0a1631; /* Dark Navy */
+  --card: #1a2b4d;
+  --status-online: #22c55e;
+  --btn-primary: #3b82f6;
+}
+
+/* Navegação superior (estilo inspirado em Tailwind util classes) */
+.top-nav {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1rem 0.5rem;
+  background-color: var(--bg-main);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.nav-button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background-color: rgba(59,130,246,0.08); /* subtle */
+  color: #ffffff;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.nav-button:hover { opacity: 1; }
+.nav-button.inactive { opacity: 0.7; }
+.nav-button.active {
+  background-color: rgba(59,130,246,0.18);
+  border-color: rgba(59,130,246,0.5);
+  box-shadow: 0 2px 10px rgba(59,130,246,0.08);
+}
+
+/* Small responsive helper */
+@media (max-width: 800px) {
+  .top-nav { gap: 0.75rem; }
+  .nav-button { padding: 0.45rem 0.8rem; }
+}

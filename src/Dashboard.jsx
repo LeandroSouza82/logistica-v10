@@ -113,6 +113,14 @@ export default function PainelGestor() {
     return (
         <div style={containerStyle}>
             <div style={{ flex: 2 }}>
+                {/* Menu superior - visual apenas (não altera lógicas existentes) */}
+                <nav className="top-nav" role="navigation" aria-label="Menu principal">
+                    <button className="nav-button active">VISÃO GERAL</button>
+                    <button className="nav-button inactive">NOVA CARGA</button>
+                    <button className="nav-button inactive">CENTRAL DE DESPACHO</button>
+                    <button className="nav-button inactive">EQUIPE</button>
+                </nav>
+
                 {isLoaded ? (
                     <GoogleMap
                         mapContainerStyle={{ width: '100%', height: '100%' }}
