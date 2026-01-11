@@ -193,9 +193,7 @@ export default function DeliveryApp(props) {
         const payload = {
             lat: coords.latitude,
             lng: coords.longitude,
-            // Campo novo solicitado
-            ultima_atualizacao: new Date().toISOString(),
-            // Mantemos o campo antigo por compatibilidade com bancos que usam 'ultimo_sinal'
+            // Mantemos o campo existente no banco
             ultimo_sinal: new Date().toISOString()
         };
 
