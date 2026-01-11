@@ -121,6 +121,24 @@ export default function PainelGestor() {
                     <button className="nav-button inactive">EQUIPE</button>
                 </nav>
 
+                {/* Cards de Resumo (Topo) */}
+                <div className="summary-grid" aria-hidden={false}>
+                    <div className="summary-card blue">
+                        <h3>Pedidos Pendentes</h3>
+                        <p className="value">0</p>
+                    </div>
+
+                    <div className="summary-card status">
+                        <h3>Motoristas Online</h3>
+                        <p className="value">1</p>
+                    </div>
+
+                    <div className="summary-card indigo">
+                        <h3>Rota Ativa</h3>
+                        <p className="value">Aguardando</p>
+                    </div>
+                </div>
+
                 {isLoaded ? (
                     <GoogleMap
                         mapContainerStyle={{ width: '100%', height: '100%' }}
