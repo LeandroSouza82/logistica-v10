@@ -28,7 +28,7 @@ const pulsingMotoSvg = (color = '#3b82f6') => {
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 };
 
-export default function PainelGestor() {
+export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
     const { isLoaded, loadError } = useJsApiLoader({
         id: 'google-map-script',
         // CHAVE INJETADA DIRETAMENTE PARA FUNCIONAR AGORA
