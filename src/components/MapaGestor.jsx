@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, Marker, Polyline } from '@react-google-maps/api';
 import AdvancedMarker from './AdvancedMarker';
 
-const centroPalhoca = { lat: -27.6438, lng: -48.6674 };
+const centroPadrao = { lat: -27.6608, lng: -48.7087 };
 
 function MapaGestor({ pedidosNoRascunho = [], posicaoMoto = null, isLoaded = true }) {
     const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY; // NOTE: map container uses fixed vw/vh to avoid 0px height issues
@@ -38,8 +38,8 @@ function MapaGestor({ pedidosNoRascunho = [], posicaoMoto = null, isLoaded = tru
     return (
         <GoogleMap
             mapContainerStyle={{ width: '100vw', height: '100vh' }}
-            center={posicaoMoto || centroPalhoca}
-            zoom={12}
+            center={posicaoMoto || centroPadrao}
+            zoom={15}
             onLoad={onLoad}
             options={{ disableDefaultUI: true, zoomControl: true }}
         >

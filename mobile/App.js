@@ -5,6 +5,7 @@ import WelcomeScreen from './src/components/WelcomeScreen';
 import LoginScreen from './src/components/LoginScreen';
 import { supabase } from './src/supabaseClient';
 import * as SecureStore from 'expo-secure-store';
+import * as Location from 'expo-location';
 
 export default function App() {
     // Forçar o app como logado para testes locais
@@ -62,6 +63,7 @@ export default function App() {
     };
 
     const logoutTimerRef = useRef(null);
+    const locationWatcherRef = useRef(null);
 
     const handleLogout = async () => {
         try {
@@ -97,8 +99,74 @@ export default function App() {
             logoutTimerRef.current = null;
         }, 10000);
 
+        // Remove o watcher de localização, se ativo
+        try {
+            if (locationWatcherRef.current) {
+                locationWatcherRef.current.remove();
+                locationWatcherRef.current = null;
+            }
+        } catch (e) {
+            console.warn('Erro ao remover location watcher no logout:', e);
+        }
+
         setIsAuthenticated(false);
         setShowLogin(true);
+    };
+
+    // Inicia watcher de GPS quando estiver autenticado e motoristaId estiver definido
+    useEffect(() => {
+        if (!isAuthenticated || !motoristaId) return;
+
+        let mounted = true;
+        (async () => {
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                    console.log('Permissão de localização negada');
+                    return;
+                }
+
+                // inicia o watcher
+                locationWatcherRef.current = await Location.watchPositionAsync(
+                    {
+                        accuracy: Location.Accuracy.High,
+                        timeInterval: 5000,
+                        distanceInterval: 2,
+                    },
+                    async (location) => {
+                        const { latitude, longitude } = location.coords;
+                        await enviarLocalizacao(latitude, longitude);
+                    }
+                );
+            } catch (e) {
+                console.warn('Erro ao iniciar watchPosition:', e);
+            }
+        })();
+
+        return () => {
+            // cleanup
+            try {
+                if (locationWatcherRef.current) {
+                    locationWatcherRef.current.remove();
+                    locationWatcherRef.current = null;
+                }
+            } catch (e) { /* ignore */ }
+        };
+    }, [isAuthenticated, motoristaId]);
+
+    const enviarLocalizacao = async (lat, lng) => {
+        if (!motoristaId) return;
+        try {
+            const { error } = await supabase
+                .from('motoristas')
+                .update({ lat, lng, ultimo_sinal: new Date() })
+                .eq('id', motoristaId);
+
+            if (error) console.error('Erro ao subir GPS:', error.message);
+            else console.log('Localização enviada:', lat, lng);
+        } catch (e) {
+            console.error('Erro ao enviar localização:', e);
+        }
     };
 
     if (showWelcome) return <WelcomeScreen onFinish={checkSessionAndRoute} />;

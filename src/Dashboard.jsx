@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import { supabase } from './supabase';
 
@@ -11,7 +11,7 @@ const containerStyle = {
     color: 'white',
 };
 
-const center = { lat: -27.612, lng: -48.675 };
+const centroPadrao = { lat: -27.6608, lng: -48.7087 };
 
 // Ícone SVG Pulsante
 const pulsingMotoSvg = (color = '#3b82f6') => {
@@ -38,11 +38,27 @@ export default function PainelGestor() {
 
     const [motoristas, setMotoristas] = useState([]);
     const [entregas, setEntregas] = useState([]);
+    // Estado inicial da posição da moto para evitar iniciar o mapa no mar
+    const [motoPosition, setMotoPosition] = useState({ lat: -27.6608, lng: -48.7087 });
+    // Ref para o objeto do Google Map (usado para panTo quando a posição muda)
+    const mapRef = useRef(null);
+
+    // Normalizador: converte latitude/longitude ou lat/lng para lat/lng numéricos
+    const normalizeMotorista = (m) => {
+        if (!m) return m;
+        const latSrc = m.latitude ?? m.lat;
+        const lngSrc = m.longitude ?? m.lng;
+        return {
+            ...m,
+            lat: latSrc != null ? Number(latSrc) : (m.lat != null ? Number(m.lat) : undefined),
+            lng: lngSrc != null ? Number(lngSrc) : (m.lng != null ? Number(m.lng) : undefined),
+        };
+    };
 
     useEffect(() => {
         const buscarDados = async () => {
             const { data: mData } = await supabase.from('motoristas').select('*');
-            if (mData) setMotoristas(mData);
+            if (mData) setMotoristas(mData.map(normalizeMotorista));
 
             const { data: eData } = await supabase.from('entregas').select('*').order('id', { ascending: false }).limit(20);
             if (eData) setEntregas(eData);
@@ -54,14 +70,43 @@ export default function PainelGestor() {
             .on('postgres_changes',
                 { event: 'UPDATE', schema: 'public', table: 'motoristas' },
                 (payload) => {
-                    console.log('Mudança recebida!', payload.new);
-                    setMotoristas(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
+                    try {
+                        const updated = normalizeMotorista(payload.new);
+                        console.log('Mudança recebida!', payload.new, '=> normalizado =>', updated);
+
+                        // Ignora coordenadas 0,0 (frequentemente indicam erro GPS) para evitar centrar mapa no mar
+                        if (updated && typeof updated.lat === 'number' && typeof updated.lng === 'number') {
+                            if (updated.lat === 0 && updated.lng === 0) {
+                                console.warn('Coordenadas inválidas (0,0) recebidas — ignorando update:', payload.new);
+                                return;
+                            }
+                        } else {
+                            console.warn('Motorista sem coordenadas numéricas — ignorando update:', payload.new);
+                            return;
+                        }
+
+                        // Atualiza lista local de motoristas
+                        setMotoristas(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m));
+
+                        // Atualiza estado de posição da moto para que o mapa possa centralizar
+                        setMotoPosition({ lat: updated.lat, lng: updated.lng });
+
+                        // Faz o mapa "perseguir" a motinha (se o mapRef estiver pronto)
+                        try {
+                            mapRef.current?.panTo({ lat: updated.lat, lng: updated.lng });
+                        } catch (e) { /* ignore */ }
+                    } catch (e) {
+                        console.warn('Erro ao normalizar motorista recebido:', e?.message || e);
+                    }
                 }
             )
             .subscribe();
 
         return () => supabase.removeChannel(canal);
     }, []);
+
+    // Escolhe primeiro motorista com coordenadas válidas (não 0,0) para centralizar o mapa
+    const firstMotoristaComCoords = motoristas.find(m => m.lat != null && m.lng != null && !(m.lat === 0 && m.lng === 0));
 
     if (loadError) return <div style={{ color: '#f88', padding: 20 }}>Erro no Google Maps.</div>;
 
@@ -71,9 +116,11 @@ export default function PainelGestor() {
                 {isLoaded ? (
                     <GoogleMap
                         mapContainerStyle={{ width: '100%', height: '100%' }}
-                        // Se existir motorista, centraliza nele. Se não, usa o centro padrão.
-                        center={motoristas.length > 0 ? { lat: Number(motoristas[0].lat), lng: Number(motoristas[0].lng) } : center}
+                        // Se existir posição da moto (estado), centraliza nela; senão, tenta o primeiro motorista com coords; se nada, usa centroPadrao.
+                        center={motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao)}
                         zoom={15}
+                        onLoad={(mapInstance) => (mapRef.current = mapInstance)}
+                        onUnmount={() => (mapRef.current = null)}
                     >
                         {motoristas.map(m => {
                             const online = true; // Força a moto a aparecer sempre para teste

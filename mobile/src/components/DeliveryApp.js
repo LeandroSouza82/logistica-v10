@@ -86,9 +86,12 @@ export default function DeliveryApp(props) {
                         if (Number(payload.new?.id) !== Number(motoristaId)) return; // Ignore updates for outros motoristas
 
                         console.log('Posição nova chegando do celular!', payload.new);
-                        const lat = Number(payload.new.lat);
-                        const lng = Number(payload.new.lng);
-                        if (!isNaN(lat) && !isNaN(lng)) {
+                        const latSrc = payload.new?.latitude ?? payload.new?.lat;
+                        const lngSrc = payload.new?.longitude ?? payload.new?.lng;
+                        const lat = Number(latSrc);
+                        const lng = Number(lngSrc);
+                        // Ignora posições inválidas ou (0,0)
+                        if (!isNaN(lat) && !isNaN(lng) && !(lat === 0 && lng === 0)) {
                             const newPos = { latitude: lat, longitude: lng };
                             if (payload.new.heading != null) {
                                 const h = Number(payload.new.heading);
@@ -109,7 +112,7 @@ export default function DeliveryApp(props) {
                                 }, 500);
                             } catch (e) { /* silent */ }
                         } else {
-                            console.warn('Supabase enviou dados de posição inválidos:', payload.new);
+                            console.warn('Supabase enviou dados de posição inválidos ou (0,0):', payload.new);
                         }
                     } catch (e) {
                         console.warn('Erro no listener realtime:', e?.message || e);
@@ -156,7 +159,7 @@ export default function DeliveryApp(props) {
 
 
     // ESTADO PARA A POSIÇÃO DA MOTO (MOTORISTA) E HEADING
-    const [posicaoMotorista, setPosicaoMotorista] = useState(null);
+    const [posicaoMotorista, setPosicaoMotorista] = useState({ latitude: -23.5505, longitude: -46.6333, latitudeDelta: 0.05, longitudeDelta: 0.05 });
     const [heading, setHeading] = useState(0);
     const prevPosRef = useRef(null);
     // evita enviar atualizações ao Supabase mais de 1 vez por segundo
@@ -489,8 +492,8 @@ export default function DeliveryApp(props) {
                 followsUserLocation={true}
                 showsMyLocationButton={false} // Escondemos o nativo para usar o seu botão redondo
                 initialRegion={{
-                    latitude: -27.596,
-                    longitude: -48.546,
+                    latitude: -23.5505,
+                    longitude: -46.6333,
                     latitudeDelta: 0.05,
                     longitudeDelta: 0.05
                 }}
