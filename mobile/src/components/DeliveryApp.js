@@ -395,85 +395,7 @@ export default function DeliveryApp(props) {
     // Forçando rastreio ativo por padrão para testes
     const [trackingActive, setTrackingActive] = useState(true);
 
-    // Função que inicia/parar o rastreio de localização (usada pelo botão flutuante)
-    const iniciarRastreio = async () => {
-        try {
-            if (locationSubscriptionRef.current) {
-                // Se já está ativo, removemos
-                try { locationSubscriptionRef.current.remove(); } catch (e) { /* ignore */ }
-                locationSubscriptionRef.current = null;
-                setTrackingActive(false);
-                Alert.alert('Rastreamento', 'Rastreamento parado');
-                return;
-            }
 
-            let { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                Alert.alert('Erro', 'Precisamos da permissão de localização para rastrear!');
-                return;
-            }
-
-            const subscription = await Location.watchPositionAsync(
-                {
-                    accuracy: Location.Accuracy.High,
-                    timeInterval: 5000,
-                    distanceInterval: 1,
-                },
-                (location) => {
-                    try {
-                        const coords = {
-                            latitude: location.coords.latitude,
-                            longitude: location.coords.longitude,
-                        };
-
-                        const deviceHeading = (typeof location.coords.heading === 'number') ? location.coords.heading : null;
-                        let finalHeading = deviceHeading;
-
-                        if (finalHeading === null && prevPosRef.current) {
-                            const b = calculateBearing(prevPosRef.current.latitude, prevPosRef.current.longitude, coords.latitude, coords.longitude);
-                            finalHeading = b;
-                        }
-
-                        if (finalHeading !== null) {
-                            setHeading(finalHeading);
-                        }
-
-                        prevPosRef.current = coords;
-                        setPosicaoMotorista({ ...coords, heading: finalHeading });
-
-                        try {
-                            mapRef.current?.animateToRegion({
-                                latitude: coords.latitude,
-                                longitude: coords.longitude,
-                                latitudeDelta: 0.01,
-                                longitudeDelta: 0.01,
-                            }, 1000);
-                        } catch (e) { /* ignore */ }
-
-                        enviarPosicao(location.coords);
-                    } catch (e) { console.warn('Erro no watchPosition callback:', e?.message || e); }
-                }
-            );
-
-            locationSubscriptionRef.current = subscription;
-            setTrackingActive(true);
-            Alert.alert('Rastreamento', 'Rastreamento iniciado');
-        } catch (err) {
-            console.warn('Erro ao iniciar/parar rastreio:', err?.message || err);
-            Alert.alert('Erro', 'Não foi possível iniciar o rastreio');
-        }
-    };
-
-    // Se o estado de trackingActive estiver true por padrão, garante que o rastreio seja iniciado
-    useEffect(() => {
-        (async () => {
-            try {
-                if (trackingActive && !locationSubscriptionRef.current) {
-                    await iniciarRastreio();
-                }
-            } catch (e) { /* ignore */ }
-        })();
-    }, [trackingActive]);
 
     return (
         <View style={styles.container}>
@@ -539,38 +461,6 @@ export default function DeliveryApp(props) {
 
 
 
-            {/* Botão flutuante sobre o mapa (parte inferior) */}
-            <View style={{
-                position: 'absolute',
-                bottom: 50,
-                width: '100%',
-                alignItems: 'center',
-                paddingHorizontal: 20
-            }}>
-                <TouchableOpacity
-                    onPress={iniciarRastreio}
-                    style={{
-                        backgroundColor: '#10b981', // Verde chamativo
-                        paddingVertical: 18,
-                        width: '100%',
-                        borderRadius: 15,
-                        elevation: 5, // Sombra no Android
-                        shadowColor: '#000', // Sombra no iOS
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.25,
-                        shadowRadius: 3.84,
-                    }}
-                >
-                    <Text style={{
-                        color: 'white',
-                        textAlign: 'center',
-                        fontWeight: 'bold',
-                        fontSize: 18
-                    }}>
-                        {trackingActive ? '⏸ PARAR RASTREIO' : '🚀 INICIAR MEU RASTREIO'}
-                    </Text>
-                </TouchableOpacity>
-            </View>
 
             <Animated.View {...panResponder.panHandlers} style={[styles.aba, { transform: [{ translateY: panY }] }]}>
                 <View style={styles.handleContainer}>
