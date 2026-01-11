@@ -162,7 +162,35 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     </div>
                 </div>
 
-                {isLoaded ? (
+                {abaAtiva === 'nova-carga' ? (
+                  <div className="p-6 max-w-4xl mx-auto">
+                    <div className="bg-white rounded-3xl p-8 shadow-2xl">
+                      <h2 className="text-2xl font-black text-slate-800 mb-6 uppercase">Cadastrar Nova Entrega</h2>
+                      
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="flex flex-col gap-2">
+                          <label className="text-xs font-bold text-slate-500 uppercase">Cliente / Destinatário</label>
+                          <input type="text" className="border-2 border-slate-100 p-3 rounded-xl focus:border-blue-500 outline-none" placeholder="Ex: Padaria do João" />
+                        </div>
+                        
+                        <div className="flex flex-col gap-2">
+                          <label className="text-xs font-bold text-slate-500 uppercase">Valor do Frete (R$)</label>
+                          <input type="number" className="border-2 border-slate-100 p-3 rounded-xl focus:border-blue-500 outline-none" placeholder="0,00" />
+                        </div>
+
+                        <div className="col-span-2 flex flex-col gap-2">
+                          <label className="text-xs font-bold text-slate-500 uppercase">Endereço de Entrega</label>
+                          <input type="text" className="border-2 border-slate-100 p-3 rounded-xl focus:border-blue-500 outline-none" placeholder="Rua, Número, Bairro - Palhoça" />
+                        </div>
+
+                        <button className="col-span-2 bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 uppercase mt-4">
+                          Confirmar e Enviar para Motorista
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  isLoaded ? (
                     <GoogleMap
                         mapContainerStyle={{ width: '100%', height: '500px' }}
                         // Se existir posição da moto (estado), centraliza nela; senão, tenta o primeiro motorista com coords; se nada, usa centroPadrao.
@@ -195,68 +223,69 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                             );
                         })}
                     </GoogleMap>
-                ) : (
+                  ) : (
                     <div style={{ color: '#ccc', padding: 20 }}>Iniciando Radar...</div>
+                  )
                 )}
             </div>
 
             <aside className="status-panel">
                 {abaAtiva === 'equipe' ? (
-                  <div className="p-6">
-                    <div className="bg-[#1a2b4d] rounded-3xl p-6 shadow-xl">
-                      <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-white">Equipe de Motoristas</h2>
-                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold transition">
-                          + NOVO MOTORISTA
-                        </button>
-                      </div>
-                      
-                      <table className="w-full text-left text-white">
-                        <thead>
-                          <tr className="border-b border-slate-700 text-slate-400 uppercase text-xs">
-                            <th className="py-4">Motorista</th>
-                            <th>Status</th>
-                            <th>Última Posição</th>
-                            <th>Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b border-slate-800 hover:bg-slate-800/50">
-                            <td className="py-4 flex items-center gap-3">
-                              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">LM</div>
-                              Leandro Motoka
-                            </td>
-                            <td>
-                              <span className="bg-emerald-500/20 text-emerald-500 px-3 py-1 rounded-full text-xs font-bold">
-                                ● ONLINE
-                              </span>
-                            </td>
-                            <td className="text-slate-400 text-sm">Palhoça, SC - há 2 min</td>
-                            <td>
-                              <button className="text-blue-400 hover:underline">Ver no Mapa</button>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <div className="p-6">
+                        <div className="bg-[#1a2b4d] rounded-3xl p-6 shadow-xl">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold text-white">Equipe de Motoristas</h2>
+                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold transition">
+                                    + NOVO MOTORISTA
+                                </button>
+                            </div>
+
+                            <table className="w-full text-left text-white">
+                                <thead>
+                                    <tr className="border-b border-slate-700 text-slate-400 uppercase text-xs">
+                                        <th className="py-4">Motorista</th>
+                                        <th>Status</th>
+                                        <th>Última Posição</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr className="border-b border-slate-800 hover:bg-slate-800/50">
+                                        <td className="py-4 flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">LM</div>
+                                            Leandro Motoka
+                                        </td>
+                                        <td>
+                                            <span className="bg-emerald-500/20 text-emerald-500 px-3 py-1 rounded-full text-xs font-bold">
+                                                ● ONLINE
+                                            </span>
+                                        </td>
+                                        <td className="text-slate-400 text-sm">Palhoça, SC - há 2 min</td>
+                                        <td>
+                                            <button className="text-blue-400 hover:underline">Ver no Mapa</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                  </div>
                 ) : (
-                  <>
-                    <h2 style={{ color: '#fff', marginTop: 0 }}>Status da Operação</h2>
-                    {entregas.length === 0 ? (
-                        <p style={{ color: '#94a3b8' }}>Nenhuma rota despachada no momento.</p>
-                    ) : (
-                        <>
-                            <p style={{ color: '#94a3b8' }}>Rotas recentes:</p>
-                            {entregas.map(e => (
-                                <div key={e.id} style={{ background: '#112240', padding: 12, borderRadius: 8, marginBottom: 8 }}>
-                                    <p style={{ margin: 0, fontSize: 14 }}><strong>{e.cliente}</strong></p>
-                                    <span style={{ fontSize: 11, color: '#10b981' }}>● Entregue</span>
-                                </div>
-                            ))}
-                        </>
-                    )}
-                  </>
+                    <>
+                        <h2 style={{ color: '#fff', marginTop: 0 }}>Status da Operação</h2>
+                        {entregas.length === 0 ? (
+                            <p style={{ color: '#94a3b8' }}>Nenhuma rota despachada no momento.</p>
+                        ) : (
+                            <>
+                                <p style={{ color: '#94a3b8' }}>Rotas recentes:</p>
+                                {entregas.map(e => (
+                                    <div key={e.id} style={{ background: '#112240', padding: 12, borderRadius: 8, marginBottom: 8 }}>
+                                        <p style={{ margin: 0, fontSize: 14 }}><strong>{e.cliente}</strong></p>
+                                        <span style={{ fontSize: 11, color: '#10b981' }}>● Entregue</span>
+                                    </div>
+                                ))}
+                            </>
+                        )}
+                    </>
                 )}
             </aside>
         </main>
