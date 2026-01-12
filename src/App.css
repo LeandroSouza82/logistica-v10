@@ -449,6 +449,22 @@ body,
   border-left-color: transparent !important;
 }
 
+/* AVISO: Padronizar 'voltinha integrada' (bordas arredondadas de 10px) */
+.summary-card {
+  border-radius: 12px !important;
+  overflow: hidden !important; /* essencial para o efeito arredondado */
+  border-left: 10px solid transparent !important; /* base para a cor */
+  padding-left: 15px !important; /* respiração entre a borda e o conteúdo */
+}
+
+/* Remover qualquer pseudo-elemento antigo (se existir) */
+.summary-card::before { display: none !important; }
+
+/* Cores aplicadas via border-left direto */
+.summary-card.blue { border-left-color: #f1c40f !important; }
+.summary-card.status { border-left-color: #2ecc71 !important; }
+.summary-card.indigo { border-left-color: #3498db !important; }
+
 /* Garantir alinhamento/sem margens extras */
 .summary-grid>* {
   margin: 0 !important;
@@ -548,14 +564,20 @@ body,
 select.form-input {
   width: 100% !important;
   box-sizing: border-box !important;
-  height: 48px !important; /* padrão de altura para inputs simples */
-  background: #1f2937 !important; /* dark background */
-  color: #ffffff !important; /* texto branco puro */
-  border: 1px solid #374151 !important; /* borda sutil */
-  padding: 12px 15px !important; /* espaçamento interno */
+  height: 48px !important;
+  /* padrão de altura para inputs simples */
+  background: #1f2937 !important;
+  /* dark background */
+  color: #ffffff !important;
+  /* texto branco puro */
+  border: 1px solid #374151 !important;
+  /* borda sutil */
+  padding: 12px 15px !important;
+  /* espaçamento interno */
   border-radius: 8px !important;
   font-size: 14px !important;
-  margin-bottom: 14px !important; /* espaçamento consistente */
+  margin-bottom: 14px !important;
+  /* espaçamento consistente */
   outline: none !important;
 }
 
@@ -573,7 +595,7 @@ textarea.form-input {
 select.form-input:focus,
 textarea.form-input:focus {
   border-color: #3498db !important;
-  box-shadow: 0 6px 20px rgba(52,152,219,0.16) !important;
+  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.16) !important;
 }
 
 /* Busca no histórico: ícone + padding */
@@ -601,10 +623,14 @@ textarea.form-input:focus {
 /* remover outlines nativos */
 .form-input:focus-visible,
 select.form-input:focus-visible,
-.historico-search-input:focus-visible { outline: none !important; }
+.historico-search-input:focus-visible {
+  outline: none !important;
+}
 
 /* caret legível */
-.form-input { caret-color: #ffffff !important; }
+.form-input {
+  caret-color: #ffffff !important;
+}
 
 /* Botão Azul Sólido (full-width no card) */
 .nova-carga-card .btn-add-lista {
@@ -953,6 +979,10 @@ body .summary-card {
 .cd-card {
   transition: transform 150ms ease, box-shadow 200ms ease !important;
   cursor: grab !important;
+  border-radius: 12px !important;
+  overflow: hidden !important; /* garantir efeito 'voltinha' */
+  border-left: 10px solid transparent !important; /* base */
+  padding-left: 15px !important;
 }
 
 .cd-card:active {
@@ -968,6 +998,11 @@ body .summary-card {
   box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.12) !important;
   border-left-color: var(--accent-purple) !important;
 }
+
+.cd-card.svc-entrega { border-left-color: #3498db !important; }
+.cd-card.svc-recolha { border-left-color: #e67e22 !important; }
+.cd-card.svc-outros { border-left-color: #9b59b6 !important; }
+.cd-card.svc-default { border-left-color: rgba(255,255,255,0.04) !important; }
 
 /* Barra de ações (Seletor + Otimizar + Disparar) */
 .barra-comando-unica {

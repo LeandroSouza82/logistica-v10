@@ -431,7 +431,7 @@ button:focus-visible {
 
 .rota-card {
   background: var(--card);
-  padding: 16px 16px 16px 36px; /* empurra texto para longe da 'voltinha' */
+  padding: 16px 16px 16px 15px; /* respiração maior ao lado da nova borda */
   border-radius: 12px !important;
   display: flex;
   align-items: center;
@@ -440,7 +440,7 @@ button:focus-visible {
   box-shadow: 0 6px 18px rgba(2, 6, 23, 0.3);
   position: relative;
   /* para posicionar badges no canto */
-  overflow: hidden !important; /* garante recorte arredondado da borda */
+  overflow: hidden !important; /* para recortar a borda e criar o efeito arredondado */
   border-left: 10px solid transparent !important; /* base para a cor */
 }
 
@@ -485,11 +485,17 @@ button:focus-visible {
   color: var(--muted);
 }
 
-/* substituir barras finas por 'voltinha' arredondada de 10px */
-.rota-card.svc-entrega { border-left-color: #3498db !important; }
-.rota-card.svc-recolha { border-left-color: #e67e22 !important; }
-.rota-card.svc-outros { border-left-color: #9b59b6 !important; }
-.rota-card.svc-default { border-left-color: rgba(255,255,255,0.04) !important; }
+/* Substitui barras finas por 'voltinha' integrada (border-left 10px) */
+.rota-card.svc-entrega { border-left: 10px solid #3498db !important; }
+.rota-card.svc-recolha { border-left: 10px solid #e67e22 !important; }
+.rota-card.svc-outros { border-left: 10px solid #9b59b6 !important; }
+.rota-card.svc-default { border-left: 10px solid rgba(255, 255, 255, 0.04) !important; }
+
+/* Backwards-compatible helpers (em caso de classes antigas usadas isoladamente) */
+.svc-entrega { border-left-color: #3498db !important; }
+.svc-recolha { border-left-color: #e67e22 !important; }
+.svc-outros { border-left-color: #9b59b6 !important; }
+.svc-default { border-left-color: rgba(255,255,255,0.04) !important; }
 
 /* entrega accent coloring by service */
 .entrega-card.svc-entrega .entrega-accent {
