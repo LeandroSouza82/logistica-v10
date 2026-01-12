@@ -382,12 +382,12 @@ body,
   align-items: stretch !important;
 }
 
-.summary-card {
+..summary-card {
   position: relative !important;
   background: #ffffff;
   /* Fundo branco conforme a foto */
   padding: 1.5rem 1.5rem 1.5rem 1.5rem !important;
-  border-radius: 12px;
+  border-radius: 12px !important; /* garantir arredondamento */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   margin: 0 !important;
   display: flex !important;
@@ -395,25 +395,13 @@ body,
   justify-content: center !important;
   min-height: 110px !important;
   /* garante altura uniforme */
-  overflow: visible !important;
-  padding-left: 26px !important;
+  overflow: hidden !important; /* essencial para o efeito 'voltinha' */
+  padding-left: 36px !important; /* respiração extra entre barra e texto */
+  border-left: 10px solid transparent !important; /* base para a cor */
 }
 
-/* barra lateral arredondada - usa pseudo-elemento para controle de raio */
-.summary-card::before {
-  content: "";
-  position: absolute;
-  left: 12px;
-  top: 12px;
-  height: calc(100% - 24px);
-  width: 10px; /* mais grossa para 'voltinha' */
-  border-radius: 8px; /* acompanha o card */
-  background: transparent;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06) inset;
-}
-
-/* Forçar padding extra para criar respiro do texto */
-.summary-card { padding-left: 32px !important; }
+/* antigo pseudo-elemento removido em favor de border-left arredondada */
+.summary-card::before { display: none !important; }
 
 .summary-card h3 {
   color: #64748b;
@@ -431,21 +419,10 @@ body,
   margin: 0;
 }
 
-/* Aplicar cor à barra lateral via pseudo-elemento */
-.summary-card.blue::before {
-  background: #f1c40f !important;
-  /* amarela / atenção */
-}
-
-.summary-card.status::before {
-  background: #2ecc71 !important;
-  /* verde */
-}
-
-.summary-card.indigo::before {
-  background: #3498db !important;
-  /* azul - rota ativa (ajustado para #3498db) */
-}
+/* Aplicar cor à barra lateral via border-left para efeito 'voltinha' */
+.summary-card.blue { border-left-color: #f1c40f !important; /* amarela / atenção */ }
+.summary-card.status { border-left-color: #2ecc71 !important; /* verde */ }
+.summary-card.indigo { border-left-color: #3498db !important; /* azul - rota ativa */ }
 
 /* Caso haja alguma borda antiga, escondemos para evitar duplicidade */
 .summary-card[style] {

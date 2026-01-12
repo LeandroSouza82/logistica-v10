@@ -431,36 +431,18 @@ button:focus-visible {
 
 .rota-card {
   background: var(--card);
-  padding: 16px 16px 16px 32px; /* empurra texto para longe da 'voltinha' */
+  padding: 16px 16px 16px 36px; /* empurra texto para longe da 'voltinha' */
   border-radius: 12px !important;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border: 1px solid var(--glass-border);
   box-shadow: 0 6px 18px rgba(2, 6, 23, 0.3);
-  position: relative; /* para posicionar badges e pseudo-elemento */
-  overflow: hidden !important; /* garante que a 'voltinha' arredondada seja recortada corretamente */
-  border-left: none !important; /* remover qualquer barra esquerda antiga */
+  position: relative;
+  /* para posicionar badges no canto */
+  overflow: hidden !important; /* garante recorte arredondado da borda */
+  border-left: 10px solid transparent !important; /* base para a cor */
 }
-
-/* Pseudo-elemento 'voltinha' para todos os rota-card */
-.rota-card::before {
-  content: "";
-  position: absolute;
-  left: 12px;
-  top: 12px;
-  height: calc(100% - 24px);
-  width: 10px; /* grossura da voltinha */
-  border-radius: 8px;
-  background: transparent;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.06) inset;
-}
-
-/* cores por serviço */
-.rota-card.svc-entrega::before { background: #3498db !important; }
-.rota-card.svc-recolha::before { background: #e67e22 !important; }
-.rota-card.svc-outros::before { background: #9b59b6 !important; }
-.rota-card.svc-default::before { background: rgba(255,255,255,0.04) !important; }
 
 .rota-info {
   display: flex;
@@ -503,21 +485,11 @@ button:focus-visible {
   color: var(--muted);
 }
 
-.svc-entrega {
-  border-left: 4px solid var(--btn-primary) !important;
-}
-
-.svc-recolha {
-  border-left: 4px solid #f97316 !important;
-}
-
-.svc-outros {
-  border-left: 4px solid #a855f7 !important;
-}
-
-.svc-default {
-  border-left: 4px solid rgba(255, 255, 255, 0.04) !important;
-}
+/* substituir barras finas por 'voltinha' arredondada de 10px */
+.rota-card.svc-entrega { border-left-color: #3498db !important; }
+.rota-card.svc-recolha { border-left-color: #e67e22 !important; }
+.rota-card.svc-outros { border-left-color: #9b59b6 !important; }
+.rota-card.svc-default { border-left-color: rgba(255,255,255,0.04) !important; }
 
 /* entrega accent coloring by service */
 .entrega-card.svc-entrega .entrega-accent {
