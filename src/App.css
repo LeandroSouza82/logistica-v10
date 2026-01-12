@@ -6,7 +6,7 @@ body,
   padding: 0 !important;
   width: 100vw;
   height: 100vh;
-  overflow: hidden;
+  overflow: auto; /* Permite rolagem da página inteira */
   /* Impede que a tela "balance" */
   background-color: #0b0e14;
 }
@@ -111,11 +111,11 @@ body,
 .dashboard-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  width: 100vw;
+  min-height: 100vh;
+  width: 100%;
   background-color: #0b0e14;
-  overflow: hidden;
-  position: fixed;
+  overflow: auto;
+  position: relative;
   top: 0;
   left: 0;
   right: 0;
@@ -1031,16 +1031,16 @@ body .summary-card {
 /* Scroll area para Fila de Preparação (container pai) */
 .central-despacho-container .cd-grid-container {
   /* altura responsiva que considera o header/topo e outros elementos */
-  height: calc(100vh - 240px);
+  height: auto; /* allow the container to expand naturally */
   max-height: 78vh;
   overflow-y: auto;
   padding-right: 12px; /* evita colar cards na scrollbar */
-  padding-bottom: 6rem; /* espaço extra para últimos cards e botões */
+  padding-bottom: 120px; /* espaço extra para últimos cards e botões (120px) */
   display: block;
   box-sizing: border-box;
   scrollbar-width: thin;
   scrollbar-color: #334155 transparent;
-  scroll-padding-bottom: 6rem;
+  scroll-padding-bottom: 120px;
 }
 
 .central-despacho-container .cd-grid-container .cd-grid {

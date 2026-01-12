@@ -742,7 +742,7 @@ button:focus-visible {
   background: var(--card);
   padding: 1rem;
   border-radius: 1.75rem;
-  overflow: hidden;
+  /* overflow: hidden; removed to prevent clipping inside map wrapper */
   box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
   position: relative;
   /* necessário para posicionar o botão de logout */
