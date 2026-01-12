@@ -783,7 +783,7 @@ body .summary-card {
 }
 
 .central-despacho-container {
-  padding-bottom: 150px !important;
+  padding-bottom: 200px !important;
 }
 
 /* Header de ações: Seletor (esq) + Botão (dir) */
@@ -931,12 +931,13 @@ body .summary-card {
 
 .barra-acoes .bcp-left { flex: 0 0 250px !important; display:flex !important; align-items:center !important; }
 .barra-acoes .bcp-center { flex: 1 1 auto !important; display:flex !important; justify-content:center !important; align-items:center !important; }
-.barra-acoes .bcp-right { flex: 0 0 250px !important; display:flex !important; justify-content:flex-end !important; align-items:center !important; height: auto !important; padding: 0 !important; margin: 0 !important; }
+.barra-acoes { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 1.5rem !important; align-items: center !important; width: 100% !important; position: sticky !important; top: 0 !important; z-index: 1000 !important; background: var(--bg-main) !important; padding: 12px 12px !important; border-bottom: 1px solid rgba(255,255,255,0.02) !important; }
 
-/* Pequeno ajuste horizontal para o botão DISPARAR alinhar com os cards */
-.barra-acoes .bcp-right .cd-btn-disparar {
-  transform: translateX(6px) !important;
-}
+.barra-acoes > * { float: none !important; position: static !important; margin: 0 !important; padding: 0 !important; }
+
+.barra-acoes .bcp-left { justify-self: start !important; display:flex !important; align-items:center !important; }
+.barra-acoes .bcp-center { justify-self: center !important; display:flex !important; justify-content:center !important; align-items:center !important; }
+.barra-acoes .bcp-right { justify-self: end !important; display:flex !important; justify-content:flex-end !important; align-items:center !important; padding: 0 !important; margin: 0 !important; height: auto !important; }
 
 .barra-acoes .select-motorista-despacho { width: 250px !important; height: 48px !important; }
 .barra-acoes button { height: 48px !important; }
