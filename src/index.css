@@ -911,16 +911,25 @@ button:focus-visible {
   border: none;
   height: 48px;
   transition: transform 120ms ease, filter 120ms ease;
-  flex: 2; /* desktop: maior largura */
+  flex: 2;
+  /* desktop: maior largura */
 }
 
-.central-action-bar .btn-nav { flex: 1; } 
+.central-action-bar .btn-nav {
+  flex: 1;
+}
 
 @media (max-width: 700px) {
-  .central-action-bar { flex-direction: column; gap: 0.75rem; }
-  .central-action-bar .btn-primary, .central-action-bar .btn-nav { width: 100%; flex: none; }
-}
-  transition: transform 120ms ease, filter 120ms ease;
+  .central-action-bar {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .central-action-bar .btn-primary,
+  .central-action-bar .btn-nav {
+    width: 100%;
+    flex: none;
+  }
 }
 
 .btn-primary:hover {
