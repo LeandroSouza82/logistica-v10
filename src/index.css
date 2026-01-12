@@ -431,24 +431,78 @@ button:focus-visible {
 
 .rota-card {
   background: var(--card);
-  padding: 16px 16px 16px 30px; /* aumenta o espaço à esquerda para 'respirar' da barra */
-  border-radius: 12px;
+  padding: 16px 16px 16px 32px; /* empurra texto para longe da 'voltinha' */
+  border-radius: 12px !important;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border: 1px solid var(--glass-border);
   box-shadow: 0 6px 18px rgba(2, 6, 23, 0.3);
-  position: relative; /* para posicionar badges no canto */
+  position: relative; /* para posicionar badges e pseudo-elemento */
+  overflow: hidden !important; /* garante que a 'voltinha' arredondada seja recortada corretamente */
+  border-left: none !important; /* remover qualquer barra esquerda antiga */
 }
 
-.rota-info { display:flex; flex-direction:column; align-items:flex-start; justify-content:center; }
+/* Pseudo-elemento 'voltinha' para todos os rota-card */
+.rota-card::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  height: calc(100% - 24px);
+  width: 10px; /* grossura da voltinha */
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06) inset;
+}
+
+/* cores por serviço */
+.rota-card.svc-entrega::before { background: #3498db !important; }
+.rota-card.svc-recolha::before { background: #e67e22 !important; }
+.rota-card.svc-outros::before { background: #9b59b6 !important; }
+.rota-card.svc-default::before { background: rgba(255,255,255,0.04) !important; }
+
+.rota-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
 
 /* Badges tipo no canto superior direito */
-.tipo-badge { position:absolute; top:10px; right:10px; font-size:12px; padding:4px 8px; border-radius:999px; font-weight:700; }
-.rota-card.svc-entrega .tipo-badge { background: var(--btn-primary); color: #ffffff; box-shadow: 0 6px 18px rgba(59,130,246,0.12); }
-.rota-card.svc-recolha .tipo-badge { background: #f97316; color: #ffffff; box-shadow: 0 6px 18px rgba(249,115,22,0.12); }
-.rota-card.svc-outros .tipo-badge { background: #a855f7; color:#ffffff; box-shadow: 0 6px 18px rgba(168,85,247,0.12); }
-.rota-card.svc-default .tipo-badge { background: rgba(255,255,255,0.04); color: var(--muted); }
+.tipo-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.rota-card.svc-entrega .tipo-badge {
+  background: var(--btn-primary);
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.12);
+}
+
+.rota-card.svc-recolha .tipo-badge {
+  background: #f97316;
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(249, 115, 22, 0.12);
+}
+
+.rota-card.svc-outros .tipo-badge {
+  background: #a855f7;
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(168, 85, 247, 0.12);
+}
+
+.rota-card.svc-default .tipo-badge {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+}
+
 .svc-entrega {
   border-left: 4px solid var(--btn-primary) !important;
 }
@@ -498,17 +552,21 @@ button:focus-visible {
 }
 
 .rota-cliente {
-  margin: 0 0 8px 0; /* spacing below */
-  font-size: 1.1rem; /* destaque maior */
+  margin: 0 0 8px 0;
+  /* spacing below */
+  font-size: 1.1rem;
+  /* destaque maior */
   font-weight: 700;
-  color: #ffffff; /* branco puro */
+  color: #ffffff;
+  /* branco puro */
   text-align: left;
 }
 
 .rota-endereco {
   margin: 0 0 8px 0;
   font-size: 0.95rem;
-  color: #cbd5e1; /* levemente acinzentado/azulado */
+  color: #cbd5e1;
+  /* levemente acinzentado/azulado */
   font-weight: 500;
   text-align: left;
 }
@@ -519,8 +577,18 @@ button:focus-visible {
   color: #94a3b8;
   text-align: left;
 }
-.rota-observacoes strong { font-weight:700; color:#ffffff; margin-right:6px; }
-.rota-observacoes em { font-style: italic; color:#94a3b8; }
+
+.rota-observacoes strong {
+  font-weight: 700;
+  color: #ffffff;
+  margin-right: 6px;
+}
+
+.rota-observacoes em {
+  font-style: italic;
+  color: #94a3b8;
+}
+
 .rota-status {
   display: flex;
   align-items: center;

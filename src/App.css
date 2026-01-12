@@ -406,11 +406,14 @@ body,
   left: 12px;
   top: 12px;
   height: calc(100% - 24px);
-  width: 6px;
-  border-radius: 6px;
+  width: 10px; /* mais grossa para 'voltinha' */
+  border-radius: 8px; /* acompanha o card */
   background: transparent;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06) inset;
 }
+
+/* Forçar padding extra para criar respiro do texto */
+.summary-card { padding-left: 32px !important; }
 
 .summary-card h3 {
   color: #64748b;
@@ -1129,37 +1132,103 @@ body .summary-card {
 
 /* --- Forçar layout 'na marra' para resolver conflitos de especificidade --- */
 /* Força a barra de ações a ser flex e alinha os elementos nas extremidades */
-.barra-acoes { display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important; gap: 12px !important; padding: 12px !important; }
+.barra-acoes {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  width: 100% !important;
+  gap: 12px !important;
+  padding: 12px !important;
+}
 
 /* Torna os contêineres intermediários transparentes na árvore (filhos respondem diretamente) */
-.barra-acoes .bcp-left, .barra-acoes .bcp-center, .barra-acoes .bcp-right { display: contents !important; }
+.barra-acoes .bcp-left,
+.barra-acoes .bcp-center,
+.barra-acoes .bcp-right {
+  display: contents !important;
+}
 
 /* Garantir altura e remoção de margins que empurram botões */
-.barra-acoes button, .barra-acoes .select-motorista-despacho { height: 48px !important; margin-top: 0 !important; }
-.barra-acoes > * { float: none !important; position: static !important; }
+.barra-acoes button,
+.barra-acoes .select-motorista-despacho {
+  height: 48px !important;
+  margin-top: 0 !important;
+}
+
+.barra-acoes>* {
+  float: none !important;
+  position: static !important;
+}
 
 /* Cards: forçar barra lateral via border-left e espaçamento interno */
-.rota-card { padding-left: 30px !important; border-radius: 8px !important; border-left-width: 4px !important; border-left-style: solid !important; }
-.rota-card.svc-entrega { border-left-color: var(--btn-primary) !important; }
-.rota-card.svc-recolha { border-left-color: #f97316 !important; }
-.rota-card.svc-outros { border-left-color: #a855f7 !important; }
-.rota-card.svc-default { border-left-color: rgba(255,255,255,0.04) !important; }
+.rota-card {
+  padding-left: 30px !important;
+  border-radius: 8px !important;
+  border-left-width: 4px !important;
+  border-left-style: solid !important;
+}
+
+.rota-card.svc-entrega {
+  border-left-color: var(--btn-primary) !important;
+}
+
+.rota-card.svc-recolha {
+  border-left-color: #f97316 !important;
+}
+
+.rota-card.svc-outros {
+  border-left-color: #a855f7 !important;
+}
+
+.rota-card.svc-default {
+  border-left-color: rgba(255, 255, 255, 0.04) !important;
+}
 
 /* Forçar hierarquia do texto */
-.rota-cliente { font-weight: 800 !important; color: #ffffff !important; font-size: 1.1rem !important; }
-.rota-endereco { color: #cbd5e1 !important; font-weight: 500 !important; }
-.rota-observacoes strong { font-weight: 800 !important; }
-.rota-observacoes em { font-style: italic !important; color: #94a3b8 !important; }
+.rota-cliente {
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  font-size: 1.1rem !important;
+}
+
+.rota-endereco {
+  color: #cbd5e1 !important;
+  font-weight: 500 !important;
+}
+
+.rota-observacoes strong {
+  font-weight: 800 !important;
+}
+
+.rota-observacoes em {
+  font-style: italic !important;
+  color: #94a3b8 !important;
+}
 
 /* Garanta alinhamento à esquerda e espaçamento vertical */
-.rota-info { align-items: flex-start !important; }
-.rota-cliente, .rota-endereco, .rota-observacoes { margin-bottom: 8px !important; }
+.rota-info {
+  align-items: flex-start !important;
+}
+
+.rota-cliente,
+.rota-endereco,
+.rota-observacoes {
+  margin-bottom: 8px !important;
+}
 
 /* Botões na barra -- impedir que margens internas quebrem o alinhamento */
-.barra-acoes .cd-btn-disparar, .barra-acoes .cd-btn-otimizar, .barra-acoes .select-motorista-despacho { height: 48px !important; }
+.barra-acoes .cd-btn-disparar,
+.barra-acoes .cd-btn-otimizar,
+.barra-acoes .select-motorista-despacho {
+  height: 48px !important;
+}
 
 /* Fallback: se existir .bcp-right em outra estrutura, torne-o contents também */
-.bcp-right, .bcp-left, .bcp-center { display: contents !important; }
+.bcp-right,
+.bcp-left,
+.bcp-center {
+  display: contents !important;
+}
 
 /* --- FIM das regras de forçamento agressivo --- */
 .barra-comandos-principal button {
