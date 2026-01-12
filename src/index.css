@@ -903,9 +903,34 @@ button:focus-visible {
   padding-right: 8px;
 }
 
-/* Central action bar below the form (legacy - not used by new strict layout) */
+/* Central action bar below the form */
 .central-action-bar {
-  display: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Ensure both buttons have same height and alignment */
+.central-action-bar .btn-primary,
+.central-action-bar .btn-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  height: 48px;
+}
+
+/* Desktop proportion: primary larger (2:1) */
+.central-action-bar .btn-primary {
+  flex: 2;
+  min-width: 0; /* allow shrink on small screens */
+}
+
+.central-action-bar .btn-nav {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Utility: force input height */
