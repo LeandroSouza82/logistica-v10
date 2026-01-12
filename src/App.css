@@ -373,24 +373,41 @@ body,
   cursor: not-allowed;
 }
 
-/* === SUMMARY GRID (cards brancos com bordas coloridas) === */
+/* === SUMMARY GRID (cards brancos com barras coloridas) === */
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
   padding: 2rem;
+  align-items: stretch !important;
 }
 
 .summary-card {
+  position: relative !important;
   background: #ffffff;
   /* Fundo branco conforme a foto */
-  padding: 1.5rem;
+  padding: 1.5rem 1.5rem 1.5rem 1.5rem !important;
   border-radius: 12px;
-  border-left-width: 8px;
-  border-left-style: solid;
-  border-left-color: transparent !important;
-  /* A bordinha colorida lateral */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  min-height: 110px !important; /* garante altura uniforme */
+  overflow: visible !important;
+}
+
+/* barra lateral arredondada - usa pseudo-elemento para controle de raio */
+.summary-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  height: calc(100% - 24px);
+  width: 8px;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06) inset;
 }
 
 .summary-card h3 {
@@ -409,25 +426,22 @@ body,
   margin: 0;
 }
 
-/* Cores das bordas laterais */
-.summary-card.status {
-  border-left-color: #14b8a6;
+/* Aplicar cor à barra lateral via pseudo-elemento */
+.summary-card.blue::before { background: #f1c40f !important; /* amarela / atenção */ }
+.summary-card.status::before { background: #2ecc71 !important; /* verde */ }
+.summary-card.indigo::before { background: #3b82f6 !important; /* azul - rota ativa */ }
+
+/* Caso haja alguma borda antiga, escondemos para evitar duplicidade */
+.summary-card[style] { border-left-color: transparent !important; }
+
+/* Garantir alinhamento/sem margens extras */
+.summary-grid > * { margin: 0 !important; }
+
+/* Pequeno ajuste responsivo */
+@media (max-width: 900px) {
+  .summary-grid { grid-template-columns: 1fr; gap: 12px; padding: 1rem; }
 }
 
-/* Verde Água */
-.summary-card.blue {
-  border-left-color: #10b981;
-}
-
-/* Azul */
-.summary-card.indigo {
-  border-left-color: #3b82f6 !important;
-}
-
-border-left-color: #3b82f6;
-}
-
-/* Azul */
 
 /* === Nova Carga: classes alternativas (de acordo com seu CSS) === */
 .nova-carga-container {
