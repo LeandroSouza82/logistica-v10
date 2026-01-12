@@ -53,7 +53,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
         setAbaAtiva('visao-geral');
         if (m.lat && m.lng) {
             setMotoPosition({ lat: Number(m.lat), lng: Number(m.lng) });
-            try { mapRef.current?.panTo({ lat: Number(m.lat), lng: Number(m.lng) }); } catch(e){}
+            try { mapRef.current?.panTo({ lat: Number(m.lat), lng: Number(m.lng) }); } catch (e) { }
         }
     };
     // Estado inicial da posição da moto para evitar iniciar o mapa no mar
@@ -160,49 +160,95 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
         };
         buscarDados();
 
+        // Helper to handle specific schema cache error and try a recovery (reload client)
+        const handleSchemaCacheError = (err) => {
+            const msg = String(err?.message || err || '').toLowerCase();
+            if (msg.includes("could not find the 'status' column") || msg.includes("could not find the status column") || msg.includes('status column')) {
+                console.warn('Schema cache error detected. Forçando reload para recarregar definições de tabela. Erro:', err);
+                // tentamos refetch curto antes de reload — se falhar, recarregamos a página
+                setTimeout(() => {
+                    try { window.location.reload(); } catch (e) { /* fallback silencioso */ }
+                }, 800);
+                return true;
+            }
+            return false;
+        };
+
+        // Inscreve-se em mudanças de motoristas e localizacoes para atualizar a UI em tempo real
         const canal = supabase
-            .channel('schema-db-changes')
+            .channel('realtime-motoristas')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'motoristas' }, (payload) => {
                 try {
                     const updated = normalizeMotorista(payload.new);
-                    console.log('Mudança em motoristas recebida!', payload.new, '=> normalizado =>', updated);
+                    console.log('Realtime UPDATE motorista:', updated);
 
-                    // atualizar especificamente o motorista
                     setMotoristas(prev => {
                         const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
                         const updatedWithOnline = { ...updated, isOnline: updated.ultimo_sinal ? (new Date(updated.ultimo_sinal) > fiveMinAgo) : false };
-                        return prev.map(m => m.id === updatedWithOnline.id ? { ...m, ...updatedWithOnline } : m);
+                        const found = prev.find(m => String(m.id) === String(updatedWithOnline.id));
+                        if (found) return prev.map(m => String(m.id) === String(updatedWithOnline.id) ? { ...m, ...updatedWithOnline } : m);
+                        // se não existe no array, adiciona no topo
+                        return [updatedWithOnline, ...prev];
                     });
 
-                    // se tem coords válidas atualiza o foco do mapa
-                    if (updated && typeof updated.lat === 'number' && typeof updated.lng === 'number' && !(updated.lat === 0 && updated.lng === 0)) {
-                        setMotoPosition({ lat: updated.lat, lng: updated.lng });
-                        try { mapRef.current?.panTo({ lat: updated.lat, lng: updated.lng }); } catch (e) { /* ignore */ }
-                    }
-                } catch (e) {
-                    console.warn('Erro ao normalizar motorista recebido:', e?.message || e);
+                    // Se o motorista atualizado é o selecionado ou estamos na Visão Geral, atualiza posição do mapa
+                    try {
+                        if ((selectedDriver && String(selectedDriver.id) === String(updated.id)) || abaAtiva === 'visao-geral') {
+                            if (updated.lat != null && updated.lng != null && !(updated.lat === 0 && updated.lng === 0)) {
+                                setMotoPosition({ lat: Number(updated.lat), lng: Number(updated.lng) });
+                                try { mapRef.current?.panTo({ lat: Number(updated.lat), lng: Number(updated.lng) }); } catch (e) { /* ignore */ }
+                            }
+                        }
+                    } catch (e) { /* ignore */ }
+
+                } catch (err) {
+                    if (!handleSchemaCacheError(err)) console.warn('Erro ao processar UPDATE em motoristas:', err);
                 }
             })
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'localizacoes' }, (payload) => {
-                // quando nova localizacao chega, força refresh dos motoristas para recalcular online window
-                console.log('Nova localizacao recebida:', payload.new);
-                (async () => {
-                    const { data } = await supabase.from('motoristas').select('*');
-                    if (data) {
-                        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-                        const enriched = data.map(m => ({ ...normalizeMotorista(m), isOnline: m.ultimo_sinal ? (new Date(m.ultimo_sinal) > fiveMinAgo) : false }));
-                        console.log('Refresh de motoristas após localizacao:', enriched);
-                        setMotoristas(enriched);
+                try {
+                    const loc = payload.new;
+                    console.log('Realtime INSERT localizacao:', loc);
+
+                    // Atualiza posição do motorista correspondente em memória sem refetch pesado
+                    setMotoristas(prev => prev.map(m => (String(m.id) === String(loc.motorista_id) ? { ...m, lat: loc.lat, lng: loc.lng, ultimo_sinal: loc.created_at || loc.ultimo_sinal || new Date().toISOString() } : m)));
+
+                    // Se a localização pertence ao selecionado, centraliza o mapa
+                    if (selectedDriver && String(selectedDriver.id) === String(loc.motorista_id)) {
+                        const lat = Number(loc.lat);
+                        const lng = Number(loc.lng);
+                        setMotoPosition({ lat, lng });
+                        try { mapRef.current?.panTo({ lat, lng }); } catch (e) { /* ignore */ }
                     }
-                })();
+                } catch (err) {
+                    if (!handleSchemaCacheError(err)) console.warn('Erro ao processar INSERT em localizacoes:', err);
+                }
             })
             .subscribe();
 
-        return () => supabase.removeChannel(canal);
+        return () => {
+            try { supabase.removeChannel(canal); } catch (e) { /* ignore */ }
+        };
     }, []);
 
     // Escolhe primeiro motorista com coordenadas válidas (não 0,0) para centralizar o mapa
     const firstMotoristaComCoords = motoristas.find(m => m.lat != null && m.lng != null && !(m.lat === 0 && m.lng === 0));
+
+    // Ao mudar selectedDriver ou motoPosition enquanto estamos na Visão Geral, força o mapa a panTo (garante re-render visual imediato)
+    useEffect(() => {
+        if (abaAtiva !== 'visao-geral') return;
+        if (!mapRef.current) return;
+        try {
+            if (selectedDriver && selectedDriver.lat != null && selectedDriver.lng != null) {
+                mapRef.current.panTo({ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) });
+                mapRef.current.setZoom(15);
+            } else if (motoPosition && motoPosition.lat != null && motoPosition.lng != null) {
+                mapRef.current.panTo({ lat: Number(motoPosition.lat), lng: Number(motoPosition.lng) });
+            }
+        } catch (e) {
+            console.warn('Erro ao forçar panTo no mapa:', e);
+        }
+    }, [selectedDriver, motoPosition, abaAtiva]);
 
     const getServiceClass = (type) => {
         if (!type) return 'svc-default';
@@ -291,9 +337,11 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                             mapContainerStyle={{ width: '100%', height: '100%' }}
                             center={motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao)}
                             zoom={13}
-                            onLoad={(mapInstance) => { mapRef.current = mapInstance; if (selectedDriver && selectedDriver.lat && selectedDriver.lng) {
-                                try { mapInstance.panTo({ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) }); } catch(e){}
-                            } }}
+                            onLoad={(mapInstance) => {
+                                mapRef.current = mapInstance; if (selectedDriver && selectedDriver.lat && selectedDriver.lng) {
+                                    try { mapInstance.panTo({ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) }); } catch (e) { }
+                                }
+                            }}
                             onUnmount={() => (mapRef.current = null)}
                         >
                             {motoristas.filter(m => m.lat != null && m.lng != null).map(m => {
@@ -316,10 +364,10 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     <div className="motoristas-wrapper">
                         <div className="motoristas-list">
                             {motoristas && motoristas.length > 0 ? (
-                                motoristas.slice().sort((a,b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0)).map(m => (
-                                    <div key={m.id} className={`motorista-card ${m.isOnline ? 'online' : 'offline'}`} onClick={() => { if (m.lat && m.lng) { setMotoPosition({ lat: Number(m.lat), lng: Number(m.lng) }); setSelectedDriver(m); setAbaAtiva('visao-geral'); try { mapRef.current?.panTo({ lat: Number(m.lat), lng: Number(m.lng) }); } catch(e){} } else { setSelectedDriver(m); setAbaAtiva('visao-geral'); } }} role="button" tabIndex={0}>
+                                motoristas.slice().sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0)).map(m => (
+                                    <div key={m.id} className={`motorista-card ${m.isOnline ? 'online' : 'offline'}`} onClick={() => { if (m.lat && m.lng) { setMotoPosition({ lat: Number(m.lat), lng: Number(m.lng) }); setSelectedDriver(m); setAbaAtiva('visao-geral'); try { mapRef.current?.panTo({ lat: Number(m.lat), lng: Number(m.lng) }); } catch (e) { } } else { setSelectedDriver(m); setAbaAtiva('visao-geral'); } }} role="button" tabIndex={0}>
                                         <div className="motorista-row">
-                                            <div className="motorista-avatar">{(m.nome || '').split(' ').map(s => s[0]).slice(0,2).join('')}</div>
+                                            <div className="motorista-avatar">{(m.nome || '').split(' ').map(s => s[0]).slice(0, 2).join('')}</div>
                                             <div className="motorista-info">
                                                 <div className="motorista-nome">{m.nome || `Motorista ${m.id}`}</div>
                                                 <div className="motorista-meta">{m.email || 'sem-email'} • {m.telefone || m.phone || 'sem-telefone'}</div>
