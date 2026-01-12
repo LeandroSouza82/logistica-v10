@@ -168,40 +168,40 @@ const CentralDespacho = () => {
                     </div>
                 </div>
 
-                {/* BARRA DE AÇÕES (GRID 3 COLUNAS): Seletor (esq) + Otimizar (centro) + Disparar (dir) */}
-                <div className="barra-acoes-grid" role="region" aria-label="Barra de ações">
-                  <div className="bcp-left">
-                    <select
-                        className="select-motorista-despacho"
-                        value={motoristaSelecionado}
-                        onChange={(e) => setMotoristaSelecionado(e.target.value)}
-                    >
-                        <option value="" disabled>Selecione um motorista</option>
-                        {motoristas.map(m => (
-                            <option key={m.id} value={m.id}>{m.isOnline ? '🟢 ' : ''}{m.nome}</option>
-                        ))}
-                    </select>
-                  </div>
+{/* BARRA DE AÇÕES (FLEX): Seletor (esq) + Otimizar (centro) + Disparar (dir) */}
+                <div className="barra-acoes" role="region" aria-label="Barra de ações">
+                    <div className="bcp-left">
+                        <select
+                            className="select-motorista-despacho"
+                            value={motoristaSelecionado}
+                            onChange={(e) => setMotoristaSelecionado(e.target.value)}
+                        >
+                            <option value="" disabled>Selecione um motorista</option>
+                            {motoristas.map(m => (
+                                <option key={m.id} value={m.id}>{m.isOnline ? '🟢 ' : ''}{m.nome}</option>
+                            ))}
+                        </select>
+                    </div>
 
-                  <div className="bcp-center">
-                    <button
-                        onClick={otimizarRota}
-                        className="cd-btn-otimizar"
-                        disabled={pedidos.length === 0 || otimizando}
-                    >
-                        OTIMIZAR ROTA
-                    </button>
-                  </div>
+                    <div className="bcp-center">
+                        <button
+                            onClick={otimizarRota}
+                            className="cd-btn-otimizar"
+                            disabled={pedidos.length === 0 || otimizando}
+                        >
+                            OTIMIZAR ROTA
+                        </button>
+                    </div>
 
-                  <div className="bcp-right">
-                    <button
-                        onClick={dispararRota}
-                        className="cd-btn-disparar cd-btn-disparar-inline"
-                        disabled={pedidos.length === 0 || carregando || !motoristaSelecionado}
-                    >
-                        DISPARAR ROTA
-                    </button>
-                  </div>
+                    <div className="bcp-right">
+                        <button
+                            onClick={dispararRota}
+                            className="cd-btn-disparar cd-btn-disparar-inline"
+                            disabled={pedidos.length === 0 || carregando || !motoristaSelecionado}
+                        >
+                            DISPARAR ROTA
+                        </button>
+                    </div>
                 </div>
 
                 {/* GRID COMPACTA DE CARDS */}

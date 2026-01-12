@@ -907,41 +907,34 @@ body .summary-card {
   padding-right: 16px !important;
 }
 
-/* Nova barra de ações em GRID (3 colunas) */
-.barra-acoes-grid {
-  display: grid !important;
-  grid-template-columns: repeat(3, 1fr) !important;
-  gap: 20px !important;
+/* Barra de ações (FLEX) - Selector | Otimizar | Disparar */
+.barra-acoes {
+  display: flex !important;
   align-items: center !important;
+  gap: 20px !important;
   width: 100% !important;
   position: sticky !important;
   top: 0 !important;
-  z-index: 100 !important;
-  background: var(--bg-main) !important;
-  padding: 12px 8px !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
+  z-index: 1000 !important;
+  background: #050a18 !important; /* corresponde ao background do app */
+  padding: 12px 12px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.02) !important;
 }
 
-.barra-acoes-grid .bcp-left {
-  justify-self: start !important;
+/* Neutralizar floats/posições conflitantes dentro da barra */
+.barra-acoes > * {
+  float: none !important;
+  position: static !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-.barra-acoes-grid .bcp-center {
-  justify-self: center !important;
-}
+.barra-acoes .bcp-left { flex: 0 0 250px !important; display:flex !important; align-items:center !important; }
+.barra-acoes .bcp-center { flex: 1 1 auto !important; display:flex !important; justify-content:center !important; align-items:center !important; }
+.barra-acoes .bcp-right { flex: 0 0 250px !important; display:flex !important; justify-content:flex-end !important; align-items:center !important; height: auto !important; padding: 0 !important; margin: 0 !important; }
 
-.barra-acoes-grid .bcp-right {
-  justify-self: end !important;
-}
-
-.barra-acoes-grid .select-motorista-despacho {
-  width: 250px !important;
-  height: 48px !important;
-}
-
-.barra-acoes-grid button {
-  height: 48px !important;
-}
+.barra-acoes .select-motorista-despacho { width: 250px !important; height: 48px !important; }
+.barra-acoes button { height: 48px !important; }
 
 /* garantir espaçamento inferior quando sticky for ativada (evita sobreposição) */
 .central-despacho-container {
@@ -983,6 +976,9 @@ body .summary-card {
   margin: 0 !important;
 }
 
+/* Remover floats/posições conflitantes em quaisquer barras antigas */
+.barra-comando-unica > * { float: none !important; position: static !important; margin: 0 !important; padding:0 !important; }
+.barra-comandos-principal > * { float: none !important; position: static !important; margin: 0 !important; padding:0 !important; }
 /* Barra de comandos principal: esquerda/centro/direita e fixa como header da seção */
 .barra-comandos-principal {
   display: flex !important;
@@ -1041,7 +1037,7 @@ body .summary-card {
   border: none !important;
   cursor: pointer !important;
   box-shadow: 0 8px 24px rgba(46, 204, 113, 0.12) !important;
-  margin-bottom: 2rem !important;
+  margin: 0 !important;
   display: inline-flex !important;
   align-items: center !important;
 }
