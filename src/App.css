@@ -808,13 +808,13 @@ body .summary-card {
   padding: 0 12px !important;
   border: 1px solid rgba(0, 0, 0, 0.08) !important;
   width: 250px !important;
-  height: 40px !important;
+  height: 44px !important; /* altura padronizada */
   display: inline-flex !important;
   align-items: center !important;
   -webkit-appearance: none !important;
   appearance: none !important;
   font-weight: 600 !important;
-  margin-left: 20px !important;
+  margin-left: 0 !important; /* usa gap do header agora */
   background-image: linear-gradient(45deg, transparent 50%, #0b1222 50%), linear-gradient(135deg, #0b1222 50%, transparent 50%);
   background-position: calc(100% - 18px) calc(1em + 2px), calc(100% - 13px) calc(1em + 2px);
   background-size: 6px 6px, 6px 6px;
@@ -838,23 +838,25 @@ body .summary-card {
   background-color: var(--btn-success, #2ecc71) !important;
   color: #062018 !important;
   font-weight: 800 !important;
-  height: 40px !important;
+  height: 44px !important; /* padronizado */
   padding: 0 18px !important;
   border-radius: 10px !important;
   margin-right: 20px !important;
   display: inline-flex !important;
   align-items: center !important;
+  justify-content: center !important;
 }
 
 .central-despacho-container .cd-controls-center .cd-btn-otimizar {
   background-color: var(--accent-purple, #a855f7) !important;
   color: #fff !important;
   font-weight: 800 !important;
-  height: 40px !important;
+  height: 44px !important; /* padronizado */
   padding: 0 16px !important;
   border-radius: 10px !important;
   display: inline-flex !important;
   align-items: center !important;
+  justify-content: center !important;
 }
 
 .central-despacho-container .cd-controls-center {
@@ -883,9 +885,27 @@ body .summary-card {
   border-left-color: var(--accent-purple) !important;
 }
 
-/* Margin-bottom entre toolbar e grade */
+/* Toolbar principal: Seletor + Otimizar + Disparar */
 .central-despacho-container .cd-controls-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 20px;
+  width: 100%;
   margin-bottom: 30px;
+  flex-wrap: wrap; /* quebra em telas pequenas */
+}
+
+/* Garante que itens do header (select e botões) compartilhem altura e centralização */
+.central-despacho-container .cd-controls-header > * {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* envia o botão DISPARAR para a direita quando houver espaço disponível */
+.central-despacho-container .cd-controls-right {
+  margin-left: auto;
 }
 
 
