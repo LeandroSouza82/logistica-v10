@@ -722,7 +722,7 @@ select.form-input:focus-visible,
 .nova-carga-card textarea.form-input::placeholder {
   color: #94a3b8 !important;
 }
-}
+
 
 /* Lista de Rascunho */
 .lista-rascunho {
