@@ -913,6 +913,10 @@ button:focus-visible {
 }
 
 /* Ensure both buttons have same height and alignment */
+.central-action-bar {
+  max-width: 576px; /* match max-w-xl */
+  margin: 0 auto;
+}
 .central-action-bar .btn-primary,
 .central-action-bar .btn-nav {
   display: inline-flex;
@@ -920,17 +924,63 @@ button:focus-visible {
   justify-content: center;
   gap: 0.75rem;
   height: 48px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
-/* Desktop proportion: primary larger (2:1) */
+/* Primary button styling: larger with left icon block */
 .central-action-bar .btn-primary {
   flex: 2;
   min-width: 0; /* allow shrink on small screens */
+  padding-left: 14px; /* extra space for icon block */
+  padding-right: 20px;
+  background: linear-gradient(180deg, #2563eb 0%, #1e40af 100%);
+  box-shadow: 0 8px 26px rgba(37, 99, 235, 0.18);
 }
 
+.central-action-bar .btn-primary .icon-left {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.12);
+  padding: 8px;
+  border-radius: 10px;
+  color: #fff;
+}
+
+.central-action-bar .btn-primary span {
+  display: inline-block;
+}
+
+/* Secondary button: slate/ardósia, same height */
 .central-action-bar .btn-nav {
   flex: 1;
   min-width: 0;
+  padding-left: 18px;
+  padding-right: 18px;
+  background: rgba(15,23,42,0.9);
+  border: 1px solid rgba(255,255,255,0.04);
+  color: #fff;
+}
+
+.central-action-bar .icon-right {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 700px) {
+  .central-action-bar {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+
+  .central-action-bar .btn-primary,
+  .central-action-bar .btn-nav {
+    width: 100%;
+    flex: none;
+  }
 }
 
 /* Utility: force input height */
