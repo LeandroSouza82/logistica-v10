@@ -168,8 +168,9 @@ const CentralDespacho = () => {
                     </div>
                 </div>
 
-                {/* BARRA DE AÇÕES: Seletor + Otimizar + Disparar em uma linha */}
-                <div className="barra-comando-unica">
+                {/* BARRA DE AÇÕES PRINCIPAL: Seletor (esquerda) + Otimizar (centro) + Disparar (direita) */}
+                <div className="barra-comandos-principal">
+                  <div className="bcp-left">
                     <select
                         className="select-motorista-despacho"
                         value={motoristaSelecionado}
@@ -180,7 +181,9 @@ const CentralDespacho = () => {
                             <option key={m.id} value={m.id}>{m.isOnline ? '🟢 ' : ''}{m.nome}</option>
                         ))}
                     </select>
+                  </div>
 
+                  <div className="bcp-center">
                     <button
                         onClick={otimizarRota}
                         className="cd-btn-otimizar"
@@ -188,7 +191,9 @@ const CentralDespacho = () => {
                     >
                         OTIMIZAR ROTA
                     </button>
+                  </div>
 
+                  <div className="bcp-right">
                     <button
                         onClick={dispararRota}
                         className="cd-btn-disparar cd-btn-disparar-inline"
@@ -196,6 +201,7 @@ const CentralDespacho = () => {
                     >
                         DISPARAR ROTA
                     </button>
+                  </div>
                 </div>
 
                 {/* GRID COMPACTA DE CARDS */}

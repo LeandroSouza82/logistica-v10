@@ -907,7 +907,7 @@ body .summary-card {
   padding-right: 16px !important;
 }
 
-.barra-comando-unica > * {
+.barra-comando-unica>* {
   margin-top: 0 !important;
   margin-bottom: 0 !important;
   float: none !important;
@@ -940,6 +940,38 @@ body .summary-card {
 /* garantir que o botão DISPARAR não tenha margin inferior */
 .barra-comando-unica .cd-btn-disparar {
   margin: 0 !important;
+}
+
+/* Barra de comandos principal: esquerda/centro/direita e fixa como header da seção */
+.barra-comandos-principal {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 24px !important;
+  width: 100% !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 40 !important;
+  background: inherit !important;
+  padding: 10px 8px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.03) !important;
+}
+
+.barra-comandos-principal .bcp-left,
+.barra-comandos-principal .bcp-right {
+  width: 250px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.barra-comandos-principal .bcp-left { justify-content: flex-start !important; }
+.barra-comandos-principal .bcp-right { justify-content: flex-end !important; }
+
+.barra-comandos-principal .bcp-center {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
 }
 
 
