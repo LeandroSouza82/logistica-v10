@@ -1126,6 +1126,42 @@ body .summary-card {
 
 /* Padronizar altura dos controles na barra principal */
 .barra-comandos-principal .select-motorista-despacho,
+
+/* --- Forçar layout 'na marra' para resolver conflitos de especificidade --- */
+/* Força a barra de ações a ser flex e alinha os elementos nas extremidades */
+.barra-acoes { display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important; gap: 12px !important; padding: 12px !important; }
+
+/* Torna os contêineres intermediários transparentes na árvore (filhos respondem diretamente) */
+.barra-acoes .bcp-left, .barra-acoes .bcp-center, .barra-acoes .bcp-right { display: contents !important; }
+
+/* Garantir altura e remoção de margins que empurram botões */
+.barra-acoes button, .barra-acoes .select-motorista-despacho { height: 48px !important; margin-top: 0 !important; }
+.barra-acoes > * { float: none !important; position: static !important; }
+
+/* Cards: forçar barra lateral via border-left e espaçamento interno */
+.rota-card { padding-left: 30px !important; border-radius: 8px !important; border-left-width: 4px !important; border-left-style: solid !important; }
+.rota-card.svc-entrega { border-left-color: var(--btn-primary) !important; }
+.rota-card.svc-recolha { border-left-color: #f97316 !important; }
+.rota-card.svc-outros { border-left-color: #a855f7 !important; }
+.rota-card.svc-default { border-left-color: rgba(255,255,255,0.04) !important; }
+
+/* Forçar hierarquia do texto */
+.rota-cliente { font-weight: 800 !important; color: #ffffff !important; font-size: 1.1rem !important; }
+.rota-endereco { color: #cbd5e1 !important; font-weight: 500 !important; }
+.rota-observacoes strong { font-weight: 800 !important; }
+.rota-observacoes em { font-style: italic !important; color: #94a3b8 !important; }
+
+/* Garanta alinhamento à esquerda e espaçamento vertical */
+.rota-info { align-items: flex-start !important; }
+.rota-cliente, .rota-endereco, .rota-observacoes { margin-bottom: 8px !important; }
+
+/* Botões na barra -- impedir que margens internas quebrem o alinhamento */
+.barra-acoes .cd-btn-disparar, .barra-acoes .cd-btn-otimizar, .barra-acoes .select-motorista-despacho { height: 48px !important; }
+
+/* Fallback: se existir .bcp-right em outra estrutura, torne-o contents também */
+.bcp-right, .bcp-left, .bcp-center { display: contents !important; }
+
+/* --- FIM das regras de forçamento agressivo --- */
 .barra-comandos-principal button {
   height: 48px !important;
   display: inline-flex !important;
@@ -1201,16 +1237,20 @@ body .summary-card {
 }
 
 .cd-card.svc-entrega::before {
-  background: #3498db !important; /* entrega - azul */
+  background: #3498db !important;
+  /* entrega - azul */
 }
 
 .cd-card.svc-recolha::before {
-  background: #e67e22 !important; /* recolha - laranja */
+  background: #e67e22 !important;
+  /* recolha - laranja */
 }
 
 .cd-card.svc-outros::before {
-  background: #9b59b6 !important; /* outros - roxo */
+  background: #9b59b6 !important;
+  /* outros - roxo */
 }
+
 .cd-card.svc-outros .cd-badge {
   background: #a855f7 !important;
   color: #fff !important;
@@ -1462,43 +1502,178 @@ body .summary-card {
 }
 
 /* Status header actions (botões) */
-.status-header { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 12px !important; }
-.status-header-left { display:block; }
-.status-header-actions { display:flex; gap:10px; align-items:center; }
+.status-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
 
-.btn-primary { background: linear-gradient(180deg,#0ea5e9,#0369a1); color: #fff; padding: 8px 12px; border-radius: 10px; border: none; font-weight:700; cursor:pointer; box-shadow: 0 6px 18px rgba(3,105,161,0.12); }
-.btn-primary:hover { filter:brightness(1.04); }
-.btn-secondary { background: transparent; border: 1px solid rgba(255,255,255,0.06); color: #cbd5e1; padding: 8px 12px; border-radius: 10px; cursor:pointer; }
-.btn-secondary:hover { background: rgba(255,255,255,0.02); }
+.status-header-left {
+  display: block;
+}
+
+.status-header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, #0ea5e9, #0369a1);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(3, 105, 161, 0.12);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.04);
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
 
 /* Clientes Histórico modal (lateral, dark) */
 .clientes-historico-modal {
-  position: fixed; inset: 0; z-index: 9998; display:flex; align-items:stretch; justify-content:flex-end; background: rgba(2,6,23,0.48);
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  background: rgba(2, 6, 23, 0.48);
 }
 
 .historico-panel {
-  width: 420px; max-width: calc(100% - 40px); background: var(--card-dark); border-left: 1px solid rgba(255,255,255,0.03); padding: 12px; display:flex; flex-direction:column;
+  width: 420px;
+  max-width: calc(100% - 40px);
+  background: var(--card-dark);
+  border-left: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
 }
-.historico-header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:8px; }
-.historico-header h3 { margin:0; color:#e6eef8; }
-.close-btn { background:transparent; border: none; color:#94a3b8; font-size:18px; cursor:pointer; }
 
-.historico-search { padding:8px 0 6px 0; }
-.historico-search-input { width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.02); color:#e6eef8; }
+.historico-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+}
 
-.historico-list { margin-top:8px; overflow:auto; padding-bottom:12px; }
-.historico-item { width:100%; text-align:left; display:flex; justify-content:space-between; align-items:center; gap:8px; border-radius:8px; padding:10px; background:transparent; border:none; color:#e6eef8; cursor:pointer; }
-.historico-item:hover { background: rgba(255,255,255,0.02); }
-.historico-item-title { font-size:15px; }
-.historico-item-sub { font-size:13px; color:#9aa4b2; }
-.historico-item-actions { min-width:28px; display:flex; align-items:center; justify-content:center; }
-.historico-item .check { color:#4ade80; font-weight:700; }
-.historico-item .chevron { color:#94a3b8; font-size:20px; }
+.historico-header h3 {
+  margin: 0;
+  color: #e6eef8;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.historico-search {
+  padding: 8px 0 6px 0;
+}
+
+.historico-search-input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+  color: #e6eef8;
+}
+
+.historico-list {
+  margin-top: 8px;
+  overflow: auto;
+  padding-bottom: 12px;
+}
+
+.historico-item {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  color: #e6eef8;
+  cursor: pointer;
+}
+
+.historico-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.historico-item-title {
+  font-size: 15px;
+}
+
+.historico-item-sub {
+  font-size: 13px;
+  color: #9aa4b2;
+}
+
+.historico-item-actions {
+  min-width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.historico-item .check {
+  color: #4ade80;
+  font-weight: 700;
+}
+
+.historico-item .chevron {
+  color: #94a3b8;
+  font-size: 20px;
+}
 
 /* Copied feedback in NovaCarga */
-.copied-feedback { display:flex; align-items:center; gap:8px; background: rgba(16,185,129,0.08); padding:8px 12px; border-radius:10px; color:#bbf7d0; margin-bottom:12px; }
-.copied-feedback .check { color:#10b981; font-weight:700; }
-.copied-text { color:#e6f6ea; font-size:13px; }
+.copied-feedback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.08);
+  padding: 8px 12px;
+  border-radius: 10px;
+  color: #bbf7d0;
+  margin-bottom: 12px;
+}
+
+.copied-feedback .check {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.copied-text {
+  color: #e6f6ea;
+  font-size: 13px;
+}
 
 .visao-geral-map {
   width: 100% !important;
