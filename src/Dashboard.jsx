@@ -498,7 +498,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                         <div className="motoristas-list">
                             {motoristas && motoristas.length > 0 ? (
                                 motoristas.slice().sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0)).map(m => (
-                                    <div key={m.id} className={`motorista-card ${m.isOnline ? 'online' : 'offline'}`} onClick={() => { if (m.lat && m.lng) { setMotoPosition({ lat: Number(m.lat), lng: Number(m.lng) }); setSelectedDriver(m); setAbaAtiva('visao-geral'); try { mapRef.current?.panTo({ lat: Number(m.lat), lng: Number(m.lng) }); } catch (e) { } } else { setSelectedDriver(m); setAbaAtiva('visao-geral'); } }} role="button" tabIndex={0}>
+                                    <div key={m.id} className={`motorista-card ${m.isOnline ? 'online' : 'offline'}`} onClick={() => openDriverOnMap(m)} role="button" tabIndex={0}>
                                         <div className="motorista-row">
                                             <div className="motorista-avatar">{(m.nome || '').split(' ').map(s => s[0]).slice(0, 2).join('')}</div>
                                             <div className="motorista-info">
