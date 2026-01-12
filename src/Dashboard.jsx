@@ -14,7 +14,7 @@ const containerStyle = {
     height: '100vh',
     display: 'flex',
     flexDirection: 'row',
-    backgroundColor: '#0B1F3A',
+    backgroundColor: '#052146',
     color: 'white',
 };
 
@@ -505,7 +505,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
                                         <div className="rota-status">
                                             <span className={`status-dot delivered ${getDotClass(e.tipo)}`} aria-hidden="true"></span>
-                                            <span className="status-label">Entregue</span>
+                                            <span className={`status-label ${getDotClass(e.tipo)}`}>{e.tipo || 'Entrega'}</span>
                                         </div>
                                     </div>
                                 ))}
