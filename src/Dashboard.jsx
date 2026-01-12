@@ -261,7 +261,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 </div>
 
                 {abaAtiva === 'nova-carga' ? (
-                    <NovaCarga />
+                    <NovaCarga setAbaAtiva={setAbaAtiva} />
                 ) : abaAtiva === 'central-despacho' ? (
                     <CentralDespacho />
                 ) : (
