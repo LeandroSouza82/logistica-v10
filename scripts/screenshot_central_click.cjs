@@ -5,7 +5,9 @@ const { chromium } = require('playwright');
     try {
         const port = process.env.PORT || process.env.VITE_PORT || process.env.DEV_PORT || 5173;
         const host = process.env.HOST || 'localhost';
-        const base = `http://${host}:${port}/?tab=central-despacho`;
+        const useFile = !!process.env.USE_FILE;
+        const path = require('path');
+        const base = useFile ? `file://${path.resolve(process.cwd(), 'dist', 'index.html')}?tab=central-despacho` : `http://${host}:${port}/?tab=central-despacho`;
         console.log('CONNECTING_TO', base);
         await page.goto(base, { waitUntil: 'load', timeout: 30000 });
         // Tentar clicar na aba Central de Despacho (usamos ?tab para garantir que a view já esteja ativa)
