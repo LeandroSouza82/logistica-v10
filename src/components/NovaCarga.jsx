@@ -1,75 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabase';
 
-// Pequeno cache para geocoding em memória para reduzir chamadas repetidas
-const geocodeCache = new Map();
-
-async function geocodeAddress(address) {
-    if (!address) return null;
-    if (geocodeCache.has(address)) return geocodeCache.get(address);
-
-    // Usando Nominatim (OpenStreetMap) para geocoding (padrão gratuito)
-    const q = encodeURIComponent(address);
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${q}`;
-    try {
-        const res = await fetch(url, { headers: { 'User-Agent': 'LOGICONTROL/1.0 (mailto:you@example.com)' } });
-        const data = await res.json();
-        if (!data || data.length === 0) return null;
-        const { lat, lon } = data[0];
-        const coord = { lat: Number(lat), lng: Number(lon) };
-        geocodeCache.set(address, coord);
-        return coord;
-    } catch (e) {
-        console.warn('Erro no geocoding', e);
-        return null;
-    }
-}
-
-async function getOsrmTable(coords) {
-    // coords: array of {lat, lng}
-    if (!coords || coords.length < 2) return null;
-    const coordStr = coords.map(c => `${c.lng},${c.lat}`).join(';');
-    // OSRM public demo server
-    const url = `https://router.project-osrm.org/table/v1/driving/${coordStr}?annotations=distance,duration`;
-    try {
-        const res = await fetch(url);
-        const json = await res.json();
-        if (json && (json.distances || json.durations)) {
-            return json;
-        }
-        return null;
-    } catch (e) {
-        console.warn('Erro OSRM table', e);
-        return null;
-    }
-}
-
-// Heurística simples: nearest neighbor
-function solveTspNearestNeighbor(distMatrix, startIndex = 0) {
-    const n = distMatrix.length;
-    const visited = Array(n).fill(false);
-    const order = [startIndex];
-    visited[startIndex] = true;
-
-    for (let step = 1; step < n; step++) {
-        const last = order[order.length - 1];
-        let next = -1;
-        let minD = Number.POSITIVE_INFINITY;
-        for (let i = 0; i < n; i++) {
-            if (!visited[i] && distMatrix[last] && typeof distMatrix[last][i] === 'number') {
-                if (distMatrix[last][i] < minD) {
-                    minD = distMatrix[last][i];
-                    next = i;
-                }
-            }
-        }
-        if (next === -1) break;
-        visited[next] = true;
-        order.push(next);
-    }
-    return order;
-}
-
 const NovaCarga = ({ setAbaAtiva }) => {
     const [destinos, setDestinos] = useState([]);
     const [novoNome, setNovoNome] = useState('');
@@ -78,26 +9,22 @@ const NovaCarga = ({ setAbaAtiva }) => {
     const [novoObservacoes, setNovoObservacoes] = useState('');
     const [carregando, setCarregando] = useState(false);
 
-    // helper: escolhe classe com cor por tipo
-    const getServiceClass = (type) => {
-        if (!type) return 'svc-default';
-        const t = String(type).toLowerCase();
-        if (t.includes('recol')) return 'svc-recolha';
-        if (t.includes('outro') || t.includes('ata') || t.includes('atas')) return 'svc-outros';
-        return 'svc-entrega';
+    // Lógica de cores para o card da lista
+    const getServiceColorClass = (type) => {
+        const t = String(type || 'Entrega').toLowerCase();
+        if (t.includes('recol')) return 'border-l-orange-500 bg-orange-500/10';
+        if (t.includes('outro') || t.includes('ata')) return 'border-l-indigo-500 bg-indigo-500/10';
+        return 'border-l-blue-500 bg-blue-500/10';
     };
 
-
-
-    // Classes para o botão Remover conforme o tipo (retorna classe CSS) 
+    // Lógica de cores para o botão Remover
     const getRemoveButtonClass = (type) => {
         const t = String(type || 'Entrega').toLowerCase();
-        if (t.includes('recol')) return 'remove-recolha';
-        if (t.includes('outro') || t.includes('ata') || t.includes('atas')) return 'remove-outros';
-        return 'remove-entrega';
+        if (t.includes('recol')) return 'bg-orange-600 hover:bg-orange-700';
+        if (t.includes('outro') || t.includes('ata')) return 'bg-indigo-600 hover:bg-indigo-700';
+        return 'bg-blue-600 hover:bg-blue-700';
     };
 
-    // 1. Adicionar endereço: salva no Supabase com status 'em_preparacao' e limpa o formulário
     const adicionarParada = async () => {
         if (!novoEndereco) {
             alert('Preencha o endereço antes de adicionar.');
@@ -105,6 +32,7 @@ const NovaCarga = ({ setAbaAtiva }) => {
         }
         setCarregando(true);
         const clienteValor = (novoNome && String(novoNome).trim()) || 'Cliente a definir';
+        
         const payload = {
             cliente: clienteValor,
             endereco: novoEndereco,
@@ -116,102 +44,114 @@ const NovaCarga = ({ setAbaAtiva }) => {
         try {
             const { data, error } = await supabase.from('entregas').insert([payload]).select().single();
             if (error) throw error;
-            // Adiciona ao preview local (opcional) usando id retornado
-            setDestinos(prev => [...prev, {
-                id: data.id,
-                cliente: data.cliente,
-                endereco: data.endereco,
-                tipo: data.tipo,
-                observacoes: data.observacoes || ''
-            }]);
-
-            // limpar formulário
+            
+            setDestinos(prev => [...prev, data]);
             setNovoNome('');
             setNovoEndereco('');
             setNovoTipo('Entrega');
             setNovoObservacoes('');
-
-            alert('Parada adicionada e salva em preparação!');
         } catch (e) {
-            console.warn(e);
-            alert('Erro ao salvar parada: ' + (e.message || JSON.stringify(e)));
+            alert('Erro ao salvar: ' + e.message);
         } finally {
             setCarregando(false);
         }
     };
 
-
-
-
-
     return (
-        <div className="min-h-screen w-full flex flex-col items-center justify-center p-8">
-            {/* Wrapper central com largura fixa do card */}
-            <div className="w-full max-w-[500px] mx-auto flex flex-col items-center">
+        <div className="min-h-screen bg-[#0B1F3A] flex flex-col items-center py-12 px-4">
+            
+            {/* CONTAINER CENTRALIZADO (Largura máxima controlada) */}
+            <div className="w-full max-w-[600px] flex flex-col items-center">
+                
+                {/* CARD DO FORMULÁRIO */}
+                <div className="w-full bg-[#081427] rounded-3xl p-8 shadow-2xl border border-slate-800">
+                    <h2 className="text-2xl font-black text-slate-200 mb-8 text-center uppercase tracking-wider">
+                        Registrar Encomenda
+                    </h2>
 
-                <div className="w-full max-w-[500px] nova-carga-card bg-[#081427] rounded-2xl p-8 shadow-2xl border border-slate-800">
-                    <h2 className="text-2xl font-black text-white text-center mb-6">Registrar Encomenda</h2>
-
-                    <form className="nova-carga-form" onSubmit={(e) => { e.preventDefault(); adicionarParada(); }}>
-
-                        <div className="tipo-row">
-                            <label className="label" style={{marginRight:8}}>Tipo:</label>
-                            <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} className="form-input force-input-height w-full">
+                    <div className="flex flex-col gap-5">
+                        {/* Tipo de Serviço (Input menor e elegante) */}
+                        <div className="flex items-center gap-3">
+                            <label className="text-slate-400 text-sm font-bold uppercase">Tipo:</label>
+                            <select 
+                                value={novoTipo} 
+                                onChange={(e) => setNovoTipo(e.target.value)}
+                                className="h-10 px-4 bg-slate-800 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                            >
                                 <option>Entrega</option>
                                 <option>Recolha</option>
                                 <option>Outros</option>
                             </select>
                         </div>
 
+                        {/* Nome do Cliente (Input Padronizado) */}
                         <input
                             value={novoNome}
                             onChange={(e) => setNovoNome(e.target.value)}
-                            className="form-input force-input-height w-full mt-2"
+                            className="w-full h-12 px-4 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 outline-none"
                             placeholder="Nome do Cliente"
                         />
 
+                        {/* Endereço (Mesmo tamanho) */}
                         <input
                             value={novoEndereco}
                             onChange={(e) => setNovoEndereco(e.target.value)}
-                            className="form-input force-input-height w-full mt-2"
+                            className="w-full h-12 px-4 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 outline-none"
                             placeholder="Endereço de Entrega"
                         />
 
+                        {/* Observações (Alinhado embaixo) */}
                         <input
                             value={novoObservacoes}
                             onChange={(e) => setNovoObservacoes(e.target.value)}
-                            className="form-input force-input-height w-full mt-2"
+                            className="w-full h-12 px-4 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 outline-none"
                             placeholder="Observações..."
                         />
-
-                    </form>
+                    </div>
                 </div>
 
-                {/* Botões com a mesma largura do card */}
-                <div className="w-full max-w-[500px] flex flex-row gap-4 mt-6">
-                    <button type="button" onClick={adicionarParada} disabled={carregando} className="btn-primary flex-[2] rounded-xl font-bold py-4">
-                        {carregando ? 'Adicionando...' : 'ADICIONAR À LISTA'}
+                {/* BOTÕES DE AÇÃO (Lado a lado, mesma largura do card) */}
+                <div className="w-full flex gap-4 mt-8">
+                    <button 
+                        onClick={adicionarParada} 
+                        disabled={carregando}
+                        className="flex-[2] h-14 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-lg transition-transform active:scale-95 uppercase tracking-tighter"
+                    >
+                        {carregando ? 'Processando...' : 'Adicionar à Lista'}
                     </button>
-                    <button type="button" onClick={() => setAbaAtiva && setAbaAtiva('central-despacho')} className="btn-nav flex-1 rounded-xl font-bold py-4">
-                        ➡️ IR AO DESPACHO
+
+                    <button 
+                        onClick={() => setAbaAtiva('central-despacho')}
+                        className="flex-1 h-14 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl border border-slate-500 transition-all uppercase text-xs"
+                    >
+                        Ir ao Despacho ➡️
                     </button>
                 </div>
 
-                {/* Lista de endereços abaixo */}
-                <div className="mt-6 w-full max-w-[500px] destinos-list custom-scrollbar">
+                {/* LISTA DE ITENS (Com Scroll interno e cores dinâmicas) */}
+                <div className="w-full mt-10 space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                     {destinos.map((item, index) => (
-                        <div key={item.id} className={`destino-item rounded-xl flex items-center justify-between ${getServiceClass(item.tipo)}`}>
-                            <div className="flex items-center gap-6">
-                                <span className="destino-index">{index + 1}</span>
+                        <div 
+                            key={item.id} 
+                            className={`flex items-center justify-between p-5 rounded-xl border-l-4 shadow-md transition-all ${getServiceColorClass(item.tipo)}`}
+                        >
+                            <div className="flex items-center gap-4">
+                                <span className="flex items-center justify-center w-8 h-8 bg-slate-900/50 rounded-full text-white font-bold text-xs">
+                                    {index + 1}
+                                </span>
                                 <div>
-                                    <div className="font-semibold text-slate-200">{item.cliente}</div>
-                                    <div className="text-sm text-slate-400">{item.endereco}</div>
+                                    <div className="font-bold text-slate-100">{item.cliente}</div>
+                                    <div className="text-xs text-slate-400 italic">{item.endereco}</div>
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-4">
-                                <span className="tipo-badge">{item.tipo}</span>
-                                <button onClick={() => setDestinos(destinos.filter(d => d.id !== item.id))} className={`${getRemoveButtonClass(item.tipo)} btn-remove`}>Remover</button>
+                                <button 
+                                    onClick={() => setDestinos(destinos.filter(d => d.id !== item.id))}
+                                    className={`px-4 py-2 rounded-lg text-xs font-black text-white uppercase transition-colors ${getRemoveButtonClass(item.tipo)}`}
+                                >
+                                    Remover
+                                </button>
                             </div>
                         </div>
                     ))}
@@ -220,6 +160,9 @@ const NovaCarga = ({ setAbaAtiva }) => {
             </div>
         </div>
     );
+};
+
+export default NovaCarga;
 };
 
 export default NovaCarga;
