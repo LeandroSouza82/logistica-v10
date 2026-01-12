@@ -146,15 +146,16 @@ const NovaCarga = ({ setAbaAtiva }) => {
 
     return (
         <div className="min-h-screen bg-[#0B1F3A] flex flex-col items-center justify-center p-8">
-            <div className="w-full max-w-[600px] mx-auto flex flex-col items-center">
-                {/* Formulário central estilo screenshot */}
-                <div className="nova-carga-card w-full bg-[#081427] rounded-3xl p-8 shadow-2xl border border-slate-800 mb-6">
-                    <h2 className="text-2xl font-black text-slate-200 mb-6">Registrar Encomenda</h2>
+            <div className="flex flex-col items-center w-full py-10">
 
-                    <form className="nova-carga-form" onSubmit={(e) => { e.preventDefault(); adicionarParada(); }}>
-                        <div className="tipo-row">
+                {/* Card do Formulário */}
+                <div className="w-full max-w-xl bg-[#081427] p-8 rounded-3xl border border-slate-800 shadow-2xl">
+                    <h2 className="text-2xl font-black text-slate-200 mb-6 text-center">Registrar Encomenda</h2>
+
+                    <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); adicionarParada(); }}>
+                        <div className="flex items-center gap-4">
                             <label className="label">Tipo:</label>
-                            <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} className="form-input type-select">
+                            <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} className="h-12 px-4 bg-slate-800 rounded-lg">
                                 <option>Entrega</option>
                                 <option>Recolha</option>
                                 <option>Outros</option>
@@ -164,58 +165,51 @@ const NovaCarga = ({ setAbaAtiva }) => {
                         <input
                             value={novoNome}
                             onChange={(e) => setNovoNome(e.target.value)}
-                            className="form-input nome-cliente w-full"
+                            className="w-full h-12 px-4 bg-slate-800 rounded-lg"
                             placeholder="Nome do Cliente"
                         />
 
                         <input
                             value={novoEndereco}
                             onChange={(e) => setNovoEndereco(e.target.value)}
-                            className="form-input endereco w-full"
+                            className="w-full h-12 px-4 bg-slate-800 rounded-lg"
                             placeholder="Endereço de Entrega"
                         />
 
                         <input
                             value={novoObservacoes}
                             onChange={(e) => setNovoObservacoes(e.target.value)}
-                            className="form-input observacoes w-full mt-2"
+                            className="w-full h-12 px-4 bg-slate-800 rounded-lg"
                             placeholder="Observações..."
                         />
-
-                        {/* Botões removidos do card; agora posicionados abaixo do card conforme layout */}
-
                     </form>
                 </div>
 
-                {/* Barra de ações fora do card (layout específico) */}
-                <div className="flex flex-row gap-4 w-full max-w-[600px] mx-auto mt-8">
-                    <button
-                        type="button"
-                        onClick={adicionarParada}
-                        disabled={carregando}
-                        className="flex-[2] bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold uppercase rounded-xl py-4 px-5 flex items-center justify-center gap-3 disabled:opacity-60"
-                        aria-label="Adicionar à lista"
+                {/* --- BARRA DE BOTÕES (IGUAL À FOTO) --- */}
+                <div className="flex flex-row gap-4 w-full max-w-xl mt-6 px-2">
+
+                    {/* Botão Azul Largo com Ícone */}
+                    <button 
+                      onClick={adicionarParada}
+                      className="flex-[2] h-14 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-lg flex items-center justify-center gap-2 uppercase transition-all active:scale-95"
                     >
-                        <span className="inline-flex items-center justify-center bg-white/10 p-2 rounded-lg">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                        </span>
-                        <span>{carregando ? 'ADICIONANDO...' : 'ADICIONAR À LISTA'}</span>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                      {carregando ? 'ADICIONANDO...' : 'ADICIONAR À LISTA'}
                     </button>
 
-                    <button
-                        type="button"
-                        onClick={() => setAbaAtiva && setAbaAtiva('central-despacho')}
-                        className="flex-1 bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold uppercase rounded-xl py-4 px-4 flex items-center justify-center gap-2"
-                        aria-label="Ir ao despacho"
+                    {/* Botão Cinza Estreito com Seta */}
+                    <button 
+                      onClick={() => setAbaAtiva && setAbaAtiva('central-despacho')}
+                      className="flex-1 h-14 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl border border-slate-500 flex items-center justify-center gap-2 uppercase text-[10px] md:text-xs transition-all"
                     >
-                        <span className="whitespace-nowrap">IR AO DESPACHO</span>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
+                      IR AO DESPACHO 
+                      <span className="text-lg">→</span>
                     </button>
+                    
                 </div>
+            </div>
 
                 {/* Lista de endereços abaixo (visível após adicionar) */}
                 <div className="mt-6 destinos-list custom-scrollbar">
