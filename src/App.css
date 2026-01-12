@@ -781,6 +781,10 @@ body .summary-card {
   font-weight: 700 !important;
 }
 
+.central-despacho-container {
+  padding-bottom: 150px !important;
+}
+
 /* Header de ações: Seletor (esq) + Botão (dir) */
 .central-despacho-container .cd-controls-header {
   display: flex !important;
@@ -886,28 +890,29 @@ body .summary-card {
 }
 
 /* Barra de ações (Seletor + Otimizar + Disparar) */
-.barra-acoes-dashboard {
+.barra-comando-unica {
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  gap: 15px !important;
+  gap: 20px !important;
   width: 100% !important;
-  margin-bottom: 30px !important;
+  margin-bottom: 20px !important;
   flex-wrap: nowrap !important;
 }
 
-.barra-acoes-dashboard > * {
+.barra-comando-unica > * {
   margin-top: 0 !important;
   margin-bottom: 0 !important;
   float: none !important;
   position: static !important;
 }
 
-/* Padronização de altura */
-.barra-acoes-dashboard .select-motorista-despacho,
-.barra-acoes-dashboard .cd-btn-otimizar,
-.barra-acoes-dashboard .cd-btn-disparar-inline {
+/* Padronização de altura e largura */
+.barra-comando-unica .select-motorista-despacho,
+.barra-comando-unica .cd-btn-otimizar,
+.barra-comando-unica .cd-btn-disparar-inline {
+  width: auto !important;
   height: 45px !important;
   line-height: 45px !important;
   padding: 0 14px !important;
@@ -916,9 +921,19 @@ body .summary-card {
   justify-content: center !important;
 }
 
-/* Garantir que o botão DISPARAR fique à direita quando houver espaço */
-.barra-acoes-dashboard .cd-btn-disparar-inline {
-  margin-left: auto !important;
+/* Forçar largura do seletor */
+.barra-comando-unica .select-motorista-despacho {
+  width: 250px !important;
+}
+
+/* Remover comportamento de empurrar botão Disparar para direita */
+.barra-comando-unica .cd-btn-disparar-inline {
+  margin-left: 0 !important;
+}
+
+/* garantir que o botão DISPARAR não tenha margin inferior */
+.barra-comando-unica .cd-btn-disparar {
+  margin: 0 !important;
 }
 
 

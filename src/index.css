@@ -39,8 +39,8 @@ body {
   margin: 0;
   padding: 0;
   width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+  height: auto !important;
+  overflow: auto !important;
   background-color: var(--bg-main) !important;
   color: rgba(255, 255, 255, 0.92);
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
@@ -614,7 +614,7 @@ button:focus-visible {
 .status-panel {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible !important;
 }
 
 .status-panel .status-header {

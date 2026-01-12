@@ -169,7 +169,7 @@ const CentralDespacho = () => {
                 </div>
 
                 {/* BARRA DE AÇÕES: Seletor + Otimizar + Disparar em uma linha */}
-                <div className="barra-acoes-dashboard">
+                <div className="barra-comando-unica">
                     <select
                         className="select-motorista-despacho"
                         value={motoristaSelecionado}
