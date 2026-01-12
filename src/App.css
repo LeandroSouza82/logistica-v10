@@ -395,19 +395,20 @@ body,
   justify-content: center !important;
   min-height: 110px !important;
   /* garante altura uniforme */
-  overflow: visible !important;
-  padding-left: 26px !important;
+  overflow: hidden !important; /* essencial para o efeito 'voltinha' */
+  padding-left: 30px !important;
 }
 
-/* barra lateral arredondada - usa pseudo-elemento para controle de raio */
+/* pseudo-elemento da 'voltinha' apenas para summary-card (topo) */
 .summary-card::before {
   content: "";
   position: absolute;
-  left: 12px;
-  top: 12px;
-  height: calc(100% - 24px);
-  width: 6px;
-  border-radius: 6px;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px; /* espessura da voltinha */
+  border-top-left-radius: 15px;
+  border-bottom-left-radius: 15px;
   background: transparent;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06) inset;
 }
@@ -1206,29 +1207,18 @@ body .summary-card {
   position: static !important;
 }
 
-/* Cards: forçar barra lateral via border-left e espaçamento interno */
+/* Cards de Rotas (Status de Operação) - manter sem 'voltinha' integrada */
 .rota-card {
-  padding-left: 30px !important;
+  padding-left: 30px !important; /* respiração para o conteúdo */
   border-radius: 8px !important;
-  border-left-width: 4px !important;
-  border-left-style: solid !important;
+  border-left: none !important; /* garantir que não haja voltinha aqui */
 }
 
-.rota-card.svc-entrega {
-  border-left-color: var(--btn-primary) !important;
-}
-
-.rota-card.svc-recolha {
-  border-left-color: #f97316 !important;
-}
-
-.rota-card.svc-outros {
-  border-left-color: #a855f7 !important;
-}
-
-.rota-card.svc-default {
-  border-left-color: rgba(255, 255, 255, 0.04) !important;
-}
+/* Se houver classes antigas que atribuem cor, neutralizamos aqui para evitar artefatos */
+.rota-card.svc-entrega,
+.rota-card.svc-recolha,
+.rota-card.svc-outros,
+.rota-card.svc-default { border-left: none !important; }
 
 /* Forçar hierarquia do texto */
 .rota-cliente {
@@ -1335,36 +1325,29 @@ body .summary-card {
 }
 
 .cd-card {
-  /* Espaço interno à esquerda para a barra de destaque */
+  /* Espaço interno à esquerda para a barra de destaque (fallback) */
   padding-left: 18px !important;
 }
 
-/* Accent bar as pseudo-element for cd-cards */
-.cd-card::before {
+/* Accent bar as pseudo-element for cd-cards (fila de preparação) */
+.central-despacho-container .cd-card { border-radius: 15px !important; overflow: hidden !important; padding-left: 30px !important; }
+.central-despacho-container .cd-card::before {
   content: "";
   position: absolute;
-  left: 12px;
-  top: 12px;
-  width: 6px;
-  height: calc(100% - 24px);
-  border-radius: 6px;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px; /* espessura da voltinha */
+  border-top-left-radius: 15px;
+  border-bottom-left-radius: 15px;
   background: transparent;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06) inset;
 }
 
-.cd-card.svc-entrega::before {
-  background: #3498db !important;
-  /* entrega - azul */
-}
-
-.cd-card.svc-recolha::before {
-  background: #e67e22 !important;
-  /* recolha - laranja */
-}
-
-.cd-card.svc-outros::before {
-  background: #9b59b6 !important;
-  /* outros - roxo */
-}
+.central-despacho-container .cd-card.svc-entrega::before { background: #3498db !important; }
+.central-despacho-container .cd-card.svc-recolha::before { background: #e67e22 !important; }
+.central-despacho-container .cd-card.svc-outros::before { background: #9b59b6 !important; }
+.central-despacho-container .cd-card.svc-default::before { background: rgba(255,255,255,0.04) !important; }
 
 .cd-card.svc-outros .cd-badge {
   background: #a855f7 !important;
