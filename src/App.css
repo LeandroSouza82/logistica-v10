@@ -387,7 +387,7 @@ body,
   background: #ffffff;
   /* Fundo branco conforme a foto */
   padding: 1.5rem 1.5rem 1.5rem 1.5rem !important;
-  border-radius: 12px !important;
+  border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   margin: 0 !important;
   display: flex !important;
@@ -395,20 +395,19 @@ body,
   justify-content: center !important;
   min-height: 110px !important;
   /* garante altura uniforme */
-  overflow: hidden !important; /* essencial para o efeito 'voltinha' */
-  padding-left: 15px !important; /* respiração entre a borda e o conteúdo */
+  overflow: visible !important;
+  padding-left: 26px !important;
 }
 
-/* barra lateral arredondada - pseudo-elemento principal para 'voltinha' integrado */
+/* barra lateral arredondada - usa pseudo-elemento para controle de raio */
 .summary-card::before {
   content: "";
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 10px;
-  border-top-left-radius: 12px;
-  border-bottom-left-radius: 12px;
+  left: 12px;
+  top: 12px;
+  height: calc(100% - 24px);
+  width: 6px;
+  border-radius: 6px;
   background: transparent;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06) inset;
 }
@@ -449,33 +448,6 @@ body,
 .summary-card[style] {
   border-left-color: transparent !important;
 }
-
-/* AVISO: Padronizar 'voltinha integrada' (bordas arredondadas de 10px) */
-.summary-card {
-  border-radius: 12px !important;
-  overflow: hidden !important; /* essencial para o efeito arredondado */
-  border-left: 10px solid transparent !important; /* base para a cor */
-  padding-left: 15px !important; /* respiração entre a borda e o conteúdo */
-}
-
-/* Aplicar pseudo-elemento para a 'voltinha' arredondada (mais robusto) */
-.summary-card::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 10px;
-  border-top-left-radius: 12px;
-  border-bottom-left-radius: 12px;
-  background: transparent;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06) inset;
-}
-
-/* Cores aplicadas via pseudo-elemento */
-.summary-card.blue::before { background: #f1c40f !important; }
-.summary-card.status::before { background: #2ecc71 !important; }
-.summary-card.indigo::before { background: #3498db !important; }
 
 /* Garantir alinhamento/sem margens extras */
 .summary-grid>* {
@@ -722,7 +694,6 @@ select.form-input:focus-visible,
 .nova-carga-card textarea.form-input::placeholder {
   color: #94a3b8 !important;
 }
-
 
 /* Lista de Rascunho */
 .lista-rascunho {
@@ -991,10 +962,6 @@ body .summary-card {
 .cd-card {
   transition: transform 150ms ease, box-shadow 200ms ease !important;
   cursor: grab !important;
-  border-radius: 12px !important;
-  overflow: hidden !important; /* garantir efeito 'voltinha' */
-  border-left: 10px solid transparent !important; /* base */
-  padding-left: 15px !important;
 }
 
 .cd-card:active {
@@ -1009,25 +976,6 @@ body .summary-card {
 .cd-card.moved {
   box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.12) !important;
   border-left-color: var(--accent-purple) !important;
-}
-
-.cd-card.svc-entrega::before { background: #3498db !important; }
-.cd-card.svc-recolha::before { background: #e67e22 !important; }
-.cd-card.svc-outros::before { background: #9b59b6 !important; }
-.cd-card.svc-default::before { background: rgba(255,255,255,0.04) !important; }
-
-/* pseudo-elemento para cd-card também */
-.cd-card::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 10px;
-  border-top-left-radius: 12px;
-  border-bottom-left-radius: 12px;
-  background: transparent;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.06) inset;
 }
 
 /* Barra de ações (Seletor + Otimizar + Disparar) */
