@@ -163,6 +163,3 @@ const NovaCarga = ({ setAbaAtiva }) => {
 };
 
 export default NovaCarga;
-};
-
-export default NovaCarga;
