@@ -204,10 +204,19 @@ button:focus-visible {
 }
 
 .observacoes {
-  height: 40px;
-  padding: 12px;
+  height: 48px;
+  padding: 0 16px;
+  /* aligned with other inputs */
 }
 
+/* type select same height and padding */
+.type-select {
+  height: 48px;
+  padding: 0 12px; /* keep some horizontal padding */
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+}
 
 /* tipo select compacto */
 .type-select {
@@ -253,22 +262,21 @@ button:focus-visible {
   /* slate-800 */
   border: 1px solid var(--glass-border);
   color: #ffffff;
-  padding: 12px;
-  border-radius: 12px;
-  /* rounded-xl */
+  height: 48px; /* consistent height */
+  padding: 0 16px; /* px-4 */
+  border-radius: 8px; /* rounded-lg */
   outline: none;
   width: 100%;
+  box-sizing: border-box;
   -webkit-appearance: none;
   -moz-appearance: none;
-  transition: box-shadow 200ms ease, transform 160ms ease, border-color 160ms ease;
-  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.45);
+  transition: box-shadow 200ms ease, border-color 160ms ease;
 }
 
 .form-input:focus {
-  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.12);
-  /* ring-2 look */
-  border-color: rgba(59, 130, 246, 0.8);
-  transform: translateY(-1px);
+  outline: none;
+  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.9);
 }
 
 /* Regras de posicionamento: */
