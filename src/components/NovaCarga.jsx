@@ -78,15 +78,35 @@ const NovaCarga = () => {
     const [novoObservacoes, setNovoObservacoes] = useState('');
     const [carregando, setCarregando] = useState(false);
 
+    // helper: escolhe classe com cor por tipo
+    const getServiceClass = (type) => {
+        if (!type) return 'svc-default';
+        const t = String(type).toLowerCase();
+        if (t.includes('recol')) return 'svc-recolha';
+        if (t.includes('outro') || t.includes('ata') || t.includes('atas')) return 'svc-outros';
+        return 'svc-entrega';
+    };
+
+
+
+// Classes para o botão Remover conforme o tipo (retorna classe CSS) 
+    const getRemoveButtonClass = (type) => {
+        const t = String(type || 'Entrega').toLowerCase();
+        if (t.includes('recol')) return 'remove-recolha';
+        if (t.includes('outro') || t.includes('ata') || t.includes('atas')) return 'remove-outros';
+        return 'remove-entrega';
+    };
+
     // 1. Adicionar endereço à lista temporária
     const adicionarParada = () => {
-        if (!novoNome || !novoEndereco) {
-            alert('Preencha o nome e o endereço antes de adicionar.');
+        if (!novoEndereco) {
+            alert('Preencha o endereço antes de adicionar.');
             return;
         }
+        const clienteValor = (novoNome && String(novoNome).trim()) || 'Cliente a definir';
         setDestinos([...destinos, {
             id: Date.now(),
-            cliente: novoNome,
+            cliente: clienteValor,
             endereco: novoEndereco,
             tipo: novoTipo,
             observacoes: novoObservacoes
@@ -145,35 +165,56 @@ const NovaCarga = () => {
     // 3. Enviar para o Motorista no Supabase
     const despacharCarga = async () => {
         if (destinos.length === 0) return;
+
+
+
+        setCarregando(true);
+
+        // Estrutura do objeto de envio: garante campo cliente (com fallback 'Cliente a definir'), endereco, status e tipo
         const rows = destinos.map(d => ({
+            cliente: (d.cliente && String(d.cliente).trim()) || 'Cliente a definir',
             endereco: d.endereco,
-            ordem: d.ordem || 999,
-            tipo: d.tipo || 'Entrega',
             status: 'pendente',
+            tipo: d.tipo || 'Entrega',
+            ordem: d.ordem || 999,
             motorista_id: 1,
             lat: d.lat || null,
             lng: d.lng || null
         }));
 
-        const { error } = await supabase
-            .from('entregas')
-            .insert(rows);
+        try {
+            const { data, error } = await supabase
+                .from('entregas')
+                .insert(rows);
 
-        if (!error) alert('Cargas enviadas ao celular do motorista!');
-        else alert('Erro ao enviar cargas: ' + (error.message || error));
+            if (error) {
+                // Tratamento de erro: notifica o gestor
+                alert('Erro ao enviar cargas: ' + (error.message || JSON.stringify(error)));
+                setCarregando(false);
+                return;
+            }
+
+            alert('Cargas enviadas ao celular do motorista!');
+            // Opcional: limpar lista após envio bem-sucedido
+            setDestinos([]);
+        } catch (e) {
+            alert('Erro inesperado ao enviar cargas: ' + (e.message || e));
+        } finally {
+            setCarregando(false);
+        }
     };
 
     return (
         <div className="min-h-screen bg-[#0B1F3A] flex items-start justify-center p-8">
             <div className="w-full max-w-2xl">
                 {/* Formulário central estilo screenshot */}
-                <div className="bg-[#081427] rounded-3xl p-8 shadow-2xl border border-slate-800">
-                    <h2 className="text-2xl font-black text-slate-200 mb-6 text-center">Registrar Encomenda</h2>
+                <div className="bg-[#081427] rounded-3xl p-8 shadow-2xl border border-slate-800 mb-6">
+                    <h2 className="text-2xl font-black text-slate-200 mb-6">Registrar Encomenda</h2>
 
-                    <div className="grid grid-cols-1 gap-4">
-                        <div className="flex items-center gap-3">
-                            <label className="text-slate-200 font-bold mr-2">Tipo:</label>
-                            <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} className="border-2 border-slate-700 p-3 rounded-xl bg-white text-slate-700">
+                    <form className="nova-carga-form" onSubmit={(e) => { e.preventDefault(); adicionarParada(); }}>
+                        <div className="tipo-row">
+                            <label className="label">Tipo:</label>
+                            <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} className="form-input type-select">
                                 <option>Entrega</option>
                                 <option>Recolha</option>
                                 <option>Outros</option>
@@ -183,70 +224,65 @@ const NovaCarga = () => {
                         <input
                             value={novoNome}
                             onChange={(e) => setNovoNome(e.target.value)}
-                            className="border-2 border-slate-700 p-4 rounded-2xl focus:border-blue-500 outline-none bg-white"
+                            className="form-input nome-cliente w-full"
                             placeholder="Nome do Cliente"
                         />
 
                         <input
                             value={novoEndereco}
                             onChange={(e) => setNovoEndereco(e.target.value)}
-                            className="border-2 border-slate-700 p-4 rounded-2xl focus:border-blue-500 outline-none bg-white"
+                            className="form-input endereco w-full"
                             placeholder="Endereço de Entrega"
                         />
 
-                        <textarea
+                        <input
                             value={novoObservacoes}
                             onChange={(e) => setNovoObservacoes(e.target.value)}
-                            className="border-2 border-slate-700 p-4 rounded-2xl focus:border-blue-500 outline-none bg-white min-h-[120px]"
+                            className="form-input observacoes w-full mt-2"
                             placeholder="Observações..."
                         />
 
-                        <div className="text-center">
-                            <button onClick={adicionarParada} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-2xl shadow-lg transition w-full">
+                        {/* Linha de ação final: Otimizar | ADICIONAR | Enviar */}
+                        <div className="action-row-bottom mt-6">
+                            <button type="button" onClick={otimizarRota} disabled={destinos.length < 2 || carregando} className="btn-opt">
+                                <span aria-hidden="true">⚡</span>
+                                <span>Otimizar</span>
+                            </button>
+
+                            <button type="submit" className="btn-add-center">
                                 ADICIONAR À LISTA
                             </button>
+
+                            <button type="button" onClick={despacharCarga} disabled={destinos.length === 0} className="btn-send">
+                                <span aria-hidden="true">🚀</span>
+                                <span>Enviar</span>
+                            </button>
                         </div>
-                    </div>
+
+                    </form>
                 </div>
 
                 {/* Lista de endereços abaixo (visível após adicionar) */}
-                <div className="mt-6 space-y-3">
+                <div className="mt-6 destinos-list custom-scrollbar">
                     {destinos.map((item, index) => (
-                        <div key={item.id} className="flex items-center justify-between p-4 bg-white rounded-xl border-l-4 border-blue-400">
-                            <div className="flex items-center gap-4">
-                                <span className="bg-blue-600 text-white w-8 h-8 flex items-center justify-center rounded-full font-bold">{index + 1}</span>
+                        <div key={item.id} className={`destino-item rounded-xl flex items-center justify-between ${getServiceClass(item.tipo)}`}>
+                            <div className="flex items-center gap-6">
+                                <span className="destino-index">{index + 1}</span>
                                 <div>
-                                    <div className="font-semibold text-slate-700">{item.cliente}</div>
-                                    <div className="text-sm text-slate-500">{item.endereco}</div>
+                                    <div className="font-semibold text-slate-200">{item.cliente}</div>
+                                    <div className="text-sm text-slate-400">{item.endereco}</div>
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-4">
-                                <span className="text-xs px-2 py-1 rounded-full bg-slate-200 text-slate-700">{item.tipo}</span>
-                                <button onClick={() => setDestinos(destinos.filter(d => d.id !== item.id))} className="text-red-400 hover:text-red-600">Remover</button>
+                                <span className="tipo-badge">{item.tipo}</span>
+                                <button onClick={() => setDestinos(destinos.filter(d => d.id !== item.id))} className={`${getRemoveButtonClass(item.tipo)} btn-remove`}>Remover</button>
                             </div>
                         </div>
                     ))}
                 </div>
 
-                {/* Ações */}
-                <div className="mt-6 grid grid-cols-2 gap-4">
-                    <button
-                        onClick={otimizarRota}
-                        disabled={destinos.length < 2 || carregando}
-                        className="bg-emerald-500 text-white font-black py-3 rounded-2xl hover:bg-emerald-600 transition shadow-lg uppercase"
-                    >
-                        {carregando ? "Calculando..." : "⚡ Otimizar Sequência (Mais Perto)"}
-                    </button>
 
-                    <button
-                        onClick={despacharCarga}
-                        disabled={destinos.length === 0}
-                        className="bg-blue-600 text-white font-black py-3 rounded-2xl hover:bg-blue-700 transition shadow-lg uppercase"
-                    >
-                        Enviar para Motorista
-                    </button>
-                </div>
             </div>
         </div>
     );

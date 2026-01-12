@@ -49,6 +49,62 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
     // Ref para o objeto do Google Map (usado para panTo quando a posição muda)
     const mapRef = useRef(null);
 
+    // Container e estado para resizer (splitter)
+    const containerRef = useRef(null);
+    const [leftWidth, setLeftWidth] = useState(null); // em pixels
+    const draggingRef = useRef(false);
+
+    // Inicializa largura esquerda com base no container
+    useEffect(() => {
+        const init = () => {
+            const c = containerRef.current;
+            if (c) {
+                const w = c.clientWidth;
+                setLeftWidth(Math.round(w * 0.68));
+            }
+        };
+        init();
+        window.addEventListener('resize', init);
+        return () => window.removeEventListener('resize', init);
+    }, []);
+
+    const startDrag = (e) => {
+        e.preventDefault();
+        draggingRef.current = true;
+        document.body.classList.add('dragging-splitter');
+        document.body.style.cursor = 'col-resize';
+
+        const startX = e.clientX || (e.touches && e.touches[0] && e.touches[0].clientX);
+        const startWidth = containerRef.current ? containerRef.current.querySelector('.map-wrapper').getBoundingClientRect().width : 0;
+
+        const onMove = (moveEvent) => {
+            const clientX = moveEvent.clientX || (moveEvent.touches && moveEvent.touches[0] && moveEvent.touches[0].clientX);
+            const delta = clientX - startX;
+            const container = containerRef.current;
+            if (!container) return;
+            const min = 280;
+            const max = container.clientWidth - 280;
+            let newWidth = startWidth + delta;
+            newWidth = Math.max(min, Math.min(max, newWidth));
+            setLeftWidth(newWidth);
+        };
+
+        const stop = () => {
+            draggingRef.current = false;
+            document.body.classList.remove('dragging-splitter');
+            document.body.style.cursor = '';
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('mouseup', stop);
+            window.removeEventListener('touchend', stop);
+        };
+
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('mouseup', stop);
+        window.addEventListener('touchend', stop);
+    };
+
     // Handler simples de logout (tentativa de signOut e reload)
     const handleLogout = async () => {
         try {
@@ -127,16 +183,33 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
     // Escolhe primeiro motorista com coordenadas válidas (não 0,0) para centralizar o mapa
     const firstMotoristaComCoords = motoristas.find(m => m.lat != null && m.lng != null && !(m.lat === 0 && m.lng === 0));
 
+    const getServiceClass = (type) => {
+        if (!type) return 'svc-default';
+        const t = String(type).toLowerCase();
+        if (t.includes('recol')) return 'svc-recolha';
+        if (t.includes('outro') || t.includes('ata') || t.includes('atas')) return 'svc-outros';
+        return 'svc-entrega';
+    };
+
+    const getDotClass = (type) => {
+        if (!type) return 'entrega';
+        const t = String(type).toLowerCase();
+        if (t.includes('recol')) return 'recolha';
+        if (t.includes('outro') || t.includes('ata') || t.includes('atas')) return 'outros';
+        return 'entrega';
+    };
+
     if (loadError) return <div style={{ color: '#f88', padding: 20 }}>Erro no Google Maps.</div>;
 
     return (
-        <main className="content-grid">
-            <div className="map-wrapper">
+        <main className="content-grid" ref={containerRef}>
+            <div className="map-wrapper" style={{ flexBasis: leftWidth ? `${leftWidth}px` : undefined }}>
                 {/* Menu superior - visual apenas (não altera lógicas existentes) */}
                 <nav className="top-nav" role="navigation" aria-label="Menu principal">
                     <button
                         className={`nav-button ${abaAtiva === 'visao-geral' ? 'active' : 'inactive'}`}
                         onClick={() => setAbaAtiva('visao-geral')}
+                        aria-pressed={abaAtiva === 'visao-geral'}
                     >
                         VISÃO GERAL
                     </button>
@@ -144,6 +217,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     <button
                         className={`nav-button ${abaAtiva === 'nova-carga' ? 'active' : 'inactive'}`}
                         onClick={() => setAbaAtiva('nova-carga')}
+                        aria-pressed={abaAtiva === 'nova-carga'}
                     >
                         NOVA CARGA
                     </button>
@@ -151,6 +225,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     <button
                         className={`nav-button ${abaAtiva === 'central-despacho' ? 'active' : 'inactive'}`}
                         onClick={() => setAbaAtiva('central-despacho')}
+                        aria-pressed={abaAtiva === 'central-despacho'}
                     >
                         CENTRAL DE DESPACHO
                     </button>
@@ -158,6 +233,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     <button
                         className={`nav-button ${abaAtiva === 'equipe' ? 'active' : 'inactive'}`}
                         onClick={() => setAbaAtiva('equipe')}
+                        aria-pressed={abaAtiva === 'equipe'}
                     >
                         EQUIPE
                     </button>
@@ -242,7 +318,21 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 )}
             </div>
 
-            <aside className="status-panel">
+            <div
+                className="splitter"
+                onMouseDown={startDrag}
+                onTouchStart={startDrag}
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Redimensionar painel"
+                tabIndex={0}
+                onKeyDown={(ev) => {
+                    if (ev.key === 'ArrowLeft') setLeftWidth(w => Math.max(280, (w || 600) - 20));
+                    if (ev.key === 'ArrowRight') setLeftWidth(w => Math.min((containerRef.current?.clientWidth || 1000) - 280, (w || 600) + 20));
+                }}
+            />
+
+            <aside className="status-panel" style={{ flexBasis: leftWidth ? `calc(100% - ${leftWidth}px - 8px)` : undefined }}>
                 {abaAtiva === 'equipe' ? (
                     <div className="p-6">
                         <div className="bg-[#1a2b4d] rounded-3xl p-6 shadow-xl">
@@ -284,19 +374,30 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     </div>
                 ) : (
                     <>
-                        <h2 style={{ color: '#fff', marginTop: 0 }}>Status da Operação</h2>
+                        <div className="status-header">
+                            <h2 className="text-slate-200" style={{ marginTop: 0 }}>Status da Operação</h2>
+                            <p className="text-slate-400 text-sm mb-2">Rotas recentes</p>
+                        </div>
+
                         {entregas.length === 0 ? (
-                            <p style={{ color: '#94a3b8' }}>Nenhuma rota despachada no momento.</p>
+                            <div className="rotas-list custom-scrollbar">
+                                <p style={{ color: 'var(--muted)' }}>Nenhuma rota despachada no momento.</p>
+                            </div>
                         ) : (
-                            <>
-                                <p style={{ color: '#94a3b8' }}>Rotas recentes:</p>
+                            <div className="rotas-list custom-scrollbar">
                                 {entregas.map(e => (
-                                    <div key={e.id} style={{ background: '#112240', padding: 12, borderRadius: 8, marginBottom: 8 }}>
-                                        <p style={{ margin: 0, fontSize: 14 }}><strong>{e.cliente}</strong></p>
-                                        <span style={{ fontSize: 11, color: '#10b981' }}>● Entregue</span>
+                                    <div key={e.id} className={`rota-card ${getServiceClass(e.tipo)}`}>
+                                        <div className="rota-info">
+                                            <p className="rota-cliente"><strong>{e.cliente}</strong></p>
+                                            <p className="rota-endereco">{e.endereco || ''}</p>
+                                        </div>
+                                        <div className="rota-status">
+                                            <span className={`status-dot delivered ${getDotClass(e.tipo)}`} aria-hidden="true"></span>
+                                            <span className="status-label">Entregue</span>
+                                        </div>
                                     </div>
                                 ))}
-                            </>
+                            </div>
                         )}
                     </>
                 )}

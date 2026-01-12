@@ -7,6 +7,22 @@ export default function CentralDespacho() {
     const [loading, setLoading] = useState(false);
     const [toast, setToast] = useState(null);
 
+    const getDotClass = (type) => {
+        if (!type) return 'entrega';
+        const t = String(type).toLowerCase();
+        if (t.includes('recol')) return 'recolha';
+        if (t.includes('outro') || t.includes('ata') || t.includes('atas')) return 'outros';
+        return 'entrega';
+    };
+
+    const getServiceClass = (type) => {
+        if (!type) return 'svc-default';
+        const t = String(type).toLowerCase();
+        if (t.includes('recol')) return 'svc-recolha';
+        if (t.includes('outro') || t.includes('ata') || t.includes('atas')) return 'svc-outros';
+        return 'svc-entrega';
+    };
+
     const showToast = (msg, t = 'success') => {
         setToast({ message: msg, type: t });
         setTimeout(() => setToast(null), 3000);
@@ -84,59 +100,64 @@ export default function CentralDespacho() {
                     </div>
                 </div>
 
-                <div className="flex items-center justify-between mb-4">
-                    <div>
-                        <h2 className="text-2xl font-black uppercase">Fila de Preparação</h2>
-                        <p className="text-slate-400 text-sm">Organize e dispare as rotas otimizadas</p>
+                <div className="bg-[#1e293b] rounded-3xl p-8 shadow-2xl border border-slate-800">
+                    <h2 className="text-2xl font-black text-slate-200 mb-6">Fila de Preparação</h2>
+                    <p className="text-slate-400 text-sm mb-6">Organize e dispare as rotas otimizadas</p>
+
+                    <div className="entregas-grid">
+                        {entregas.map((e, idx) => (
+                            <article key={e.id} className={`entrega-card ${getServiceClass(e.tipo)}`}>
+                                <div className="entrega-accent" aria-hidden={true} />
+                                <div className="entrega-header">
+                                    <h3 className="entrega-titulo truncate">{e.cliente}</h3>
+                                    <span className="entrega-tipo">{e.tipo || 'Entrega'}</span>
+                                </div>
+
+                                <p className="entrega-endereco"><MapPin size={14} /> {e.endereco}</p>
+
+                                <div className="entrega-observacoes">
+                                    <p className="text-sm italic text-slate-300">{e.observacoes || 'Sem instruções'}</p>
+                                </div>
+
+                                <div className="entrega-actions">
+                                    <div className="text-slate-400 text-xs">#{idx + 1}</div>
+                                    <button onClick={() => removerEntrega(e.id)} className="entrega-remove" aria-label={`Remover entrega ${e.cliente}`} title={`Remover ${e.cliente}`}>
+                                        <Trash2 size={14} /> Remover
+                                    </button>
+                                </div>
+                            </article>
+                        ))}
                     </div>
 
-                    <div className="flex gap-3">
-                        <button onClick={otimizarRotaTSP} className="bg-white text-slate-900 font-black px-6 py-3 rounded-xl shadow-md flex items-center gap-2 hover:bg-slate-100 transition">
-                            <Zap size={18} className="text-orange-500" /> ⚡ OTIMIZAR (TSP)
+                    <div className="form-actions mt-6">
+                        <button onClick={otimizarRotaTSP} className="btn-opt flex items-center gap-2">
+                            <span aria-hidden="true">⚡</span>
+                            <span>Otimizar Sequência</span>
                         </button>
-                        <button onClick={dispararRota} className="bg-[#10b981] hover:bg-emerald-500 text-white font-black px-6 py-3 rounded-xl shadow-md flex items-center gap-2 transition active:scale-95">
-                            <Send size={18} /> 🚀 DISPARAR ROTA
+
+                        <button onClick={dispararRota} className="btn-send flex items-center gap-2">
+                            <span aria-hidden="true">🚀</span>
+                            <span>Enviar para Motorista</span>
                         </button>
                     </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-6">
-                    {entregas.map((e, idx) => (
-                        <div key={e.id} className="bg-[#121b2e] rounded-[2.5rem] p-6 border border-[#1e293b] relative">
-                            <div className="absolute left-0 top-4 bottom-4 w-1 bg-blue-500 rounded-r-full" />
-                            <div className="flex justify-between items-start mb-3">
-                                <h3 className="text-lg font-black uppercase truncate pr-8">{e.cliente}</h3>
-                                <span className="bg-white text-black text-[10px] font-black px-3 py-1 rounded-full uppercase">{e.tipo || 'Entrega'}</span>
-                            </div>
-                            <p className="text-slate-400 text-sm mb-2 flex items-center gap-2"><MapPin size={14} /> {e.endereco}</p>
-                            <div className="bg-[#0a1631] rounded-xl p-3 mb-3">
-                                <p className="text-sm italic text-slate-300">{e.observacoes || 'Sem instruções'}</p>
-                            </div>
-
-                            <div className="flex justify-between items-center">
-                                <div className="text-slate-400 text-xs">#{idx + 1}</div>
-                                <button onClick={() => removerEntrega(e.id)} className="text-red-500 text-xs font-black uppercase hover:underline flex items-center gap-2">
-                                    <Trash2 size={14} /> Remover
-                                </button>
-                            </div>
-                        </div>
-                    ))}
                 </div>
             </div>
 
             {/* Right: Sidebar fixed w-96 */}
-            <aside className="w-96 bg-[#121b2e] rounded-[3rem] p-6 border border-slate-800 shadow-2xl">
-                <h3 className="text-xl font-black uppercase mb-4">Status da Operação</h3>
-                <p className="text-slate-500 text-xs font-bold uppercase mb-4">Rotas recentes</p>
+            <aside className="sidebar-status">
+                <div className="status-header">
+                    <h3 className="text-xl font-black uppercase mb-2">Status da Operação</h3>
+                    <p className="text-slate-500 text-xs font-bold uppercase mb-4">Rotas recentes</p>
+                </div>
 
-                <div className="space-y-3 overflow-y-auto max-h-[60vh] pr-2 custom-scrollbar">
+                <div className="rotas-list custom-scrollbar">
                     {entregas.slice(0, 5).map((r, i) => (
-                        <div key={r.id} className="bg-[#0a1631] p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+                        <div key={r.id} className="rota-card">
                             <div>
-                                <p className="font-black text-sm uppercase">{r.cliente}</p>
+                                <p className="rota-cliente font-black text-sm uppercase">{r.cliente}</p>
                                 <p className="text-[10px] text-slate-400">#{i + 1} • {r.tipo || 'Entrega'}</p>
                             </div>
-                            <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                            <div className={`status-dot delivered ${getDotClass(r.tipo)}`} aria-hidden="true" />
                         </div>
                     ))}
                 </div>

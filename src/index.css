@@ -30,7 +30,8 @@ body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background-color: #0b0e14;
+  background-color: var(--bg-main);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 h1 {
@@ -88,47 +89,75 @@ button:focus-visible {
 
 /* Paleta adicionada conforme solicitação (Dark theme values) */
 :root {
-  --bg-main: #0a1631;
-  /* Dark Navy */
-  --card: #1a2b4d;
-  --status-online: #22c55e;
+  --bg-main: #0f172a;
+  /* fundo azul-grafite profundo */
+  --card: #1e293b;
+  /* cards / inputs (slate-800) */
+  --muted: #94a3b8;
+  /* texto secundário */
+  --status-online: #10b981;
+  /* emerald */
   --btn-primary: #3b82f6;
+  --glass-border: rgba(51, 65, 85, 0.5);
 }
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+
+/* Tipografia: Inter */
+:root {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
 
 /* Navegação superior (estilo inspirado em Tailwind util classes) */
 .top-nav {
   display: flex;
-  justify-content: center;
-  gap: 2rem;
+  align-items: center;
+  gap: 12px;
+  /* agora 12px conforme solicitado */
   padding: 1rem 0.5rem;
   background-color: var(--bg-main);
   color: #ffffff;
   font-weight: 700;
+  flex-wrap: nowrap;
+  /* garante uma linha única */
 }
 
 .nav-button {
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   border: 1px solid transparent;
-  background-color: rgba(59, 130, 246, 0.08);
-  /* subtle */
+  background-color: rgba(255, 255, 255, 0.02);
   color: #ffffff;
   cursor: pointer;
-  transition: opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  position: relative;
+  transition: opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
 }
 
 .nav-button:hover {
   opacity: 1;
+  transform: translateY(-1px);
 }
 
 .nav-button.inactive {
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
 .nav-button.active {
-  background-color: rgba(59, 130, 246, 0.18);
-  border-color: rgba(59, 130, 246, 0.5);
-  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.08);
+  background-color: rgba(255, 255, 255, 0.03);
+  /* levemente mais claro */
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.12);
+}
+
+.nav-button.active::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 3px;
+  background: var(--btn-primary);
+  border-radius: 2px;
 }
 
 /* Small responsive helper */
@@ -141,6 +170,385 @@ button:focus-visible {
     padding: 0.45rem 0.8rem;
   }
 }
+
+/* Nova carga - formulário em grid 2 colunas */
+.nova-carga-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  /* desktop: 2 colunas */
+  column-gap: 1.5rem;
+  /* mantem gap horizontal */
+  row-gap: 16px;
+  /* gap vertical de 16px entre linhas */
+  align-items: start;
+}
+
+.tipo-row {
+  grid-column: 1 / 2;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* tipo select compacto */
+.type-select {
+  width: auto !important;
+  min-width: 96px;
+  padding: 8px 10px;
+  display: inline-block;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+}
+
+/* central add button styling */
+.btn-add-center {
+  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%);
+  color: #fff;
+  font-weight: 800;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: none;
+  transition: all 250ms ease;
+}
+
+.btn-add-center:hover {
+  transform: scale(1.02);
+  filter: brightness(1.04);
+}
+
+.nova-carga-form .label {
+  color: var(--muted);
+  font-weight: 700;
+  align-self: center;
+}
+
+/* utilidade w-full (útil quando se pretende usar classes no estilo Tailwind) */
+.w-full {
+  width: 100% !important;
+}
+
+.form-input {
+  background: var(--card);
+  /* slate-800 */
+  border: 1px solid var(--glass-border);
+  color: #ffffff;
+  padding: 12px;
+  border-radius: 12px;
+  /* rounded-xl */
+  outline: none;
+  width: 100%;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  transition: box-shadow 200ms ease, transform 160ms ease, border-color 160ms ease;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.45);
+}
+
+.form-input:focus {
+  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.12);
+  /* ring-2 look */
+  border-color: rgba(59, 130, 246, 0.8);
+  transform: translateY(-1px);
+}
+
+/* Regras de posicionamento: */
+.nome-cliente {
+  grid-column: 1 / 2;
+}
+
+.endereco {
+  grid-column: 1 / 2;
+  /* agora alinhado com Nome do Cliente */
+}
+
+/* Observações curtas (input pequeno para linha de ação) */
+.observacoes-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 48px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+}
+
+.observacoes {
+  grid-column: 1 / 2;
+  /* mesmo comprimento do endereço */
+  height: 48px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  box-sizing: border-box;
+}
+
+/* Linha de ação final: Otimizar | ADICIONAR | Enviar */
+.action-row-bottom {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+  /* 20px entre observações e linha de ação */
+}
+
+.btn-opt,
+.btn-send,
+.btn-add-center {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.btn-add-center {
+  flex: 1 1 auto;
+}
+
+@media (max-width: 700px) {
+  .action-row-bottom {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-opt,
+  .btn-send,
+  .btn-add-center,
+  .observacoes {
+    width: 100%;
+    height: 44px;
+  }
+}
+
+.form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  /* garante espaçamento entre botões */
+  align-items: center;
+}
+
+.btn-opt,
+.btn-send,
+.btn-add {
+  color: #ffffff;
+  font-weight: 800;
+  padding: 14px 20px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  min-width: 150px;
+  /* larguras consistentes */
+  transition: all 300ms ease;
+  /* transição suave */
+}
+
+.btn-opt {
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+}
+
+.btn-opt:hover {
+  transform: scale(1.02);
+  filter: brightness(1.05);
+}
+
+.btn-send {
+  background: linear-gradient(90deg, #06b6d4 0%, #3b82f6 100%);
+}
+
+.btn-send:hover {
+  transform: scale(1.02);
+  filter: brightness(1.06);
+}
+
+.btn-add {
+  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%);
+}
+
+.btn-add:hover {
+  transform: scale(1.02);
+  filter: brightness(1.04);
+}
+
+.btn-add {
+  min-width: 100%;
+  max-width: 420px;
+}
+
+/* garante espaçamento fixo entre ícone e texto */
+.btn-opt span[aria-hidden],
+.btn-send span[aria-hidden],
+.btn-add span[aria-hidden] {
+  display: inline-block;
+  margin-right: 8px;
+}
+
+
+/* focus-visible para acessibilidade */
+.btn-opt:focus-visible,
+.btn-send:focus-visible,
+.btn-add:focus-visible,
+.nav-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+  border-radius: 8px;
+}
+
+/* hover lift para os cards de entrega */
+.entrega-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.entrega-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(2, 6, 23, 0.45);
+}
+
+
+/* Sidebar: Rotas recentes */
+.rotas-list {
+  max-height: 320px;
+  overflow-y: auto;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rota-card {
+  background: var(--card);
+  padding: 16px;
+  /* padding 16px conforme diretriz */
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.3);
+}
+
+/* Service color helpers */
+.svc-entrega {
+  border-left: 4px solid var(--btn-primary) !important;
+}
+
+.svc-recolha {
+  border-left: 4px solid #f97316 !important;
+}
+
+.svc-outros {
+  border-left: 4px solid #6366f1 !important;
+}
+
+.svc-default {
+  border-left: 4px solid rgba(255, 255, 255, 0.04) !important;
+}
+
+/* entrega accent coloring by service */
+.entrega-card.svc-entrega .entrega-accent {
+  background: var(--btn-primary);
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.12);
+}
+
+.entrega-card.svc-recolha .entrega-accent {
+  background: #f97316;
+  box-shadow: 0 6px 18px rgba(249, 115, 22, 0.12);
+}
+
+.entrega-card.svc-outros .entrega-accent {
+  background: #6366f1;
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.12);
+}
+
+/* rotas status dot variants */
+.status-dot.entrega {
+  background: var(--btn-primary);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.12);
+}
+
+.status-dot.recolha {
+  background: #f97316;
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.12);
+}
+
+.status-dot.outros {
+  background: #6366f1;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.12);
+}
+
+.rota-cliente {
+  margin: 0;
+  font-size: 14px;
+}
+
+.rota-endereco {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.rota-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.delivered {
+  background: var(--status-online);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.12);
+}
+
+.status-label {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* Responsividade: grid de 1 coluna em mobile */
+@media (max-width: 700px) {
+  .nova-carga-form {
+    grid-template-columns: 1fr;
+  }
+
+  .nome-cliente,
+  .endereco,
+  .observacoes,
+  .form-actions {
+    grid-column: 1 / -1;
+  }
+
+  /* Em mobile, empilha ações e garante botões larguras apropriadas */
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .btn-opt,
+  .btn-send,
+  .btn-add {
+    min-width: unset;
+    width: 100%;
+  }
+
+  .btn-add {
+    max-width: none;
+  }
+}
+
 
 /* Summary cards (top) */
 .summary-grid {
@@ -211,13 +619,136 @@ button:focus-visible {
 
 /* Layout principal - mapa + status */
 .content-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  /* equivalente a col-span 8/4 */
+  display: flex;
+  flex-direction: row;
   gap: 1.5rem;
   padding: 1.5rem;
   min-height: 100vh;
   background-color: var(--bg-main);
+}
+
+/* Splitter between panels */
+.splitter {
+  width: 8px;
+  cursor: col-resize;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.00));
+  border-radius: 4px;
+  align-self: stretch;
+  transition: background-color 120ms ease;
+}
+
+.splitter:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* gentle transition when panels resize (disabled while dragging) */
+.map-wrapper,
+.status-panel,
+.sidebar-status {
+  transition: flex-basis 180ms ease, width 180ms ease;
+}
+
+/* while dragging, remove transitions for snappy resizing */
+.dragging-splitter .map-wrapper,
+.dragging-splitter .status-panel,
+.dragging-splitter .sidebar-status {
+  transition: none !important;
+}
+
+/* status panel layout */
+.status-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.status-panel .status-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: inherit;
+  padding-bottom: 12px;
+}
+
+.status-panel .rotas-list {
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+/* destinos list scroll */
+.destinos-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* 12px entre cada item */
+}
+
+.destino-item {
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--glass-border);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.destino-item .flex.items-center {
+  gap: 12px;
+}
+
+.destino-item .text-sm {
+  color: var(--muted);
+}
+
+.destino-item .text-xs {
+  color: var(--muted);
+}
+
+/* contador do item */
+.destino-index {
+  background: rgba(255,255,255,0.04);
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+/* badge do tipo */
+.tipo-badge {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.03);
+  color: var(--muted);
+}
+
+/* botões remover por tipo */
+.btn-remove { padding: 6px 10px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; }
+.remove-entrega { background: #2563eb; color: #fff; }
+.remove-entrega:hover { background: #1e40af; }
+.remove-recolha { background: #f97316; color: #fff; }
+.remove-recolha:hover { background: #c2410c; }
+.remove-outros { background: #6366f1; color: #fff; }
+.remove-outros:hover { background: #4f46e5; }
+
+
+/* scrollbar style (discreet) */
+.destinos-list::-webkit-scrollbar,
+.rotas-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.destinos-list::-webkit-scrollbar-thumb,
+.rotas-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
 }
 
 .map-wrapper {
@@ -296,6 +827,143 @@ button:focus-visible {
 @media (max-width: 900px) {
   .content-grid {
     grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+}
+
+/* CentralDespacho: entregas grid e cards */
+.entregas-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.entrega-card {
+  background: var(--card);
+  /* fundo mais claro que a página */
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  /* rounded-xl */
+  padding: 1.25rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.45);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.entrega-accent {
+  position: absolute;
+  left: 0.5rem;
+  top: 1rem;
+  bottom: 1rem;
+  width: 6px;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 1), rgba(99, 102, 241, 1));
+  border-radius: 0 8px 8px 0;
+}
+
+.entrega-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+}
+
+.entrega-titulo {
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.entrega-tipo {
+  background: #ffffff;
+  color: #0f172a;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 11px;
+}
+
+.entrega-endereco {
+  color: #94a3b8;
+  font-size: 13px;
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.entrega-observacoes {
+  background: #0a1631;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.entrega-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.entrega-remove {
+  color: #f87171;
+  font-weight: 800;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Sidebar status modifications already present in styles but ensure consistent sizing */
+.sidebar-status {
+  width: 24rem;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid var(--glass-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-status .status-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: inherit;
+  padding-bottom: 12px;
+}
+
+.sidebar-status .rotas-list {
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+@media (max-width: 1000px) {
+  .entregas-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .sidebar-status {
+    width: 100%;
+    margin-top: 1rem;
+  }
+}
+
+@media (max-width: 700px) {
+  .entregas-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-status {
+    width: 100%;
+  }
+
+  .min-h-screen {
     padding: 1rem;
   }
 }
