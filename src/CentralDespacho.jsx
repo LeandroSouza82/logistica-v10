@@ -168,7 +168,7 @@ const CentralDespacho = () => {
                     </div>
                 </div>
 
-{/* BARRA DE AÇÕES (FLEX): Seletor (esq) + Otimizar (centro) + Disparar (dir) */}
+                {/* BARRA DE AÇÕES (FLEX): Seletor (esq) + Otimizar (centro) + Disparar (dir) */}
                 <div className="barra-acoes" role="region" aria-label="Barra de ações">
                     <div className="bcp-left">
                         <select
@@ -220,6 +220,15 @@ const CentralDespacho = () => {
                             const serviceClass = isOutro ? 'svc-outros' : (isRecolha ? 'svc-recolha' : 'svc-entrega');
                             const cardClass = isRecolha ? 'cd-card-recolha' : 'cd-card-entrega';
 
+                            const getBadgeClass = (raw) => {
+                                if (!raw) return 'badge-default';
+                                const s = String(raw).toLowerCase();
+                                if (s.includes('recol')) return 'badge-recolha';
+                                if (s.includes('outro') || s.includes('ata')) return 'badge-outros';
+                                return 'badge-entrega';
+                            };
+                            const badgeClass = getBadgeClass(item.tipo);
+
                             return (
                                 <div
                                     key={item.id}
@@ -232,7 +241,7 @@ const CentralDespacho = () => {
                                 >
                                     <div className="cd-card-header">
                                         <div className="cd-card-title">{item.cliente}</div>
-                                        <div className="cd-badge tipo-badge">{item.tipo}</div>
+                                        <div className={`cd-badge tipo-badge ${badgeClass}`}>{item.tipo}</div>
                                     </div>
                                     <div className="cd-card-body">
                                         <div className="cd-address">{item.endereco}</div>

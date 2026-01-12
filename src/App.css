@@ -393,7 +393,8 @@ body,
   display: flex !important;
   flex-direction: column !important;
   justify-content: center !important;
-  min-height: 110px !important; /* garante altura uniforme */
+  min-height: 110px !important;
+  /* garante altura uniforme */
   overflow: visible !important;
 }
 
@@ -407,7 +408,7 @@ body,
   width: 8px;
   border-radius: 6px;
   background: transparent;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.06) inset;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06) inset;
 }
 
 .summary-card h3 {
@@ -427,19 +428,38 @@ body,
 }
 
 /* Aplicar cor à barra lateral via pseudo-elemento */
-.summary-card.blue::before { background: #f1c40f !important; /* amarela / atenção */ }
-.summary-card.status::before { background: #2ecc71 !important; /* verde */ }
-.summary-card.indigo::before { background: #3b82f6 !important; /* azul - rota ativa */ }
+.summary-card.blue::before {
+  background: #f1c40f !important;
+  /* amarela / atenção */
+}
+
+.summary-card.status::before {
+  background: #2ecc71 !important;
+  /* verde */
+}
+
+.summary-card.indigo::before {
+  background: #3b82f6 !important;
+  /* azul - rota ativa */
+}
 
 /* Caso haja alguma borda antiga, escondemos para evitar duplicidade */
-.summary-card[style] { border-left-color: transparent !important; }
+.summary-card[style] {
+  border-left-color: transparent !important;
+}
 
 /* Garantir alinhamento/sem margens extras */
-.summary-grid > * { margin: 0 !important; }
+.summary-grid>* {
+  margin: 0 !important;
+}
 
 /* Pequeno ajuste responsivo */
 @media (max-width: 900px) {
-  .summary-grid { grid-template-columns: 1fr; gap: 12px; padding: 1rem; }
+  .summary-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 1rem;
+  }
 }
 
 
@@ -1199,7 +1219,24 @@ body .summary-card {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
+
+/* Badges por status */
+.badge-entrega { background-color: #3498db !important; color: #fff !important; }
+.badge-recolha { background-color: #e67e22 !important; color: #fff !important; }
+.badge-outros { background-color: #9b59b6 !important; color: #fff !important; }
+.badge-default { background-color: rgba(255,255,255,0.06) !important; color: #fff !important; }
+
+/* Padding e border-radius consistentes */
+.central-despacho-container .cd-badge, .central-despacho-container .cd-badge[class*="badge-"] {
+  padding: 6px 10px !important;
+  border-radius: 999px !important;
+  font-size: 12px !important;
+}
+
 
 .central-despacho-container .cd-card-body {
   margin-top: 8px;
@@ -1385,8 +1422,8 @@ body .summary-card {
   background: var(--card-dark) !important;
   border-radius: 12px !important;
   padding: 14px !important;
-  box-shadow: 0 12px 32px rgba(2,6,23,0.6) !important;
-  border: 1px solid rgba(255,255,255,0.03) !important;
+  box-shadow: 0 12px 32px rgba(2, 6, 23, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.03) !important;
   max-width: 980px !important;
   margin: 0 auto 24px auto !important;
 }
