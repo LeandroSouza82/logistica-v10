@@ -145,17 +145,17 @@ const NovaCarga = ({ setAbaAtiva }) => {
 
 
     return (
-        <div className="min-h-screen bg-[#0B1F3A] flex flex-col items-center justify-center p-8">
-            <div className="flex flex-col items-center w-full py-10">
+        <div className="flex flex-col items-center justify-center w-full min-h-screen bg-[#0B1F3A]">
+            <div className="w-full max-w-[600px]">
 
                 {/* Card do Formulário */}
-                <div className="w-full max-w-xl bg-[#081427] p-8 rounded-3xl border border-slate-800 shadow-2xl">
+                <div className="w-full bg-[#081427] p-8 rounded-2xl border border-slate-800 shadow-2xl">
                     <h2 className="text-2xl font-black text-slate-200 mb-6 text-center">Registrar Encomenda</h2>
 
                     <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); adicionarParada(); }}>
                         <div className="flex items-center gap-4">
                             <label className="label">Tipo:</label>
-                            <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} className="h-12 px-4 bg-slate-800 rounded-lg">
+                            <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} className="h-12 px-4 bg-slate-800 rounded-xl flex-1 text-white">
                                 <option>Entrega</option>
                                 <option>Recolha</option>
                                 <option>Outros</option>
@@ -165,49 +165,51 @@ const NovaCarga = ({ setAbaAtiva }) => {
                         <input
                             value={novoNome}
                             onChange={(e) => setNovoNome(e.target.value)}
-                            className="w-full h-12 px-4 bg-slate-800 rounded-lg"
+                            className="w-full h-12 px-4 bg-slate-800 rounded-xl text-white"
                             placeholder="Nome do Cliente"
                         />
 
                         <input
                             value={novoEndereco}
                             onChange={(e) => setNovoEndereco(e.target.value)}
-                            className="w-full h-12 px-4 bg-slate-800 rounded-lg"
+                            className="w-full h-12 px-4 bg-slate-800 rounded-xl text-white"
                             placeholder="Endereço de Entrega"
                         />
 
                         <input
                             value={novoObservacoes}
                             onChange={(e) => setNovoObservacoes(e.target.value)}
-                            className="w-full h-12 px-4 bg-slate-800 rounded-lg"
+                            className="w-full h-12 px-4 bg-slate-800 rounded-xl text-white"
                             placeholder="Observações..."
                         />
                     </form>
                 </div>
 
                 {/* --- BARRA DE BOTÕES (IGUAL À FOTO) --- */}
-                <div className="flex flex-row gap-4 w-full max-w-xl mt-6 px-2">
+                <div className="flex flex-row gap-4 w-full max-w-[600px] mt-6 px-2">
 
                     {/* Botão Azul Largo com Ícone */}
-                    <button 
-                      onClick={adicionarParada}
-                      className="flex-[2] h-14 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-lg flex items-center justify-center gap-2 uppercase transition-all active:scale-95"
+                    <button
+                        onClick={adicionarParada}
+                        className="flex-[2] h-14 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-lg flex items-center justify-center gap-2 uppercase transition-all active:scale-95"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                      </svg>
-                      {carregando ? 'ADICIONANDO...' : 'ADICIONAR À LISTA'}
+                        <span className="inline-flex items-center justify-center bg-white/10 p-2 rounded-md">
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v14M5 12h14" />
+                            </svg>
+                        </span>
+                        {carregando ? 'ADICIONANDO...' : 'ADICIONAR À LISTA'}
                     </button>
 
                     {/* Botão Cinza Estreito com Seta */}
-                    <button 
-                      onClick={() => setAbaAtiva && setAbaAtiva('central-despacho')}
-                      className="flex-1 h-14 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl border border-slate-500 flex items-center justify-center gap-2 uppercase text-[10px] md:text-xs transition-all"
+                    <button
+                        onClick={() => setAbaAtiva && setAbaAtiva('central-despacho')}
+                        className="flex-1 h-14 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl border border-slate-500 flex items-center justify-center gap-2 uppercase text-[10px] md:text-xs transition-all"
                     >
-                      IR AO DESPACHO 
-                      <span className="text-lg">→</span>
+                        IR AO DESPACHO
+                        <span className="text-lg">→</span>
                     </button>
-                    
+
                 </div>
 
                 {/* Lista de endereços abaixo (visível após adicionar) */}
