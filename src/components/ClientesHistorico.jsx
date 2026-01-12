@@ -55,13 +55,14 @@ const ClientesHistorico = ({ open, onClose, onSelect }) => {
                     <button className="close-btn" onClick={onClose} aria-label="Fechar">✕</button>
                 </div>
 
-                <div className="historico-search">
+                <div className="historico-search" style={{ width: '100%' }}>
                     <input
                         placeholder="Buscar cliente ou endereço..."
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        className="historico-search-input"
+                        className="historico-search-input form-input"
                         autoFocus
+                        aria-label="Buscar cliente ou endereço"
                     />
                 </div>
 
@@ -73,7 +74,7 @@ const ClientesHistorico = ({ open, onClose, onSelect }) => {
                     ) : (
                         filtered.map((it) => (
                             <button
-                                key={(it.cliente||'') + '|' + (it.endereco||'')}
+                                key={(it.cliente || '') + '|' + (it.endereco || '')}
                                 className="historico-item"
                                 onClick={() => handleSelect(it)}
                             >

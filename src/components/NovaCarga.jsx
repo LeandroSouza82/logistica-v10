@@ -79,6 +79,7 @@ const NovaCarga = ({ setAbaAtiva, prefill }) => {
                             onChange={(e) => setNovoNome(e.target.value)}
                             className="form-input"
                             placeholder="Nome do Cliente"
+                            aria-label="Nome do Cliente"
                         />
 
                         <input
@@ -86,6 +87,7 @@ const NovaCarga = ({ setAbaAtiva, prefill }) => {
                             onChange={(e) => setNovoEndereco(e.target.value)}
                             className="form-input"
                             placeholder="Endereço de Entrega"
+                            aria-label="Endereço de Entrega"
                         />
 
                         <textarea
