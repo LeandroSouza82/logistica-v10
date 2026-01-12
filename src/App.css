@@ -933,6 +933,11 @@ body .summary-card {
 .barra-acoes .bcp-center { flex: 1 1 auto !important; display:flex !important; justify-content:center !important; align-items:center !important; }
 .barra-acoes .bcp-right { flex: 0 0 250px !important; display:flex !important; justify-content:flex-end !important; align-items:center !important; height: auto !important; padding: 0 !important; margin: 0 !important; }
 
+/* Pequeno ajuste horizontal para o botão DISPARAR alinhar com os cards */
+.barra-acoes .bcp-right .cd-btn-disparar {
+  transform: translateX(6px) !important;
+}
+
 .barra-acoes .select-motorista-despacho { width: 250px !important; height: 48px !important; }
 .barra-acoes button { height: 48px !important; }
 
