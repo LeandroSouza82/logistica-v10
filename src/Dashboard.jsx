@@ -66,7 +66,6 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
             setMotoPosition({ lat, lng });
             const newMarker = { id: m.id, lat, lng, nome: m.nome };
             setActiveMarker(newMarker);
-            console.log('SET_ACTIVE_MARKER immediate', newMarker);
             try {
                 mapRef.current?.panTo({ lat, lng });
                 mapRef.current?.setZoom(15);
@@ -347,7 +346,6 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
         if (m && m.lat != null && m.lng != null && (Number(m.lat) !== activeMarker.lat || Number(m.lng) !== activeMarker.lng)) {
             const updated = { ...activeMarker, lat: Number(m.lat), lng: Number(m.lng) };
             setActiveMarker(updated);
-            console.log('UPDATED_ACTIVE_MARKER from motoristas', updated);
         }
     }, [motoristas]);
 
@@ -451,19 +449,18 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                         <div className="visao-geral-map-card">
                             <div className="visao-geral-map">
                                 <GoogleMap
-                                    key={selectedDriver?.id || 'mapa-vazio'}
+                                    key={selectedDriver?.id || 'mapa'}
                                     mapContainerStyle={{ width: '100%', height: '420px' }}
-                                    center={motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao)}
-                                    zoom={13}
+                                    center={selectedDriver && selectedDriver.lat != null && selectedDriver.lng != null ? { lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) } : (motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao))}
+                                    zoom={selectedDriver ? 15 : 13}
                                     onLoad={(mapInstance) => {
-                                        mapRef.current = mapInstance; if (selectedDriver && selectedDriver.lat && selectedDriver.lng) {
-                                            try { mapInstance.panTo({ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) }); } catch (e) { }
+                                        mapRef.current = mapInstance;
+                                        if (selectedDriver && selectedDriver.lat != null && selectedDriver.lng != null) {
+                                            try { mapInstance.panTo({ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) }); mapInstance.setZoom(15); } catch (e) { }
                                         }
                                     }}
                                     onUnmount={() => (mapRef.current = null)}
                                 >
-                                    {/* debug: exposes activeMarker state for e2e checks */}
-                                    <div id="active-marker-debug" style={{ display: 'none' }}>{activeMarker ? `${activeMarker.id}|${activeMarker.lat}|${activeMarker.lng}` : ''}</div>
                                     {motoristas.filter(m => m.lat != null && m.lng != null).map(m => {
                                         const online = !!m.isOnline;
                                         const iconColor = online ? '#10b981' : '#3b82f6';
