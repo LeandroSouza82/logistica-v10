@@ -467,6 +467,7 @@ body,
   background: var(--card-dark) !important;
   /* keep card dark for good contrast */
   min-height: 120px !important; /* aumentar altura para melhor leitura/click target */
+}
 
 .status-panel .rotas-list .rota-card.svc-outros {
   border-left-color: #9b59b6 !important;
