@@ -907,6 +907,31 @@ body .summary-card {
   padding-right: 16px !important;
 }
 
+/* Nova barra de ações em GRID (3 colunas) */
+.barra-acoes-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 20px !important;
+  align-items: center !important;
+  width: 100% !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 100 !important;
+  background: var(--bg-main) !important;
+  padding: 12px 8px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.02) !important;
+}
+
+.barra-acoes-grid .bcp-left { justify-self: start !important; }
+.barra-acoes-grid .bcp-center { justify-self: center !important; }
+.barra-acoes-grid .bcp-right { justify-self: end !important; }
+
+.barra-acoes-grid .select-motorista-despacho { width: 250px !important; height: 48px !important; }
+.barra-acoes-grid button { height: 48px !important; }
+
+/* garantir espaçamento inferior quando sticky for ativada (evita sobreposição) */
+.central-despacho-container { padding-top: 8px !important; }
+
 .barra-comando-unica>* {
   margin-top: 0 !important;
   margin-bottom: 0 !important;

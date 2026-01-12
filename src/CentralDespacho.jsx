@@ -168,8 +168,8 @@ const CentralDespacho = () => {
                     </div>
                 </div>
 
-                {/* BARRA DE AÇÕES PRINCIPAL: Seletor (esquerda) + Otimizar (centro) + Disparar (direita) */}
-                <div className="barra-comandos-principal">
+                {/* BARRA DE AÇÕES (GRID 3 COLUNAS): Seletor (esq) + Otimizar (centro) + Disparar (dir) */}
+                <div className="barra-acoes-grid" role="region" aria-label="Barra de ações">
                   <div className="bcp-left">
                     <select
                         className="select-motorista-despacho"
