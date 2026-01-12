@@ -155,7 +155,7 @@ const NovaCarga = ({ setAbaAtiva }) => {
                     <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); adicionarParada(); }}>
                         <div className="flex items-center gap-4">
                             <label className="label">Tipo:</label>
-                            <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} className="h-12 px-4 bg-slate-800 rounded-xl flex-1 text-white">
+                            <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} className="h-12 px-4 bg-[#1e293b] rounded-xl flex-1 text-white">
                                 <option>Entrega</option>
                                 <option>Recolha</option>
                                 <option>Outros</option>
@@ -165,35 +165,35 @@ const NovaCarga = ({ setAbaAtiva }) => {
                         <input
                             value={novoNome}
                             onChange={(e) => setNovoNome(e.target.value)}
-                            className="w-full h-12 px-4 bg-slate-800 rounded-xl text-white"
+                            className="w-full h-12 px-4 bg-[#1e293b] rounded-xl text-white placeholder:text-slate-400"
                             placeholder="Nome do Cliente"
                         />
 
                         <input
                             value={novoEndereco}
                             onChange={(e) => setNovoEndereco(e.target.value)}
-                            className="w-full h-12 px-4 bg-slate-800 rounded-xl text-white"
+                            className="w-full h-12 px-4 bg-[#1e293b] rounded-xl text-white placeholder:text-slate-400"
                             placeholder="Endereço de Entrega"
                         />
 
                         <input
                             value={novoObservacoes}
                             onChange={(e) => setNovoObservacoes(e.target.value)}
-                            className="w-full h-12 px-4 bg-slate-800 rounded-xl text-white"
+                            className="w-full h-12 px-4 bg-[#1e293b] rounded-xl text-white placeholder:text-slate-400"
                             placeholder="Observações..."
                         />
                     </form>
                 </div>
 
                 {/* --- BARRA DE BOTÕES (IGUAL À FOTO) --- */}
-                <div className="flex flex-row gap-4 w-full max-w-[600px] mt-6 px-2">
+                <div className="flex flex-row gap-4 w-full max-w-[600px] mt-6">
 
                     {/* Botão Azul Largo com Ícone */}
                     <button
                         onClick={adicionarParada}
-                        className="flex-[2] h-14 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-lg flex items-center justify-center gap-2 uppercase transition-all active:scale-95"
+                        className="flex-[2] h-14 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-lg flex items-center justify-center gap-3 uppercase transition-all active:scale-95"
                     >
-                        <span className="inline-flex items-center justify-center bg-white/10 p-2 rounded-md">
+                        <span className="inline-flex items-center justify-center bg-white/10 p-2 rounded-xl">
                             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v14M5 12h14" />
                             </svg>
