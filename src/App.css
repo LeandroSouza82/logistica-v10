@@ -2,8 +2,8 @@
 html,
 body,
 #root {
-  margin: 0;
-  padding: 0;
+  margin: 0 !important;
+  padding: 0 !important;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
@@ -278,6 +278,338 @@ body,
   background-color: #16a34a;
 }
 
+/* === NovaCarga: estilos específicos (como imagem 2) === */
+.form-panel {
+  background: linear-gradient(180deg, #081427 0%, #071427 100%);
+  box-shadow: 0 30px 80px rgba(2, 6, 23, 0.7);
+  border-radius: 18px;
+  max-width: 720px;
+  margin: 56px auto 24px auto;
+  padding: 36px 40px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.form-panel h2 {
+  color: #66b0ff;
+  /* azul do título */
+  font-size: 28px;
+  line-height: 1.1;
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+/* select em estilo claro como na imagem 2 */
+.form-panel select {
+  background-color: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  color: #071427;
+  padding: 8px 12px;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.12);
+}
+
+.input-light {
+  background-color: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  color: #061126;
+  font-size: 14px;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.18);
+  outline: none;
+  transition: box-shadow .12s, transform .06s;
+  margin-bottom: 12px;
+}
+
+.input-light::placeholder,
+.textarea-light::placeholder {
+  color: #94a3b8;
+}
+
+.input-light:focus,
+.textarea-light:focus,
+.form-panel select:focus {
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.12);
+  transform: translateY(-1px);
+}
+
+.textarea-light {
+  background-color: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  color: #061126;
+  font-size: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  min-height: 110px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.18);
+  outline: none;
+  margin-bottom: 12px;
+}
+
+.form-button {
+  display: block;
+  width: 100%;
+  height: 48px;
+  background: linear-gradient(180deg, #7fb6ff 0%, #60a5fa 100%);
+  color: #071427;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 12px 36px rgba(37, 99, 235, 0.18);
+  transition: background-color .12s, transform .06s;
+}
+
+.form-button:hover {
+  background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+  transform: translateY(-2px);
+}
+
+.form-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* === SUMMARY GRID (cards brancos com bordas coloridas) === */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  padding: 2rem;
+}
+
+.summary-card {
+  background: #ffffff;
+  /* Fundo branco conforme a foto */
+  padding: 1.5rem;
+  border-radius: 12px;
+  border-left-width: 8px;
+  border-left-style: solid;
+  border-left-color: transparent !important;
+  /* A bordinha colorida lateral */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.summary-card h3 {
+  color: #64748b;
+  /* Texto cinza pequeno */
+  font-size: 0.75rem;
+  margin: 0 0 8px 0;
+  text-transform: uppercase;
+}
+
+.summary-card p.value {
+  color: #0f172a;
+  /* Número em preto/azul escuro */
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+/* Cores das bordas laterais */
+.summary-card.status {
+  border-left-color: #14b8a6;
+}
+
+/* Verde Água */
+.summary-card.blue {
+  border-left-color: #10b981;
+}
+
+/* Azul */
+.summary-card.indigo {
+  border-left-color: #3b82f6 !important;
+}
+
+border-left-color: #3b82f6;
+}
+
+/* Azul */
+
+/* === Nova Carga: classes alternativas (de acordo com seu CSS) === */
+.nova-carga-container {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  /* Área rolável no centro (escrolar somente conteúdo do card) */
+  max-height: calc(100vh - 160px) !important;
+  /* ajustável conforme header */
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding-right: 12px !important;
+  /* espaço para a scrollbar */
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(99, 102, 241, 0.35) transparent !important;
+}
+
+/* Webkit scrollbar styling para visual consistente */
+.nova-carga-container::-webkit-scrollbar {
+  width: 10px;
+}
+
+.nova-carga-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nova-carga-container::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.28), rgba(99, 102, 241, 0.18));
+  border-radius: 10px;
+  border: 2px solid rgba(11, 17, 30, 0.0);
+}
+
+/* Garantir espaço interno para o conteúdo não colar na scrollbar */
+.nova-carga-container>* {
+  box-sizing: border-box;
+}
+
+.nova-carga-card {
+  background: var(--card-dark) !important;
+  width: 100% !important;
+  max-width: 600px !important;
+  margin: 0 auto !important;
+  /* centralizado */
+  padding: 40px !important;
+  border-radius: 20px !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+
+.nova-carga-card h2 {
+  color: var(--accent-blue, #66b0ff);
+  text-align: center;
+  font-weight: 800;
+  margin-bottom: 30px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+/* Forçar layout flex-column para o formulário de nova carga */
+.nova-carga-card form,
+.nova-carga-form {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  align-items: stretch !important;
+}
+
+/* Remover grid-column / grid-row de elementos que eventualmente vinham do layout anterior */
+.nome-cliente,
+.endereco,
+.observacoes,
+.form-actions,
+.action-row-bottom {
+  grid-column: unset !important;
+  grid-row: unset !important;
+}
+
+.form-input,
+.type-select {
+  width: 100%;
+  height: 55px;
+  background: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0 15px;
+  font-size: 1rem;
+  color: #333;
+  box-sizing: border-box;
+  margin-bottom: 14px;
+  /* espaçamento consistente entre campos */
+}
+
+/* Área de Observações (Textarea) */
+textarea.form-input {
+  height: 120px;
+  padding-top: 15px;
+  margin-bottom: 18px;
+  /* mais espaço antes do botão */
+  resize: vertical;
+}
+
+/* Botão Azul Sólido (full-width no card) */
+.nova-carga-card .btn-add-lista {
+  width: 100% !important;
+  max-width: none !important;
+  height: 55px !important;
+  background: var(--btn-light-blue) !important;
+  color: var(--card-white) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  display: block !important;
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.12) !important;
+  padding: 0 18px !important;
+  margin-top: 18px !important;
+}
+
+.nova-carga-card .btn-add-lista:hover {
+  filter: brightness(1.05) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Wrapper para alinhar botão à direita quando Tailwind não está disponível */
+.btn-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.btn-add-lista:hover {
+  filter: brightness(1.05);
+  transform: translateY(-2px);
+}
+
+/* botão secundário/arranjos anteriores (mantidos se usados em outros componentes) */
+.btn-group {
+  display: none;
+}
+
+.btn-primary-pill {
+  display: none;
+}
+
+.btn-secondary-pill {
+  display: none;
+}
+
+.btn-arrow-circle {
+  display: none;
+}
+
+/* === Forçar inputs do card Nova Carga a serem brancos === */
+.nova-carga-card .form-input,
+.nova-carga-card .type-select,
+.nova-carga-card textarea.form-input {
+  background: var(--card-white) !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.06) !important;
+  height: 50px !important;
+  min-height: 50px !important;
+  padding: 12px 14px !important;
+  border-radius: 8px !important;
+  outline: none !important;
+}
+
+.nova-carga-card textarea.form-input {
+  min-height: 120px !important;
+  height: auto !important;
+  padding-top: 12px !important;
+  resize: vertical !important;
+}
+
+.nova-carga-card .form-input::placeholder,
+.nova-carga-card textarea.form-input::placeholder {
+  color: #94a3b8 !important;
+}
+}
+
 /* Lista de Rascunho */
 .lista-rascunho {
   display: flex;
@@ -291,6 +623,438 @@ body,
   height: 100vh;
   background-color: #000c1d;
   color: white;
+}
+
+/* ==========================================================
+   Authoritative overrides (high specificity, !important)
+   Ensures the visual matches the Dashboard Logicontrol reference
+   ========================================================== */
+
+/* Force body background color */
+body {
+  background-color: #050a18 !important;
+}
+
+/* Summary cards: force white background and dark text */
+body .summary-card {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-left-width: 8px !important;
+  border-left-style: solid !important;
+  box-shadow: 0 6px 20px rgba(2, 6, 23, 0.12) !important;
+}
+
+body .summary-card h3 {
+  color: #64748b !important;
+}
+
+body .summary-card p.value {
+  color: #0f172a !important;
+}
+
+/* Form layout: force flex column and remove grid conflicts */
+body .nova-carga-form {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  align-items: stretch !important;
+}
+
+/* Inputs in the Nova Carga card: white background, dark text */
+body .nova-carga-card .form-input,
+body .nova-carga-card .type-select,
+body .nova-carga-card textarea.form-input {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  height: 50px !important;
+  min-height: 50px !important;
+  padding: 12px 14px !important;
+  border-radius: 8px !important;
+  outline: none !important;
+}
+
+body .nova-carga-card textarea.form-input {
+  min-height: 120px !important;
+  height: auto !important;
+  padding-top: 12px !important;
+  resize: vertical !important;
+}
+
+/* Button force */
+body .nova-carga-card .btn-add-lista {
+  background-color: #5fa5f9 !important;
+  width: 100% !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  border-radius: 8px !important;
+  height: 55px !important;
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.12) !important;
+}
+
+/* Remove any lingering grid layouts that could cause conflicts */
+body .nome-cliente,
+body .endereco,
+body .observacoes,
+body .form-actions,
+body .action-row-bottom {
+  grid-column: unset !important;
+}
+
+/* High-specificity placeholder color */
+body .nova-carga-card .form-input::placeholder,
+body .nova-carga-card textarea.form-input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* =========================
+   Compact mode for NovaCarga
+   Reduz tamanhos, paddings e gaps
+   ========================= */
+body .nova-carga-card {
+  padding: 16px !important;
+  /* reduce overall card padding */
+}
+
+body .nova-carga-card h2 {
+  font-size: 20px !important;
+  /* smaller title */
+  line-height: 1.1 !important;
+  margin-bottom: 10px !important;
+}
+
+body .nova-carga-card label,
+body .nova-carga-card .nova-carga-form .label {
+  font-size: 12px !important;
+  /* smaller labels */
+  line-height: 1 !important;
+}
+
+/* Compact inputs and selects */
+body .nova-carga-card .form-input,
+body .nova-carga-card .type-select {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 8px 10px !important;
+  font-size: 13px !important;
+  border-radius: 6px !important;
+}
+
+/* Compact textarea */
+body .nova-carga-card textarea.form-input {
+  min-height: 90px !important;
+  padding: 10px 12px !important;
+  font-size: 13px !important;
+}
+
+/* Smaller button */
+body .nova-carga-card .btn-add-lista {
+  height: 44px !important;
+  font-size: 14px !important;
+  padding: 0 12px !important;
+  border-radius: 6px !important;
+}
+
+/* Reduce vertical spacing */
+body .nova-carga-form {
+  gap: 8px !important;
+}
+
+body .nova-carga-card .form-group,
+body .nova-carga-card .form-input,
+body .nova-carga-card textarea.form-input {
+  margin-bottom: 6px !important;
+}
+
+/* Slightly tighter summary card spacing if needed */
+body .summary-card {
+  padding: 1rem !important;
+}
+
+/* ========================
+   Central de Despacho styles (cd- prefix)
+   ======================== */
+.cd-title {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+  font-size: 20px !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* Header de ações: Seletor (esq) + Botão (dir) */
+.central-despacho-container .cd-controls-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 15px !important;
+  width: 100% !important;
+  margin-bottom: 1rem !important;
+}
+
+.central-despacho-container .cd-controls-left {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.central-despacho-container .cd-controls-right {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.central-despacho-container .select-motorista-despacho {
+  background: #ffffff !important;
+  color: #0b1222 !important;
+  border-radius: 8px !important;
+  padding: 0 12px !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  width: 250px !important;
+  height: 40px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  font-weight: 600 !important;
+  margin-left: 20px !important;
+  background-image: linear-gradient(45deg, transparent 50%, #0b1222 50%), linear-gradient(135deg, #0b1222 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(1em + 2px), calc(100% - 13px) calc(1em + 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.central-despacho-container .select-motorista-despacho option {
+  color: #0b1222 !important;
+}
+
+.central-despacho-container .select-motorista-despacho option[disabled] {
+  color: #6b7280 !important;
+}
+
+.central-despacho-container .select-motorista-despacho::-ms-expand {
+  display: none !important;
+}
+
+/* Botão disparar posicionado à direita com margem */
+.central-despacho-container .cd-controls-right .cd-btn-disparar {
+  background-color: var(--btn-success, #2ecc71) !important;
+  color: #062018 !important;
+  font-weight: 800 !important;
+  height: 40px !important;
+  padding: 0 18px !important;
+  border-radius: 10px !important;
+  margin-right: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.central-despacho-container .cd-controls-center .cd-btn-otimizar {
+  background-color: var(--accent-purple, #a855f7) !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  height: 40px !important;
+  padding: 0 16px !important;
+  border-radius: 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.central-despacho-container .cd-controls-center {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Drag & Drop visuals */
+.cd-card {
+  transition: transform 150ms ease, box-shadow 200ms ease !important;
+  cursor: grab !important;
+}
+
+.cd-card:active {
+  cursor: grabbing !important;
+}
+
+.cd-card.dragging {
+  opacity: 0.6 !important;
+  transform: scale(0.995) !important;
+}
+
+.cd-card.moved {
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.12) !important;
+  border-left-color: var(--accent-purple) !important;
+}
+
+/* Margin-bottom entre toolbar e grade */
+.central-despacho-container .cd-controls-header {
+  margin-bottom: 30px !important;
+}
+
+
+.cd-btn-disparar {
+  background-color: #2ecc71 !important;
+  /* verde brilhante */
+  color: #062018 !important;
+  font-weight: 800 !important;
+  height: 40px !important;
+  padding: 0 16px !important;
+  border-radius: 10px !important;
+  border: none !important;
+  cursor: pointer !important;
+  box-shadow: 0 8px 24px rgba(46, 204, 113, 0.12) !important;
+  margin-bottom: 2rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.cd-grid {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 1.5rem !important;
+  /* 24px gap para espaçamento mais generoso */
+  align-items: flex-start !important;
+  align-content: flex-start !important;
+  /* garante que o conteúdo comece no topo */
+}
+
+.cd-card {
+  background: #0b1222 !important;
+  /* azul escuro */
+  border-radius: 12px !important;
+  padding: 12px !important;
+  min-width: 220px !important;
+  max-width: 320px !important;
+  flex: 1 1 260px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.03) !important;
+  position: relative !important;
+}
+
+.cd-card-entrega {
+  border-left: 6px solid #3b82f6 !important;
+}
+
+.cd-card-recolha {
+  border-left: 6px solid #f39c12 !important;
+}
+
+.cd-card.svc-outros {
+  border-left: 6px solid #a855f7 !important;
+}
+
+.cd-card.svc-outros .cd-badge {
+  background: #a855f7 !important;
+  color: #fff !important;
+}
+
+.cd-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.cd-card-title {
+  color: #fff !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+}
+
+.cd-badge {
+  background: #fff !important;
+  color: #0b1222 !important;
+  padding: 4px 8px !important;
+  border-radius: 999px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+.cd-card-body {
+  margin-top: 8px !important;
+  margin-bottom: 8px !important;
+}
+
+.cd-address {
+  color: #94a3b8 !important;
+  font-size: 13px !important;
+}
+
+.cd-obs {
+  color: #94a3b8 !important;
+  font-size: 12px !important;
+  margin-top: 6px !important;
+}
+
+.cd-card-footer {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.cd-remove {
+  color: #ff4d4f !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 6px 8px !important;
+  cursor: pointer !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+}
+
+@media (max-width: 900px) {
+  .cd-grid {
+    gap: 10px !important;
+  }
+
+  .cd-card {
+    min-width: 200px !important;
+    flex: 1 1 48% !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .cd-card {
+    flex: 1 1 100% !important;
+  }
+
+  .cd-btn-disparar {
+    width: auto !important;
+  }
+}
+
+/* Scroll area para Fila de Preparação */
+.cd-grid-container {
+  height: calc(100vh - 200px) !important;
+  /* área dinâmica conforme tamanho da tela */
+  max-height: 75vh !important;
+  overflow-y: auto !important;
+  padding-right: 10px !important;
+  padding-bottom: 5rem !important;
+  /* garante espaço no final para o último card aparecer inteiro */
+  display: block !important;
+  box-sizing: border-box !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #334155 transparent !important;
+  scroll-padding-bottom: 5rem !important;
+}
+
+.cd-grid-container .cd-grid {
+  align-content: flex-start !important;
+  row-gap: 1.5rem !important;
+}
+
+/* WebKit scrollbar */
+.cd-grid-container::-webkit-scrollbar {
+  width: 8px !important;
+}
+
+.cd-grid-container::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.cd-grid-container::-webkit-scrollbar-thumb {
+  background: #334155 !important;
+  border-radius: 999px !important;
 }
 
 .sidebar {

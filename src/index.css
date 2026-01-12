@@ -1,13 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* Variáveis centralizadas */
+  --bg-main: #050a18;
+  --card-dark: #0b1222;
+  --card-white: #ffffff;
+  --accent-blue: #3b82f6;
+  --btn-light-blue: #5fa5f9;
+  --accent-purple: #a855f7;
+  --btn-success: #2ecc71;
+
+  /* Tipografia global */
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #0b0e14;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -32,8 +41,9 @@ body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background-color: var(--bg-main);
+  background-color: var(--bg-main) !important;
   color: rgba(255, 255, 255, 0.92);
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
 }
 
 h1 {
@@ -75,7 +85,9 @@ button:focus-visible {
 }
 
 @media (prefers-color-scheme: light) {
-  :root {
+
+  /* Light mode adjustments: do not redefine :root; set body colors to avoid duplicate :root blocks */
+  body {
     color: #213547;
     background-color: #ffffff;
   }
@@ -89,24 +101,9 @@ button:focus-visible {
   }
 }
 
-/* Paleta adicionada conforme solicitação (Dark theme values) */
-:root {
-  --bg-main: #0f172a;
-  /* fundo azul-grafite profundo */
-  --card: #1e293b;
-  /* cards / inputs (slate-800) */
-  --muted: #94a3b8;
-  /* texto secundário */
-  --status-online: #10b981;
-  /* emerald */
-  --btn-primary: #3b82f6;
-  --glass-border: rgba(51, 65, 85, 0.5);
-}
+/* Paleta antiga removida (consolidada no topo) */
 
-/* Tipografia: Inter */
-:root {
-  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-}
+/* Tipografia antiga removida (consolidada no topo) */
 
 
 /* Navegação superior (estilo inspirado em Tailwind util classes) */
@@ -258,38 +255,15 @@ button:focus-visible {
   width: 100% !important;
 }
 
-.form-input {
-  background: var(--card);
-  /* slate-800 */
-  border: 1px solid var(--glass-border);
-  color: #ffffff;
-  height: 48px;
-  /* consistent height */
-  padding: 0 16px;
-  /* px-4 */
-  border-radius: 8px;
-  /* rounded-lg */
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  transition: box-shadow 200ms ease, border-color 160ms ease;
-}
-
-.form-input:focus {
-  outline: none;
-  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.9);
-}
+/* Removed duplicate .form-input rules here to avoid conflicts. The authoritative rules live in src/App.css (body .nova-carga-card .form-input). */
 
 /* Regras de posicionamento: */
 .nome-cliente {
-  grid-column: 1 / 2;
+  /* grid-column removed to avoid layout conflicts */
 }
 
 .endereco {
-  grid-column: 1 / 2;
+  /* grid-column removed to avoid layout conflicts */
   /* agora alinhado com Nome do Cliente */
 }
 
@@ -306,7 +280,7 @@ button:focus-visible {
 }
 
 .observacoes {
-  grid-column: 1 / 2;
+  /* grid-column removed to avoid layout conflicts */
   /* mesmo comprimento do endereço */
   height: 48px;
   padding: 12px;
@@ -475,7 +449,7 @@ button:focus-visible {
 }
 
 .svc-outros {
-  border-left: 4px solid #6366f1 !important;
+  border-left: 4px solid #a855f7 !important;
 }
 
 .svc-default {
@@ -494,8 +468,8 @@ button:focus-visible {
 }
 
 .entrega-card.svc-outros .entrega-accent {
-  background: #6366f1;
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.12);
+  background: #a855f7 !important;
+  box-shadow: 0 6px 18px rgba(168, 85, 247, 0.12) !important;
 }
 
 /* rotas status dot variants */
@@ -510,8 +484,8 @@ button:focus-visible {
 }
 
 .status-dot.outros {
-  background: #6366f1;
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.12);
+  background: #a855f7 !important;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.12) !important;
 }
 
 .rota-cliente {
@@ -581,57 +555,7 @@ button:focus-visible {
 }
 
 
-/* Summary cards (top) */
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.5rem;
-  padding: 1.5rem;
-}
-
-.summary-card {
-  background: #ffffff;
-  padding: 1.25rem;
-  border-radius: 1.25rem;
-  border-left-width: 8px;
-  border-left-style: solid;
-  /* sombra mais suave para efeito de elevação */
-  box-shadow: 0 6px 20px rgba(2, 6, 23, 0.12);
-}
-
-/* Utilitário de sombra mais pronunciada porém suave — usado por formulários/cards brancos maiores */
-.shadow-2xl {
-  box-shadow: 0 10px 40px rgba(2, 6, 23, 0.12) !important;
-}
-
-.summary-card h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 0.75rem;
-  color: #94a3b8;
-  /* slate-400 */
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.summary-card p.value {
-  margin: 0;
-  font-size: 2.25rem;
-  font-weight: 900;
-  color: #0f172a;
-  /* slate-900 */
-}
-
-.summary-card.status {
-  border-left-color: var(--status-online);
-}
-
-.summary-card.blue {
-  border-left-color: #3b82f6;
-}
-
-.summary-card.indigo {
-  border-left-color: #6366f1;
-}
+/* Summary cards (top) - moved to src/App.css authoritative styles. Removed duplicate rules here to avoid conflicts. */
 
 @media (max-width: 900px) {
   .summary-grid {
@@ -758,6 +682,11 @@ button:focus-visible {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.03);
   color: var(--muted);
+}
+
+.entrega-card-mini.svc-outros .tipo-badge {
+  background-color: #a855f7 !important;
+  color: white !important;
 }
 
 /* botões remover por tipo */
@@ -1066,19 +995,48 @@ button:focus-visible {
   box-shadow: 0 10px 30px rgba(37, 99, 235, 0.18);
   transition: transform 120ms ease, filter 120ms ease, background 120ms ease;
 }
+
 .nova-btn-primary:hover {
   background: linear-gradient(180deg, #2563eb 0%, #1e40af 100%);
 }
-.nova-btn-primary:active { transform: scale(0.98); }
-.nova-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.nova-btn-secondary { background: #0f172a; color: #fff; border: 1px solid rgba(255,255,255,0.04); }
-.nova-btn-secondary:hover { background: #0b1524; }
+.nova-btn-primary:active {
+  transform: scale(0.98);
+}
 
-.input-bg { background: #1e293b; border: 1px solid rgba(255,255,255,0.03); color: #fff; }
-.input-bg::placeholder { color: #94a3b8; }
+.nova-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
-.icon-wrapper { display:inline-flex; align-items:center; justify-content:center; padding:8px; border-radius:12px; background:rgba(255,255,255,0.08); }
+.nova-btn-secondary {
+  background: #0f172a;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.nova-btn-secondary:hover {
+  background: #0b1524;
+}
+
+.input-bg {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  color: #fff;
+}
+
+.input-bg::placeholder {
+  color: #94a3b8;
+}
+
+.icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+}
 
 
 .entrega-card {

@@ -132,8 +132,15 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
     useEffect(() => {
         const buscarDados = async () => {
+            // Buscar motoristas e entregas
             const { data: mData } = await supabase.from('motoristas').select('*');
-            if (mData) setMotoristas(mData.map(normalizeMotorista));
+            if (mData) {
+                // Define isOnline com base em ultimo_sinal (nos últimos 5 minutos)
+                const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+                const enriched = mData.map(m => ({ ...normalizeMotorista(m), isOnline: m.ultimo_sinal ? (new Date(m.ultimo_sinal) > fiveMinAgo) : false }));
+                console.log('Motoristas iniciais:', enriched);
+                setMotoristas(enriched);
+            }
 
             const { data: eData } = await supabase.from('entregas').select('*').order('id', { ascending: false }).limit(20);
             if (eData) setEntregas(eData);
@@ -142,39 +149,40 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
         const canal = supabase
             .channel('schema-db-changes')
-            .on('postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'motoristas' },
-                (payload) => {
-                    try {
-                        const updated = normalizeMotorista(payload.new);
-                        console.log('Mudança recebida!', payload.new, '=> normalizado =>', updated);
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'motoristas' }, (payload) => {
+                try {
+                    const updated = normalizeMotorista(payload.new);
+                    console.log('Mudança em motoristas recebida!', payload.new, '=> normalizado =>', updated);
 
-                        // Ignora coordenadas 0,0 (frequentemente indicam erro GPS) para evitar centrar mapa no mar
-                        if (updated && typeof updated.lat === 'number' && typeof updated.lng === 'number') {
-                            if (updated.lat === 0 && updated.lng === 0) {
-                                console.warn('Coordenadas inválidas (0,0) recebidas — ignorando update:', payload.new);
-                                return;
-                            }
-                        } else {
-                            console.warn('Motorista sem coordenadas numéricas — ignorando update:', payload.new);
-                            return;
-                        }
+                    // atualizar especificamente o motorista
+                    setMotoristas(prev => {
+                        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+                        const updatedWithOnline = { ...updated, isOnline: updated.ultimo_sinal ? (new Date(updated.ultimo_sinal) > fiveMinAgo) : false };
+                        return prev.map(m => m.id === updatedWithOnline.id ? { ...m, ...updatedWithOnline } : m);
+                    });
 
-                        // Atualiza lista local de motoristas
-                        setMotoristas(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m));
-
-                        // Atualiza estado de posição da moto para que o mapa possa centralizar
+                    // se tem coords válidas atualiza o foco do mapa
+                    if (updated && typeof updated.lat === 'number' && typeof updated.lng === 'number' && !(updated.lat === 0 && updated.lng === 0)) {
                         setMotoPosition({ lat: updated.lat, lng: updated.lng });
-
-                        // Faz o mapa "perseguir" a motinha (se o mapRef estiver pronto)
-                        try {
-                            mapRef.current?.panTo({ lat: updated.lat, lng: updated.lng });
-                        } catch (e) { /* ignore */ }
-                    } catch (e) {
-                        console.warn('Erro ao normalizar motorista recebido:', e?.message || e);
+                        try { mapRef.current?.panTo({ lat: updated.lat, lng: updated.lng }); } catch (e) { /* ignore */ }
                     }
+                } catch (e) {
+                    console.warn('Erro ao normalizar motorista recebido:', e?.message || e);
                 }
-            )
+            })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'localizacoes' }, (payload) => {
+                // quando nova localizacao chega, força refresh dos motoristas para recalcular online window
+                console.log('Nova localizacao recebida:', payload.new);
+                (async () => {
+                    const { data } = await supabase.from('motoristas').select('*');
+                    if (data) {
+                        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+                        const enriched = data.map(m => ({ ...normalizeMotorista(m), isOnline: m.ultimo_sinal ? (new Date(m.ultimo_sinal) > fiveMinAgo) : false }));
+                        console.log('Refresh de motoristas após localizacao:', enriched);
+                        setMotoristas(enriched);
+                    }
+                })();
+            })
             .subscribe();
 
         return () => supabase.removeChannel(canal);
@@ -251,7 +259,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
                     <div className="summary-card status">
                         <h3>Motoristas Online</h3>
-                        <p className="value">1</p>
+                        <p className="value">{motoristas.filter(m => m.isOnline).length}</p>
                     </div>
 
                     <div className="summary-card indigo">
@@ -275,7 +283,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                             onUnmount={() => (mapRef.current = null)}
                         >
                             {motoristas.map(m => {
-                                const online = true; // Força a moto a aparecer sempre para teste
+                                const online = !!m.isOnline;
                                 if (!m.lat) return null;
 
                                 const advancedAvailable = (typeof window !== 'undefined' && window.google && window.google.maps && window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement);
