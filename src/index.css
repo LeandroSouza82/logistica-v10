@@ -709,13 +709,13 @@ button:focus-visible {
 
 /* contador do item */
 .destino-index {
-  background: rgba(255,255,255,0.04);
+  background: rgba(255, 255, 255, 0.04);
   color: #fff;
   width: 32px;
   height: 32px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
   font-weight: 700;
 }
@@ -725,18 +725,45 @@ button:focus-visible {
   font-size: 12px;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--muted);
 }
 
 /* botões remover por tipo */
-.btn-remove { padding: 6px 10px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; }
-.remove-entrega { background: #2563eb; color: #fff; }
-.remove-entrega:hover { background: #1e40af; }
-.remove-recolha { background: #f97316; color: #fff; }
-.remove-recolha:hover { background: #c2410c; }
-.remove-outros { background: #6366f1; color: #fff; }
-.remove-outros:hover { background: #4f46e5; }
+.btn-remove {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.remove-entrega {
+  background: #2563eb;
+  color: #fff;
+}
+
+.remove-entrega:hover {
+  background: #1e40af;
+}
+
+.remove-recolha {
+  background: #f97316;
+  color: #fff;
+}
+
+.remove-recolha:hover {
+  background: #c2410c;
+}
+
+.remove-outros {
+  background: #6366f1;
+  color: #fff;
+}
+
+.remove-outros:hover {
+  background: #4f46e5;
+}
 
 
 /* scrollbar style (discreet) */
@@ -835,8 +862,26 @@ button:focus-visible {
 .entregas-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1.5rem;
+  gap: 1rem;
+  /* gap-4 conforme solicitado */
 }
+
+.preparacao-list {
+  max-height: 56vh;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Central action bar below the form */
+.central-action-bar { display:flex; gap:1rem; justify-content:center; align-items:center; width:100%; }
+
+.btn-primary { background: #2563eb; color: #fff; font-weight: 800; padding: 12px 18px; border-radius: 12px; border: none; height: 48px; transition: transform 120ms ease, filter 120ms ease; }
+.btn-primary:hover { transform: translateY(-2px); filter: brightness(1.03); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-nav { background: #0f172a; color: #fff; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.04); height: 48px; }
+.btn-nav:hover { transform: translateY(-2px); filter: brightness(1.06); }
+
 
 .entrega-card {
   background: var(--card);

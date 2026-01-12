@@ -70,7 +70,7 @@ function solveTspNearestNeighbor(distMatrix, startIndex = 0) {
     return order;
 }
 
-const NovaCarga = () => {
+const NovaCarga = ({ setAbaAtiva }) => {
     const [destinos, setDestinos] = useState([]);
     const [novoNome, setNovoNome] = useState('');
     const [novoEndereco, setNovoEndereco] = useState('');
@@ -89,7 +89,7 @@ const NovaCarga = () => {
 
 
 
-// Classes para o botão Remover conforme o tipo (retorna classe CSS) 
+    // Classes para o botão Remover conforme o tipo (retorna classe CSS) 
     const getRemoveButtonClass = (type) => {
         const t = String(type || 'Entrega').toLowerCase();
         if (t.includes('recol')) return 'remove-recolha';
@@ -97,116 +97,56 @@ const NovaCarga = () => {
         return 'remove-entrega';
     };
 
-    // 1. Adicionar endereço à lista temporária
-    const adicionarParada = () => {
+    // 1. Adicionar endereço: salva no Supabase com status 'em_preparacao' e limpa o formulário
+    const adicionarParada = async () => {
         if (!novoEndereco) {
             alert('Preencha o endereço antes de adicionar.');
             return;
         }
+        setCarregando(true);
         const clienteValor = (novoNome && String(novoNome).trim()) || 'Cliente a definir';
-        setDestinos([...destinos, {
-            id: Date.now(),
+        const payload = {
             cliente: clienteValor,
             endereco: novoEndereco,
             tipo: novoTipo,
-            observacoes: novoObservacoes
-        }]);
-        // reset campos
-        setNovoNome('');
-        setNovoEndereco('');
-        setNovoTipo('Entrega');
-        setNovoObservacoes('');
-    };
-
-    // 2. FUNÇÃO CAIXEIRO VIAJANTE (Otimização usando OSRM reais)
-    const otimizarRota = async () => {
-        if (destinos.length < 2) return;
-        setCarregando(true);
-
-        // 1) Geocode todos os endereços (inclui cache)
-        const coordsList = [];
-        for (const d of destinos) {
-            const c = await geocodeAddress(d.endereco);
-            if (!c) {
-                alert(`Não foi possível geocodificar: ${d.endereco}`);
-                setCarregando(false);
-                return;
-            }
-            coordsList.push(c);
-        }
-
-        // 2) Chamar OSRM Table para obter matriz de distâncias
-        const table = await getOsrmTable(coordsList);
-        if (!table || !table.distances) {
-            alert('Erro ao calcular matriz de distâncias (OSRM). Tente novamente mais tarde.');
-            setCarregando(false);
-            return;
-        }
-
-        const distMatrix = table.distances; // metros
-
-        // 3) Resolver o TSP (heurística nearest-neighbor)
-        const orderIdx = solveTspNearestNeighbor(distMatrix, 0);
-
-        // 4) Reordena destinos de acordo com a ordem retornada
-        const novos = orderIdx.map((idx, pos) => ({
-            ...destinos[idx],
-            ordem: pos + 1,
-            lat: coordsList[idx].lat,
-            lng: coordsList[idx].lng,
-            distanciaParaAnterior: pos === 0 ? 0 : distMatrix[orderIdx[pos - 1]][idx]
-        }));
-
-        setDestinos(novos);
-        setCarregando(false);
-        alert('Rota otimizada (usando distâncias reais por rua)');
-    };
-
-    // 3. Enviar para o Motorista no Supabase
-    const despacharCarga = async () => {
-        if (destinos.length === 0) return;
-
-
-
-        setCarregando(true);
-
-        // Estrutura do objeto de envio: garante campo cliente (com fallback 'Cliente a definir'), endereco, status e tipo
-        const rows = destinos.map(d => ({
-            cliente: (d.cliente && String(d.cliente).trim()) || 'Cliente a definir',
-            endereco: d.endereco,
-            status: 'pendente',
-            tipo: d.tipo || 'Entrega',
-            ordem: d.ordem || 999,
-            motorista_id: 1,
-            lat: d.lat || null,
-            lng: d.lng || null
-        }));
+            observacoes: novoObservacoes,
+            status: 'em_preparacao'
+        };
 
         try {
-            const { data, error } = await supabase
-                .from('entregas')
-                .insert(rows);
+            const { data, error } = await supabase.from('entregas').insert([payload]).select().single();
+            if (error) throw error;
+            // Adiciona ao preview local (opcional) usando id retornado
+            setDestinos(prev => [...prev, {
+                id: data.id,
+                cliente: data.cliente,
+                endereco: data.endereco,
+                tipo: data.tipo,
+                observacoes: data.observacoes || ''
+            }]);
 
-            if (error) {
-                // Tratamento de erro: notifica o gestor
-                alert('Erro ao enviar cargas: ' + (error.message || JSON.stringify(error)));
-                setCarregando(false);
-                return;
-            }
+            // limpar formulário
+            setNovoNome('');
+            setNovoEndereco('');
+            setNovoTipo('Entrega');
+            setNovoObservacoes('');
 
-            alert('Cargas enviadas ao celular do motorista!');
-            // Opcional: limpar lista após envio bem-sucedido
-            setDestinos([]);
+            alert('Parada adicionada e salva em preparação!');
         } catch (e) {
-            alert('Erro inesperado ao enviar cargas: ' + (e.message || e));
+            console.warn(e);
+            alert('Erro ao salvar parada: ' + (e.message || JSON.stringify(e)));
         } finally {
             setCarregando(false);
         }
     };
 
+
+
+
+
     return (
         <div className="min-h-screen bg-[#0B1F3A] flex items-start justify-center p-8">
-            <div className="w-full max-w-2xl">
+            <div className="w-full max-w-2xl mx-auto">
                 {/* Formulário central estilo screenshot */}
                 <div className="bg-[#081427] rounded-3xl p-8 shadow-2xl border border-slate-800 mb-6">
                     <h2 className="text-2xl font-black text-slate-200 mb-6">Registrar Encomenda</h2>
@@ -242,24 +182,19 @@ const NovaCarga = () => {
                             placeholder="Observações..."
                         />
 
-                        {/* Linha de ação final: Otimizar | ADICIONAR | Enviar */}
-                        <div className="action-row-bottom mt-6">
-                            <button type="button" onClick={otimizarRota} disabled={destinos.length < 2 || carregando} className="btn-opt">
-                                <span aria-hidden="true">⚡</span>
-                                <span>Otimizar</span>
-                            </button>
-
-                            <button type="submit" className="btn-add-center">
-                                ADICIONAR À LISTA
-                            </button>
-
-                            <button type="button" onClick={despacharCarga} disabled={destinos.length === 0} className="btn-send">
-                                <span aria-hidden="true">🚀</span>
-                                <span>Enviar</span>
-                            </button>
-                        </div>
+                        {/* Botões removidos do card; agora posicionados abaixo do card conforme layout */}
 
                     </form>
+                </div>
+
+                {/* Barra de ações centralizada (fora do card) */}
+                <div className="central-action-bar w-full max-w-2xl mx-auto flex gap-4 mt-6">
+                    <button type="button" onClick={adicionarParada} disabled={carregando} className="btn-primary flex-1">
+                        {carregando ? 'Adicionando...' : 'ADICIONAR À LISTA'}
+                    </button>
+                    <button type="button" onClick={() => setAbaAtiva && setAbaAtiva('central-despacho')} className="btn-nav">
+                        ➡️ IR AO DESPACHO
+                    </button>
                 </div>
 
                 {/* Lista de endereços abaixo (visível após adicionar) */}
