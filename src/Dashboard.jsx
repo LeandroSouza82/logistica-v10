@@ -4,6 +4,7 @@ import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import CentralDespacho from './CentralDespacho';
 import { supabase } from './supabase';
 import NovaCarga from './components/NovaCarga';
+import ClientesHistorico from './components/ClientesHistorico';
 
 // Mantém o array de libraries estático para evitar re-criações (evita warning de performance)
 const GOOGLE_MAP_LIBRARIES = ['places', 'geometry'];
@@ -44,6 +45,10 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
     const [motoristas, setMotoristas] = useState([]);
     const [entregas, setEntregas] = useState([]);
+    // Histórico de clientes modal + prefill
+    const [historicoOpen, setHistoricoOpen] = useState(false);
+    const [prefill, setPrefill] = useState(null);
+
     // Estado para modal de mapa ao clicar em motorista
     const [selectedDriver, setSelectedDriver] = useState(null);
     const openDriverOnMap = (m) => {
@@ -130,6 +135,15 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
             // Reload para limpar o estado local; quando tivermos fluxo de login, redirecionaremos corretamente
             try { window.location.reload(); } catch (e) { /* ignore */ }
         }
+    };
+
+    // Seleção do cliente a partir do histórico -> preenche o formulário e abre Nova Carga
+    const handleSelectCliente = (it) => {
+        if (!it) return;
+        setPrefill({ cliente: it.cliente, endereco: it.endereco });
+        setHistoricoOpen(false);
+        // garante que a aba será alterada (Nova Carga) e que o componente receba o prefill
+        setTimeout(() => setAbaAtiva('nova-carga'), 80);
     };
     // Normalizador: converte latitude/longitude ou lat/lng para lat/lng numéricos
     const normalizeMotorista = (m) => {
@@ -352,38 +366,38 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 </div>
 
                 {abaAtiva === 'nova-carga' ? (
-                    <NovaCarga setAbaAtiva={setAbaAtiva} />
+                    <NovaCarga setAbaAtiva={setAbaAtiva} prefill={prefill} />
                 ) : abaAtiva === 'central-despacho' ? (
                     <CentralDespacho />
                 ) : abaAtiva === 'visao-geral' ? (
                     isLoaded ? (
                         <div className="visao-geral-map-card">
-                          <div className="visao-geral-map">
-                            <GoogleMap
-                                mapContainerStyle={{ width: '100%', height: '420px' }}
-                                center={motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao)}
-                                zoom={13}
-                                onLoad={(mapInstance) => {
-                                    mapRef.current = mapInstance; if (selectedDriver && selectedDriver.lat && selectedDriver.lng) {
-                                        try { mapInstance.panTo({ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) }); } catch (e) { }
-                                    }
-                                }}
-                                onUnmount={() => (mapRef.current = null)}
-                            >
-                                {motoristas.filter(m => m.lat != null && m.lng != null).map(m => {
-                                    const online = !!m.isOnline;
-                                    const iconColor = online ? '#10b981' : '#3b82f6';
-                                    return (
-                                        <Marker
-                                            key={m.id}
-                                            position={{ lat: Number(m.lat), lng: Number(m.lng) }}
-                                            icon={{ url: pulsingMotoSvg(iconColor), scaledSize: new window.google.maps.Size(80, 80), anchor: new window.google.maps.Point(40, 40) }}
-                                            label={{ text: m.nome || `MOTO ${m.id}`, color: 'white', fontWeight: 'bold', fontSize: '14px' }}
-                                        />
-                                    );
-                                })}
-                            </GoogleMap>
-                          </div>
+                            <div className="visao-geral-map">
+                                <GoogleMap
+                                    mapContainerStyle={{ width: '100%', height: '420px' }}
+                                    center={motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao)}
+                                    zoom={13}
+                                    onLoad={(mapInstance) => {
+                                        mapRef.current = mapInstance; if (selectedDriver && selectedDriver.lat && selectedDriver.lng) {
+                                            try { mapInstance.panTo({ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) }); } catch (e) { }
+                                        }
+                                    }}
+                                    onUnmount={() => (mapRef.current = null)}
+                                >
+                                    {motoristas.filter(m => m.lat != null && m.lng != null).map(m => {
+                                        const online = !!m.isOnline;
+                                        const iconColor = online ? '#10b981' : '#3b82f6';
+                                        return (
+                                            <Marker
+                                                key={m.id}
+                                                position={{ lat: Number(m.lat), lng: Number(m.lng) }}
+                                                icon={{ url: pulsingMotoSvg(iconColor), scaledSize: new window.google.maps.Size(80, 80), anchor: new window.google.maps.Point(40, 40) }}
+                                                label={{ text: m.nome || `MOTO ${m.id}`, color: 'white', fontWeight: 'bold', fontSize: '14px' }}
+                                            />
+                                        );
+                                    })}
+                                </GoogleMap>
+                            </div>
                         </div>
                     ) : (
                         <div style={{ color: '#ccc', padding: 20 }}>Iniciando Radar...</div>
@@ -449,8 +463,24 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 ) : (
                     <>
                         <div className="status-header">
-                            <h2 className="text-slate-200" style={{ marginTop: 0 }}>Status da Operação</h2>
-                            <p className="text-slate-400 text-sm mb-2">Rotas recentes</p>
+                            <div className="status-header-left">
+                                <h2 className="text-slate-200" style={{ marginTop: 0 }}>Status da Operação</h2>
+                                <p className="text-slate-400 text-sm mb-2">Rotas recentes</p>
+                            </div>
+
+                            <div className="status-header-actions">
+                                <button className="btn-secondary" onClick={() => {
+                                    // foco rápido no painel (se estiver visível)
+                                    const node = document.querySelector('.status-panel');
+                                    if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                }}>
+                                    Status de Operação
+                                </button>
+
+                                <button className="btn-primary" onClick={() => setHistoricoOpen(true)}>
+                                    Histórico de Clientes/Entregas
+                                </button>
+                            </div>
                         </div>
 
                         {entregas.length === 0 ? (
@@ -476,6 +506,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     </>
                 )}
             </aside>
+
+            <ClientesHistorico open={historicoOpen} onClose={() => setHistoricoOpen(false)} onSelect={(it) => handleSelectCliente(it)} />
         </main>
     );
 }

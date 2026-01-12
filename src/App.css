@@ -1461,6 +1461,45 @@ body .summary-card {
   margin: 0 auto 24px auto !important;
 }
 
+/* Status header actions (botões) */
+.status-header { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 12px !important; }
+.status-header-left { display:block; }
+.status-header-actions { display:flex; gap:10px; align-items:center; }
+
+.btn-primary { background: linear-gradient(180deg,#0ea5e9,#0369a1); color: #fff; padding: 8px 12px; border-radius: 10px; border: none; font-weight:700; cursor:pointer; box-shadow: 0 6px 18px rgba(3,105,161,0.12); }
+.btn-primary:hover { filter:brightness(1.04); }
+.btn-secondary { background: transparent; border: 1px solid rgba(255,255,255,0.06); color: #cbd5e1; padding: 8px 12px; border-radius: 10px; cursor:pointer; }
+.btn-secondary:hover { background: rgba(255,255,255,0.02); }
+
+/* Clientes Histórico modal (lateral, dark) */
+.clientes-historico-modal {
+  position: fixed; inset: 0; z-index: 9998; display:flex; align-items:stretch; justify-content:flex-end; background: rgba(2,6,23,0.48);
+}
+
+.historico-panel {
+  width: 420px; max-width: calc(100% - 40px); background: var(--card-dark); border-left: 1px solid rgba(255,255,255,0.03); padding: 12px; display:flex; flex-direction:column;
+}
+.historico-header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:8px; }
+.historico-header h3 { margin:0; color:#e6eef8; }
+.close-btn { background:transparent; border: none; color:#94a3b8; font-size:18px; cursor:pointer; }
+
+.historico-search { padding:8px 0 6px 0; }
+.historico-search-input { width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.02); color:#e6eef8; }
+
+.historico-list { margin-top:8px; overflow:auto; padding-bottom:12px; }
+.historico-item { width:100%; text-align:left; display:flex; justify-content:space-between; align-items:center; gap:8px; border-radius:8px; padding:10px; background:transparent; border:none; color:#e6eef8; cursor:pointer; }
+.historico-item:hover { background: rgba(255,255,255,0.02); }
+.historico-item-title { font-size:15px; }
+.historico-item-sub { font-size:13px; color:#9aa4b2; }
+.historico-item-actions { min-width:28px; display:flex; align-items:center; justify-content:center; }
+.historico-item .check { color:#4ade80; font-weight:700; }
+.historico-item .chevron { color:#94a3b8; font-size:20px; }
+
+/* Copied feedback in NovaCarga */
+.copied-feedback { display:flex; align-items:center; gap:8px; background: rgba(16,185,129,0.08); padding:8px 12px; border-radius:10px; color:#bbf7d0; margin-bottom:12px; }
+.copied-feedback .check { color:#10b981; font-weight:700; }
+.copied-text { color:#e6f6ea; font-size:13px; }
+
 .visao-geral-map {
   width: 100% !important;
   border-radius: 8px !important;
