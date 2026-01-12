@@ -440,9 +440,27 @@ button:focus-visible {
   box-shadow: 0 6px 18px rgba(2, 6, 23, 0.3);
   position: relative;
   /* para posicionar badges no canto */
-  overflow: hidden !important; /* para recortar a borda e criar o efeito arredondado */
-  border-left: 10px solid transparent !important; /* base para a cor */
+  overflow: hidden !important; /* para recortar o pseudo-elemento e criar o efeito arredondado */
 }
+
+/* pseudo-elemento para 'voltinha' nos cards da lista */
+.rota-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+  background: transparent;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06) inset;
+}
+
+.rota-card.svc-entrega::before { background: #3498db !important; }
+.rota-card.svc-recolha::before { background: #e67e22 !important; }
+.rota-card.svc-outros::before { background: #9b59b6 !important; }
+.rota-card.svc-default::before { background: rgba(255,255,255,0.04) !important; }
 
 .rota-info {
   display: flex;

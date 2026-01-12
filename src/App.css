@@ -387,7 +387,7 @@ body,
   background: #ffffff;
   /* Fundo branco conforme a foto */
   padding: 1.5rem 1.5rem 1.5rem 1.5rem !important;
-  border-radius: 12px;
+  border-radius: 12px !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   margin: 0 !important;
   display: flex !important;
@@ -395,19 +395,20 @@ body,
   justify-content: center !important;
   min-height: 110px !important;
   /* garante altura uniforme */
-  overflow: visible !important;
-  padding-left: 26px !important;
+  overflow: hidden !important; /* essencial para o efeito 'voltinha' */
+  padding-left: 15px !important; /* respiração entre a borda e o conteúdo */
 }
 
-/* barra lateral arredondada - usa pseudo-elemento para controle de raio */
+/* barra lateral arredondada - pseudo-elemento principal para 'voltinha' integrado */
 .summary-card::before {
   content: "";
   position: absolute;
-  left: 12px;
-  top: 12px;
-  height: calc(100% - 24px);
-  width: 6px;
-  border-radius: 6px;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
   background: transparent;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06) inset;
 }
@@ -457,13 +458,24 @@ body,
   padding-left: 15px !important; /* respiração entre a borda e o conteúdo */
 }
 
-/* Remover qualquer pseudo-elemento antigo (se existir) */
-.summary-card::before { display: none !important; }
+/* Aplicar pseudo-elemento para a 'voltinha' arredondada (mais robusto) */
+.summary-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+  background: transparent;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06) inset;
+}
 
-/* Cores aplicadas via border-left direto */
-.summary-card.blue { border-left-color: #f1c40f !important; }
-.summary-card.status { border-left-color: #2ecc71 !important; }
-.summary-card.indigo { border-left-color: #3498db !important; }
+/* Cores aplicadas via pseudo-elemento */
+.summary-card.blue::before { background: #f1c40f !important; }
+.summary-card.status::before { background: #2ecc71 !important; }
+.summary-card.indigo::before { background: #3498db !important; }
 
 /* Garantir alinhamento/sem margens extras */
 .summary-grid>* {
@@ -999,10 +1011,24 @@ body .summary-card {
   border-left-color: var(--accent-purple) !important;
 }
 
-.cd-card.svc-entrega { border-left-color: #3498db !important; }
-.cd-card.svc-recolha { border-left-color: #e67e22 !important; }
-.cd-card.svc-outros { border-left-color: #9b59b6 !important; }
-.cd-card.svc-default { border-left-color: rgba(255,255,255,0.04) !important; }
+.cd-card.svc-entrega::before { background: #3498db !important; }
+.cd-card.svc-recolha::before { background: #e67e22 !important; }
+.cd-card.svc-outros::before { background: #9b59b6 !important; }
+.cd-card.svc-default::before { background: rgba(255,255,255,0.04) !important; }
+
+/* pseudo-elemento para cd-card também */
+.cd-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+  background: transparent;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06) inset;
+}
 
 /* Barra de ações (Seletor + Otimizar + Disparar) */
 .barra-comando-unica {
