@@ -910,15 +910,17 @@ button:focus-visible {
   border-radius: 16px;
   border: none;
   transition: transform 120ms ease, filter 120ms ease;
-  flex: 2; /* desktop: maior largura */
+  flex: 2;
+  /* desktop: maior largura */
 }
 
 .central-action-bar .btn-nav {
   flex: 1;
   padding: 16px 20px;
   border-radius: 16px;
-  background: #0f172a; /* neutral slate */
-  border: 1px solid rgba(255,255,255,0.04);
+  background: #0f172a;
+  /* neutral slate */
+  border: 1px solid rgba(255, 255, 255, 0.04);
   font-weight: 800;
 }
 
