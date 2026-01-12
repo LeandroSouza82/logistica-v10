@@ -273,6 +273,24 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                         }
                     } catch (e) { /* ignore */ }
 
+                    // Se o status mudou para offline/logout, garante remoção imediata do marker ativo
+                    try {
+                        const isActiveNow = isDriverActive(updated);
+                        if (activeMarker && String(activeMarker.id) === String(updated.id) && !isActiveNow) {
+                            setActiveMarker(null);
+                        }
+                    } catch (e) { /* ignore */ }
+
+                    // Se o motorista atualizado é o selecionado ou estamos na Visão Geral, atualiza posição do mapa
+                    try {
+                        if ((selectedDriver && String(selectedDriver.id) === String(updated.id)) || abaAtiva === 'visao-geral') {
+                            if (updated.lat != null && updated.lng != null && !(updated.lat === 0 && updated.lng === 0)) {
+                                setMotoPosition({ lat: Number(updated.lat), lng: Number(updated.lng) });
+                                try { mapRef.current?.panTo({ lat: Number(updated.lat), lng: Number(updated.lng) }); } catch (e) { /* ignore */ }
+                            }
+                        }
+                    } catch (e) { /* ignore */ }
+
                 } catch (err) {
                     if (!handleSchemaCacheError(err)) console.warn('Erro ao processar UPDATE em motoristas:', err);
                 }
@@ -294,6 +312,17 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     }
                 } catch (err) {
                     if (!handleSchemaCacheError(err)) console.warn('Erro ao processar INSERT em localizacoes:', err);
+                }
+            })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'motoristas' }, (payload) => {
+                try {
+                    const old = payload.old;
+                    console.log('Realtime DELETE motorista:', old);
+                    setMotoristas(prev => prev.filter(m => String(m.id) !== String(old.id)));
+                    if (selectedDriver && String(selectedDriver.id) === String(old.id)) setSelectedDriver(null);
+                    if (activeMarker && String(activeMarker.id) === String(old.id)) setActiveMarker(null);
+                } catch (err) {
+                    console.warn('Erro ao processar DELETE em motoristas:', err);
                 }
             })
             .subscribe();
@@ -343,6 +372,11 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
     useEffect(() => {
         if (!activeMarker) return;
         const m = motoristas.find(x => String(x.id) === String(activeMarker.id));
+        if (!m || !isDriverActive(m)) {
+            // motorista não está mais online/logado ou foi removido -> remove marker
+            setActiveMarker(null);
+            return;
+        }
         if (m && m.lat != null && m.lng != null && (Number(m.lat) !== activeMarker.lat || Number(m.lng) !== activeMarker.lng)) {
             const updated = { ...activeMarker, lat: Number(m.lat), lng: Number(m.lng) };
             setActiveMarker(updated);
@@ -377,6 +411,15 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
         if (t.includes('recol')) return 'recolha';
         if (t.includes('outro') || t.includes('ata') || t.includes('atas')) return 'outros';
         return 'entrega';
+    };
+
+    // Helper: considera online/logado como 'ativo' (apenas esses terão markers visíveis)
+    const isDriverActive = (m) => {
+        if (!m) return false;
+        if (m.isOnline) return true;
+        const s = String(m.status || '').toLowerCase();
+        if (s.includes('online') || s.includes('log') || s.includes('logado')) return true;
+        return false;
     };
 
     if (loadError) return <div style={{ color: '#f88', padding: 20 }}>Erro no Google Maps.</div>;
@@ -461,12 +504,12 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                                     }}
                                     onUnmount={() => (mapRef.current = null)}
                                 >
-                                    {motoristas.filter(m => m.lat != null && m.lng != null).map(m => {
-                                        const online = !!m.isOnline;
+                                    {motoristas.filter(m => m.lat != null && m.lng != null && isDriverActive(m)).map(m => {
+                                        const online = !!m.isOnline || String(m.status || '').toLowerCase().includes('log');
                                         const iconColor = online ? '#10b981' : '#3b82f6';
                                         return (
                                             <Marker
-                                                key={m.id}
+                                                key={`marker-${m.id}-${m.lat}-${m.lng}`}
                                                 position={{ lat: Number(m.lat), lng: Number(m.lng) }}
                                                 icon={{ url: pulsingMotoSvg(iconColor), scaledSize: new window.google.maps.Size(80, 80), anchor: new window.google.maps.Point(40, 40) }}
                                                 label={{ text: m.nome || `MOTO ${m.id}`, color: 'white', fontWeight: 'bold', fontSize: '14px' }}
