@@ -39,8 +39,9 @@ body {
   margin: 0;
   padding: 0;
   width: 100vw;
+  min-height: 100vh !important;
   height: auto !important;
-  overflow: auto !important;
+  overflow: visible !important;
   background-color: var(--bg-main) !important;
   color: rgba(255, 255, 255, 0.92);
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
@@ -597,14 +598,14 @@ button:focus-visible {
 }
 
 /* gentle transition when panels resize (disabled while dragging) */
-.map-wrapper,
+.motoristas-wrapper,
 .status-panel,
 .sidebar-status {
   transition: flex-basis 180ms ease, width 180ms ease;
 }
 
 /* while dragging, remove transitions for snappy resizing */
-.dragging-splitter .map-wrapper,
+.dragging-splitter .motoristas-wrapper,
 .dragging-splitter .status-panel,
 .dragging-splitter .sidebar-status {
   transition: none !important;
@@ -738,11 +739,10 @@ button:focus-visible {
   border-radius: 999px;
 }
 
-.map-wrapper {
+.motoristas-wrapper {
   background: var(--card);
   padding: 1rem;
   border-radius: 1.75rem;
-  /* overflow: hidden; removed to prevent clipping inside map wrapper */
   box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
   position: relative;
   /* necessário para posicionar o botão de logout */

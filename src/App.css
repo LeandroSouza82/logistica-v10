@@ -813,7 +813,7 @@ body .summary-card {
   padding: 0 12px !important;
   border: 1px solid rgba(0, 0, 0, 0.08) !important;
   width: 250px !important;
-  height: 44px !important;
+  height: 48px !important;
   /* altura padronizada */
   display: inline-flex !important;
   align-items: center !important;
@@ -845,7 +845,7 @@ body .summary-card {
   background-color: var(--btn-success, #2ecc71) !important;
   color: #062018 !important;
   font-weight: 800 !important;
-  height: 44px !important;
+  height: 48px !important;
   /* padronizado */
   padding: 0 18px !important;
   border-radius: 10px !important;
@@ -859,7 +859,7 @@ body .summary-card {
   background-color: var(--accent-purple, #a855f7) !important;
   color: #fff !important;
   font-weight: 800 !important;
-  height: 44px !important;
+  height: 48px !important;
   /* padronizado */
   padding: 0 16px !important;
   border-radius: 10px !important;
@@ -919,8 +919,8 @@ body .summary-card {
 .barra-comando-unica .cd-btn-otimizar,
 .barra-comando-unica .cd-btn-disparar-inline {
   width: auto !important;
-  height: 45px !important;
-  line-height: 45px !important;
+  height: 48px !important;
+  line-height: 48px !important;
   padding: 0 14px !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -974,6 +974,15 @@ body .summary-card {
   align-items: center !important;
 }
 
+/* Padronizar altura dos controles na barra principal */
+.barra-comandos-principal .select-motorista-despacho,
+.barra-comandos-principal button {
+  height: 48px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
 
 .cd-btn-disparar {
   background-color: #2ecc71 !important;
@@ -1002,7 +1011,7 @@ body .summary-card {
   /* garante que cada linha tenha a mesma altura entre colunas */
 }
 
-/* Cada card toma a altura da célula do grid e organiza seu conteúdo com flex para manter o footer no fim */
+/* Cada card toma a altura da célula do grid e organiza seu conteúdo com grid para manter o footer no fim */
 .central-despacho-container .cd-card {
   box-sizing: border-box;
   background: var(--card-dark, #0b1222);
@@ -1010,20 +1019,19 @@ body .summary-card {
   padding: 12px;
   width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: 12px;
-  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  position: relative;
+  display: grid !important;
+  grid-template-rows: auto 1fr auto !important;
+  gap: 12px !important;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.03) !important;
+  position: relative !important;
 }
 
 /* Força o footer do card a ficar na base, garantindo alinhamento vertical consistente */
 .central-despacho-container .cd-card-footer {
-  margin-top: auto;
+  align-self: end !important;
+  margin-top: 0 !important;
 }
-
 
 .cd-card-entrega {
   border-left: 6px solid #3b82f6 !important;
@@ -1125,13 +1133,13 @@ body .summary-card {
   overflow-y: auto;
   padding-right: 12px;
   /* evita colar cards na scrollbar */
-  padding-bottom: 120px;
-  /* espaço extra para últimos cards e botões (120px) */
+  padding-bottom: 150px !important;
+  /* espaço extra para últimos cards e botões (150px) */
   display: block;
   box-sizing: border-box;
   scrollbar-width: thin;
   scrollbar-color: #334155 transparent;
-  scroll-padding-bottom: 120px;
+  scroll-padding-bottom: 150px;
 }
 
 .central-despacho-container .cd-grid-container .cd-grid {
@@ -1152,6 +1160,50 @@ body .summary-card {
   background: #334155;
   border-radius: 999px;
 }
+
+/* Motoristas list (substitui o antigo map-wrapper) */
+.motoristas-wrapper {
+  padding: 1rem !important;
+}
+
+.motoristas-list {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.motorista-card {
+  background: var(--card-dark) !important;
+  border-radius: 12px !important;
+  padding: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  cursor: pointer !important;
+  border: 1px solid rgba(255,255,255,0.02) !important;
+}
+
+.motorista-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.35) !important; transform: translateY(-2px) !important; }
+
+.motorista-avatar {
+  width: 48px !important; height: 48px !important; border-radius: 999px !important;
+  background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)) !important;
+  color: #fff !important; display:flex !important; align-items:center !important; justify-content:center !important; font-weight:700 !important;
+}
+
+.motorista-info { flex: 1 1 auto !important; }
+.motorista-nome { font-weight: 700 !important; }
+.motorista-meta { font-size: 12px !important; color: #9aa4b2 !important; }
+
+.motorista-status { display:flex !important; align-items:center !important; gap:8px !important; }
+.motorista-status .dot { width:10px !important; height:10px !important; border-radius:999px !important; background:#d1d5db !important; }
+.motorista-card.online .dot { background: #10b981 !important; box-shadow: 0 0 0 6px rgba(16,185,129,0.08) !important; }
+
+/* Modal map */
+.motorista-map-modal { position: fixed !important; inset: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; background: rgba(2,6,23,0.6) !important; z-index: 9999 !important; }
+.motorista-map-modal .modal-inner { width: 720px !important; max-width: calc(100% - 32px) !important; border-radius: 12px !important; overflow: hidden !important; background: var(--card-dark) !important; padding: 12px !important; }
+.motorista-map-modal .modal-close { background: transparent !important; color: #fff !important; border: 1px solid rgba(255,255,255,0.04) !important; padding: 6px 10px !important; border-radius: 8px !important; float: right !important; }
+.motorista-map-modal .modal-footer { padding: 8px 6px 4px !important; color: #9aa4b2 !important; font-size: 13px !important; }
 
 .sidebar {
   width: 350px;

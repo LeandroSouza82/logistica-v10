@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
-import AdvancedMarker from './components/AdvancedMarker';
+import { GoogleMap, useJsApiLoader } from '@react-google-maps/api';
+// AdvancedMarker and Marker não são usados no novo layout de lista — modal usa GoogleMap básico
 import CentralDespacho from './CentralDespacho';
 import { supabase } from './supabase';
 import NovaCarga from './components/NovaCarga';
@@ -44,6 +44,12 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
     const [motoristas, setMotoristas] = useState([]);
     const [entregas, setEntregas] = useState([]);
+    // Estado para modal de mapa ao clicar em motorista
+    const [selectedDriver, setSelectedDriver] = useState(null);
+    const openDriverOnMap = (m) => {
+        if (!m) return;
+        setSelectedDriver(m);
+    };
     // Estado inicial da posição da moto para evitar iniciar o mapa no mar
     const [motoPosition, setMotoPosition] = useState({ lat: -27.6608, lng: -48.7087 });
     // Ref para o objeto do Google Map (usado para panTo quando a posição muda)
@@ -75,7 +81,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
         document.body.style.cursor = 'col-resize';
 
         const startX = e.clientX || (e.touches && e.touches[0] && e.touches[0].clientX);
-        const startWidth = containerRef.current ? containerRef.current.querySelector('.map-wrapper').getBoundingClientRect().width : 0;
+        // agora usa .motoristas-wrapper em vez de .map-wrapper
+        const startWidth = containerRef.current ? containerRef.current.querySelector('.motoristas-wrapper').getBoundingClientRect().width : 0;
 
         const onMove = (moveEvent) => {
             const clientX = moveEvent.clientX || (moveEvent.touches && moveEvent.touches[0] && moveEvent.touches[0].clientX);
@@ -211,7 +218,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
     return (
         <main className="content-grid" ref={containerRef}>
-            <div className="map-wrapper" style={{ flexBasis: leftWidth ? `${leftWidth}px` : undefined }}>
+            <div className="motoristas-wrapper" style={{ flexBasis: leftWidth ? `${leftWidth}px` : undefined }}>
                 {/* Menu superior - visual apenas (não altera lógicas existentes) */}
                 <nav className="top-nav" role="navigation" aria-label="Menu principal">
                     <button
@@ -273,56 +280,50 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 ) : abaAtiva === 'central-despacho' ? (
                     <CentralDespacho />
                 ) : (
-                    isLoaded ? (
-                        <GoogleMap
-                            mapContainerStyle={{ width: '100%', height: '500px' }}
-                            // Se existir posição da moto (estado), centraliza nela; senão, tenta o primeiro motorista com coords; se nada, usa centroPadrao.
-                            center={motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao)}
-                            zoom={15}
-                            onLoad={(mapInstance) => (mapRef.current = mapInstance)}
-                            onUnmount={() => (mapRef.current = null)}
-                        >
-                            {motoristas.map(m => {
-                                const online = !!m.isOnline;
-                                if (!m.lat) return null;
+                    // Substitui o mapa central pela lista de motoristas (Equipe)
+                    <div className="motoristas-wrapper">
+                        <div className="motoristas-list">
+                            {motoristas && motoristas.length > 0 ? (
+                                // Ordena com online primeiro
+                                motoristas.slice().sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0)).map(m => (
+                                    <div key={m.id} className={`motorista-card ${m.isOnline ? 'online' : 'offline'}`} onClick={() => openDriverOnMap(m)} role="button" tabIndex={0}>
+                                        <div className="motorista-row">
+                                            <div className="motorista-avatar">{(m.nome || '').split(' ').map(s => s[0]).slice(0,2).join('')}</div>
+                                            <div className="motorista-info">
+                                                <div className="motorista-nome">{m.nome || `Motorista ${m.id}`}</div>
+                                                <div className="motorista-meta">{m.email || 'sem-email'} • {m.telefone || m.phone || 'sem-telefone'}</div>
+                                            </div>
+                                            <div className="motorista-status">
+                                                <span className="dot" aria-hidden="true" />
+                                                <div className="status-label">{m.isOnline ? 'online' : 'offline'}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-muted">Nenhum motorista cadastrado.</div>
+                            )}
+                        </div>
 
-                                const advancedAvailable = (typeof window !== 'undefined' && window.google && window.google.maps && window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement);
-
-                                // Usa AdvancedMarkerElement quando disponível (recomendado pelo Google), caso contrário mantém Marker como fallback
-                                if (advancedAvailable) {
-                                    return (
-                                        <AdvancedMarker
-                                            key={m.id}
-                                            position={{ lat: Number(m.lat), lng: Number(m.lng) }}
-                                            icon={pulsingMotoSvg(m.id === 1 ? '#3b82f6' : '#10b981')}
-                                            title={m.nome || `MOTO ${m.id}`}
-                                        />
-                                    );
-                                }
-
-                                return (
-                                    <Marker
-                                        key={m.id}
-                                        position={{ lat: Number(m.lat), lng: Number(m.lng) }}
-                                        icon={{
-                                            url: pulsingMotoSvg(m.id === 1 ? '#3b82f6' : '#10b981'),
-                                            scaledSize: new window.google.maps.Size(80, 80),
-                                            anchor: new window.google.maps.Point(40, 40)
-                                        }}
-                                        label={{
-                                            text: m.nome || `MOTO ${m.id}`,
-                                            color: "white",
-                                            fontWeight: "bold",
-                                            fontSize: "14px",
-                                            className: "marker-label"
-                                        }}
+                        {/* Modal simples para abrir mapa no ponto do motorista selecionado */}
+                        {isLoaded && selectedDriver && (
+                            <div className="motorista-map-modal" role="dialog" aria-modal="true">
+                                <div className="modal-inner">
+                                    <button className="modal-close" onClick={() => setSelectedDriver(null)}>Fechar</button>
+                                    <GoogleMap
+                                        mapContainerStyle={{ width: '100%', height: '320px' }}
+                                        center={{ lat: Number(selectedDriver.lat || 0), lng: Number(selectedDriver.lng || 0) }}
+                                        zoom={15}
                                     />
-                                );
-                            })}
-                        </GoogleMap>
-                    ) : (
-                        <div style={{ color: '#ccc', padding: 20 }}>Iniciando Radar...</div>
-                    )
+                                    <div className="modal-footer">{selectedDriver.nome} • {selectedDriver.email || ''} • {selectedDriver.telefone || selectedDriver.phone || ''}</div>
+                                </div>
+                            </div>
+                        )}
+
+                        {!isLoaded && (
+                            <div style={{ color: '#ccc', padding: 20 }}>Iniciando Radar...</div>
+                        )}
+                    </div>
                 )}
             </div>
 
