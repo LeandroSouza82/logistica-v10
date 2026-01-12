@@ -4,7 +4,8 @@ const { chromium } = require('playwright');
     const page = await browser.newPage();
     try {
         const port = process.env.PORT || process.env.VITE_PORT || process.env.DEV_PORT || 5173;
-        const base = `http://localhost:${port}/?tab=central-despacho`;
+        const host = process.env.HOST || 'localhost';
+        const base = `http://${host}:${port}/?tab=central-despacho`;
         console.log('CONNECTING_TO', base);
         await page.goto(base, { waitUntil: 'load', timeout: 30000 });
         // Tentar clicar na aba Central de Despacho (usamos ?tab para garantir que a view já esteja ativa)

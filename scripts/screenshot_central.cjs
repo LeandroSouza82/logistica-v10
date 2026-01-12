@@ -5,7 +5,8 @@ const fs = require('fs');
     const page = await browser.newPage();
     try {
         const port = process.env.PORT || process.env.VITE_PORT || process.env.DEV_PORT || 5173;
-        const base = `http://localhost:${port}/?tab=central-despacho`;
+        const host = process.env.HOST || 'localhost';
+        const base = `http://${host}:${port}/?tab=central-despacho`;
         console.log('CONNECTING_TO', base);
         await page.goto(base, { waitUntil: 'load', timeout: 30000 });
         // esperar por título ou elemento da Central de Despacho
