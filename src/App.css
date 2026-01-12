@@ -16,10 +16,10 @@ body,
 .container-motorista {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
   /* Ocupa a tela toda */
   width: 100vw;
-  overflow: hidden;
+  overflow: auto;
 }
 
 /* Metade de cima: MAPA */
@@ -783,7 +783,7 @@ body .summary-card {
 }
 
 .central-despacho-container {
-  padding-bottom: 200px !important;
+  padding-bottom: 250px !important;
 }
 
 /* Header de ações: Seletor (esq) + Botão (dir) */
@@ -907,40 +907,95 @@ body .summary-card {
   padding-right: 16px !important;
 }
 
-/* Barra de ações (FLEX) - Selector | Otimizar | Disparar */
+/* Barra de ações (GRID) - Selector | Otimizar | Disparar */
 .barra-acoes {
-  display: flex !important;
-  align-items: center !important;
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
   gap: 20px !important;
+  align-items: center !important;
   width: 100% !important;
   position: sticky !important;
   top: 0 !important;
   z-index: 1000 !important;
-  background: #050a18 !important; /* corresponde ao background do app */
+  background: #050a18 !important;
+  /* corresponde ao background do app */
   padding: 12px 12px !important;
-  border-bottom: 1px solid rgba(255,255,255,0.02) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
 }
 
 /* Neutralizar floats/posições conflitantes dentro da barra */
-.barra-acoes > * {
+.barra-acoes>* {
   float: none !important;
   position: static !important;
   margin: 0 !important;
   padding: 0 !important;
 }
 
-.barra-acoes .bcp-left { flex: 0 0 250px !important; display:flex !important; align-items:center !important; }
-.barra-acoes .bcp-center { flex: 1 1 auto !important; display:flex !important; justify-content:center !important; align-items:center !important; }
-.barra-acoes { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 1.5rem !important; align-items: center !important; width: 100% !important; position: sticky !important; top: 0 !important; z-index: 1000 !important; background: var(--bg-main) !important; padding: 12px 12px !important; border-bottom: 1px solid rgba(255,255,255,0.02) !important; }
+.barra-acoes .bcp-left {
+  flex: 0 0 250px !important;
+  display: flex !important;
+  align-items: center !important;
+}
 
-.barra-acoes > * { float: none !important; position: static !important; margin: 0 !important; padding: 0 !important; }
+.barra-acoes .bcp-center {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
 
-.barra-acoes .bcp-left { justify-self: start !important; display:flex !important; align-items:center !important; }
-.barra-acoes .bcp-center { justify-self: center !important; display:flex !important; justify-content:center !important; align-items:center !important; }
-.barra-acoes .bcp-right { justify-self: end !important; display:flex !important; justify-content:flex-end !important; align-items:center !important; padding: 0 !important; margin: 0 !important; height: auto !important; }
+.barra-acoes {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 1.5rem !important;
+  align-items: center !important;
+  width: 100% !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1000 !important;
+  background: var(--bg-main) !important;
+  padding: 12px 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
+}
 
-.barra-acoes .select-motorista-despacho { width: 250px !important; height: 48px !important; }
-.barra-acoes button { height: 48px !important; }
+.barra-acoes>* {
+  float: none !important;
+  position: static !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.barra-acoes .bcp-left {
+  justify-self: start !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.barra-acoes .bcp-center {
+  justify-self: center !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.barra-acoes .bcp-right {
+  justify-self: end !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: auto !important;
+}
+
+.barra-acoes .select-motorista-despacho {
+  width: 250px !important;
+  height: 48px !important;
+}
+
+.barra-acoes button {
+  height: 48px !important;
+}
 
 /* garantir espaçamento inferior quando sticky for ativada (evita sobreposição) */
 .central-despacho-container {
@@ -983,8 +1038,20 @@ body .summary-card {
 }
 
 /* Remover floats/posições conflitantes em quaisquer barras antigas */
-.barra-comando-unica > * { float: none !important; position: static !important; margin: 0 !important; padding:0 !important; }
-.barra-comandos-principal > * { float: none !important; position: static !important; margin: 0 !important; padding:0 !important; }
+.barra-comando-unica>* {
+  float: none !important;
+  position: static !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.barra-comandos-principal>* {
+  float: none !important;
+  position: static !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
 /* Barra de comandos principal: esquerda/centro/direita e fixa como header da seção */
 .barra-comandos-principal {
   display: flex !important;
@@ -1297,6 +1364,24 @@ body .summary-card {
   overflow: hidden !important;
   background: var(--card-dark) !important;
   padding: 12px !important;
+}
+
+/* Visão Geral - mapa dentro de card centralizado */
+.visao-geral-map-card {
+  background: var(--card-dark) !important;
+  border-radius: 12px !important;
+  padding: 14px !important;
+  box-shadow: 0 12px 32px rgba(2,6,23,0.6) !important;
+  border: 1px solid rgba(255,255,255,0.03) !important;
+  max-width: 980px !important;
+  margin: 0 auto 24px auto !important;
+}
+
+.visao-geral-map {
+  width: 100% !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  background: #090b0f !important;
 }
 
 .motorista-map-modal .modal-close {

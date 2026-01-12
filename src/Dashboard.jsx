@@ -146,13 +146,37 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
     useEffect(() => {
         const buscarDados = async () => {
             // Buscar motoristas e entregas
-            const { data: mData } = await supabase.from('motoristas').select('*');
+            const { data: mData, error: mErr } = await supabase.from('motoristas').select('*');
+            if (mErr) {
+                console.warn('Erro ao buscar motoristas inicial:', mErr);
+            }
+            let enriched = [];
             if (mData) {
                 // Define isOnline com base em ultimo_sinal (nos últimos 5 minutos)
                 const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-                const enriched = mData.map(m => ({ ...normalizeMotorista(m), isOnline: m.ultimo_sinal ? (new Date(m.ultimo_sinal) > fiveMinAgo) : false }));
+                enriched = mData.map(m => ({ ...normalizeMotorista(m), isOnline: m.ultimo_sinal ? (new Date(m.ultimo_sinal) > fiveMinAgo) : false }));
                 console.log('Motoristas iniciais:', enriched);
                 setMotoristas(enriched);
+            }
+
+            // Buscar localizacoes recentes e mesclar posições mais recentes por motorista (garante estado inicial atualizado)
+            try {
+                const { data: locData } = await supabase.from('localizacoes').select('*').order('created_at', { ascending: false }).limit(1000);
+                if (locData && locData.length > 0) {
+                    const latestByMotorista = {};
+                    for (const l of locData) {
+                        const id = String(l.motorista_id);
+                        if (!latestByMotorista[id]) latestByMotorista[id] = l;
+                    }
+                    // aplica lat/lng mais recentes aos motoristas conhecidos
+                    setMotoristas(prev => prev.map(m => {
+                        const l = latestByMotorista[String(m.id)];
+                        if (l && l.lat != null && l.lng != null) return { ...m, lat: Number(l.lat), lng: Number(l.lng), ultimo_sinal: l.created_at || m.ultimo_sinal };
+                        return m;
+                    }));
+                }
+            } catch (err) {
+                console.warn('Erro ao buscar localizacoes iniciais:', err);
             }
 
             const { data: eData } = await supabase.from('entregas').select('*').order('id', { ascending: false }).limit(20);
@@ -333,30 +357,34 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     <CentralDespacho />
                 ) : abaAtiva === 'visao-geral' ? (
                     isLoaded ? (
-                        <GoogleMap
-                            mapContainerStyle={{ width: '100%', height: '100%' }}
-                            center={motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao)}
-                            zoom={13}
-                            onLoad={(mapInstance) => {
-                                mapRef.current = mapInstance; if (selectedDriver && selectedDriver.lat && selectedDriver.lng) {
-                                    try { mapInstance.panTo({ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) }); } catch (e) { }
-                                }
-                            }}
-                            onUnmount={() => (mapRef.current = null)}
-                        >
-                            {motoristas.filter(m => m.lat != null && m.lng != null).map(m => {
-                                const online = !!m.isOnline;
-                                const iconColor = online ? '#10b981' : '#3b82f6';
-                                return (
-                                    <Marker
-                                        key={m.id}
-                                        position={{ lat: Number(m.lat), lng: Number(m.lng) }}
-                                        icon={{ url: pulsingMotoSvg(iconColor), scaledSize: new window.google.maps.Size(80, 80), anchor: new window.google.maps.Point(40, 40) }}
-                                        label={{ text: m.nome || `MOTO ${m.id}`, color: 'white', fontWeight: 'bold', fontSize: '14px' }}
-                                    />
-                                );
-                            })}
-                        </GoogleMap>
+                        <div className="visao-geral-map-card">
+                          <div className="visao-geral-map">
+                            <GoogleMap
+                                mapContainerStyle={{ width: '100%', height: '420px' }}
+                                center={motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao)}
+                                zoom={13}
+                                onLoad={(mapInstance) => {
+                                    mapRef.current = mapInstance; if (selectedDriver && selectedDriver.lat && selectedDriver.lng) {
+                                        try { mapInstance.panTo({ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) }); } catch (e) { }
+                                    }
+                                }}
+                                onUnmount={() => (mapRef.current = null)}
+                            >
+                                {motoristas.filter(m => m.lat != null && m.lng != null).map(m => {
+                                    const online = !!m.isOnline;
+                                    const iconColor = online ? '#10b981' : '#3b82f6';
+                                    return (
+                                        <Marker
+                                            key={m.id}
+                                            position={{ lat: Number(m.lat), lng: Number(m.lng) }}
+                                            icon={{ url: pulsingMotoSvg(iconColor), scaledSize: new window.google.maps.Size(80, 80), anchor: new window.google.maps.Point(40, 40) }}
+                                            label={{ text: m.nome || `MOTO ${m.id}`, color: 'white', fontWeight: 'bold', fontSize: '14px' }}
+                                        />
+                                    );
+                                })}
+                            </GoogleMap>
+                          </div>
+                        </div>
                     ) : (
                         <div style={{ color: '#ccc', padding: 20 }}>Iniciando Radar...</div>
                     )

@@ -45,6 +45,7 @@ body {
   background-color: var(--bg-main) !important;
   color: rgba(255, 255, 255, 0.92);
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1 {
