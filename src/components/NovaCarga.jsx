@@ -145,16 +145,18 @@ const NovaCarga = ({ setAbaAtiva }) => {
 
 
     return (
-        <div className="min-h-screen bg-[#0B1F3A] flex flex-col items-center justify-center p-8">
-            <div className="w-full max-w-xl mx-auto flex flex-col items-center">
-                {/* Formulário central estilo screenshot */}
-                <div className="nova-carga-card w-full bg-[#081427] rounded-3xl p-8 shadow-2xl border border-slate-800 mb-6">
-                    <h2 className="text-2xl font-black text-slate-200 mb-6">Registrar Encomenda</h2>
+        <div className="min-h-screen w-full flex flex-col items-center justify-center p-8">
+            {/* Wrapper central com largura fixa do card */}
+            <div className="w-full max-w-[500px] mx-auto flex flex-col items-center">
+
+                <div className="w-full max-w-[500px] nova-carga-card bg-[#081427] rounded-2xl p-8 shadow-2xl border border-slate-800">
+                    <h2 className="text-2xl font-black text-white text-center mb-6">Registrar Encomenda</h2>
 
                     <form className="nova-carga-form" onSubmit={(e) => { e.preventDefault(); adicionarParada(); }}>
+
                         <div className="tipo-row">
-                            <label className="label">Tipo:</label>
-                            <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} className="form-input type-select">
+                            <label className="label" style={{marginRight:8}}>Tipo:</label>
+                            <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} className="form-input force-input-height w-full">
                                 <option>Entrega</option>
                                 <option>Recolha</option>
                                 <option>Outros</option>
@@ -164,41 +166,39 @@ const NovaCarga = ({ setAbaAtiva }) => {
                         <input
                             value={novoNome}
                             onChange={(e) => setNovoNome(e.target.value)}
-                            className="form-input nome-cliente w-full"
+                            className="form-input force-input-height w-full mt-2"
                             placeholder="Nome do Cliente"
                         />
 
                         <input
                             value={novoEndereco}
                             onChange={(e) => setNovoEndereco(e.target.value)}
-                            className="form-input endereco w-full"
+                            className="form-input force-input-height w-full mt-2"
                             placeholder="Endereço de Entrega"
                         />
 
                         <input
                             value={novoObservacoes}
                             onChange={(e) => setNovoObservacoes(e.target.value)}
-                            className="form-input observacoes w-full mt-2"
+                            className="form-input force-input-height w-full mt-2"
                             placeholder="Observações..."
                         />
-
-                        {/* Botões removidos do card; agora posicionados abaixo do card conforme layout */}
 
                     </form>
                 </div>
 
-                {/* Barra de ações centralizada (fora do card) */}
-                <div className="central-action-bar w-full flex gap-4">
-                    <button type="button" onClick={adicionarParada} disabled={carregando} className="btn-primary rounded-xl font-bold py-4">
+                {/* Botões com a mesma largura do card */}
+                <div className="w-full max-w-[500px] flex flex-row gap-4 mt-6">
+                    <button type="button" onClick={adicionarParada} disabled={carregando} className="btn-primary flex-[2] rounded-xl font-bold py-4">
                         {carregando ? 'Adicionando...' : 'ADICIONAR À LISTA'}
                     </button>
-                    <button type="button" onClick={() => setAbaAtiva && setAbaAtiva('central-despacho')} className="btn-nav rounded-xl font-bold py-4 text-sm">
+                    <button type="button" onClick={() => setAbaAtiva && setAbaAtiva('central-despacho')} className="btn-nav flex-1 rounded-xl font-bold py-4">
                         ➡️ IR AO DESPACHO
                     </button>
                 </div>
 
-                {/* Lista de endereços abaixo (visível após adicionar) */}
-                <div className="mt-6 destinos-list custom-scrollbar">
+                {/* Lista de endereços abaixo */}
+                <div className="mt-6 w-full max-w-[500px] destinos-list custom-scrollbar">
                     {destinos.map((item, index) => (
                         <div key={item.id} className={`destino-item rounded-xl flex items-center justify-between ${getServiceClass(item.tipo)}`}>
                             <div className="flex items-center gap-6">
@@ -216,7 +216,6 @@ const NovaCarga = ({ setAbaAtiva }) => {
                         </div>
                     ))}
                 </div>
-
 
             </div>
         </div>
