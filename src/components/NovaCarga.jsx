@@ -146,7 +146,7 @@ const NovaCarga = ({ setAbaAtiva }) => {
 
     return (
         <div className="min-h-screen bg-[#0B1F3A] flex flex-col items-center justify-center p-8">
-            <div className="w-full max-w-xl mx-auto flex flex-col items-center">
+            <div className="w-full max-w-[600px] mx-auto flex flex-col items-center">
                 {/* Formulário central estilo screenshot */}
                 <div className="nova-carga-card w-full bg-[#081427] rounded-3xl p-8 shadow-2xl border border-slate-800 mb-6">
                     <h2 className="text-2xl font-black text-slate-200 mb-6">Registrar Encomenda</h2>
@@ -187,30 +187,32 @@ const NovaCarga = ({ setAbaAtiva }) => {
                     </form>
                 </div>
 
-                {/* Barra de ações centralizada (fora do card) */}
-                <div className="central-action-bar w-full flex gap-4 justify-center items-center">
+                {/* Barra de ações fora do card (layout específico) */}
+                <div className="flex flex-row gap-4 w-full max-w-[600px] mx-auto mt-8">
                     <button
                         type="button"
                         onClick={adicionarParada}
                         disabled={carregando}
-                        className="btn-primary rounded-xl font-bold flex items-center justify-center gap-3"
+                        className="flex-[2] bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold uppercase rounded-xl py-4 px-5 flex items-center justify-center gap-3 disabled:opacity-60"
                         aria-label="Adicionar à lista"
                     >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="icon-left" aria-hidden="true">
-                            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                        <span className="inline-flex items-center justify-center bg-white/10 p-2 rounded-lg">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </span>
                         <span>{carregando ? 'ADICIONANDO...' : 'ADICIONAR À LISTA'}</span>
                     </button>
 
                     <button
                         type="button"
                         onClick={() => setAbaAtiva && setAbaAtiva('central-despacho')}
-                        className="btn-nav rounded-xl font-bold flex items-center justify-center gap-2"
+                        className="flex-1 bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold uppercase rounded-xl py-4 px-4 flex items-center justify-center gap-2"
                         aria-label="Ir ao despacho"
                     >
                         <span className="whitespace-nowrap">IR AO DESPACHO</span>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="icon-right" aria-hidden="true">
-                            <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                     </button>
                 </div>
