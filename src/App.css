@@ -395,7 +395,8 @@ body,
   justify-content: center !important;
   min-height: 110px !important;
   /* garante altura uniforme */
-  overflow: hidden !important; /* essencial para o efeito 'voltinha' */
+  overflow: hidden !important;
+  /* essencial para o efeito 'voltinha' */
   padding-left: 30px !important;
 }
 
@@ -406,7 +407,8 @@ body,
   left: 0;
   top: 0;
   bottom: 0;
-  width: 10px; /* espessura da voltinha */
+  width: 10px;
+  /* espessura da voltinha */
   border-top-left-radius: 15px;
   border-bottom-left-radius: 15px;
   background: transparent;
@@ -456,24 +458,41 @@ body,
    ---------------------------- */
 .status-panel .rotas-list .rota-card {
   border-radius: 15px !important;
-  overflow: hidden !important; /* essential for rounded accent */
-  border-left: 10px solid transparent !important; /* base */
-  padding-left: 20px !important; /* spacing from accent */
-  background: var(--card-dark) !important; /* keep card dark for good contrast */
+  overflow: hidden !important;
+  /* essential for rounded accent */
+  border-left: 10px solid transparent !important;
+  /* base */
+  padding-left: 20px !important;
+  /* spacing from accent */
+  background: var(--card-dark) !important;
+  /* keep card dark for good contrast */
+  min-height: 120px !important; /* aumentar altura para melhor leitura/click target */
+
+.status-panel .rotas-list .rota-card.svc-outros {
+  border-left-color: #9b59b6 !important;
 }
 
-/* colors for the accent bar (left) */
-.status-panel .rotas-list .rota-card.svc-entrega { border-left-color: #3498db !important; }
-.status-panel .rotas-list .rota-card.svc-recolha { border-left-color: #e67e22 !important; }
-.status-panel .rotas-list .rota-card.svc-outros { border-left-color: #9b59b6 !important; }
-
 /* sync status-label color */
-.status-panel .rotas-list .status-label.entrega { color: #3498db !important; font-weight:700; }
-.status-panel .rotas-list .status-label.recolha { color: #e67e22 !important; font-weight:700; }
-.status-panel .rotas-list .status-label.outros { color: #9b59b6 !important; font-weight:700; }
+.status-panel .rotas-list .status-label.entrega {
+  color: #3498db !important;
+  font-weight: 700;
+}
+
+.status-panel .rotas-list .status-label.recolha {
+  color: #e67e22 !important;
+  font-weight: 700;
+}
+
+.status-panel .rotas-list .status-label.outros {
+  color: #9b59b6 !important;
+  font-weight: 700;
+}
 
 /* ensure label text contrasts on dark background */
-.status-panel .rotas-list .status-label { font-size: 12px; }
+.status-panel .rotas-list .status-label {
+  font-size: 12px;
+}
+
 /* Garantir alinhamento/sem margens extras */
 .summary-grid>* {
   margin: 0 !important;
@@ -1233,16 +1252,20 @@ body .summary-card {
 
 /* Cards de Rotas (Status de Operação) - manter sem 'voltinha' integrada */
 .rota-card {
-  padding-left: 30px !important; /* respiração para o conteúdo */
+  padding-left: 30px !important;
+  /* respiração para o conteúdo */
   border-radius: 8px !important;
-  border-left: none !important; /* garantir que não haja voltinha aqui */
+  border-left: none !important;
+  /* garantir que não haja voltinha aqui */
 }
 
 /* Se houver classes antigas que atribuem cor, neutralizamos aqui para evitar artefatos */
 .rota-card.svc-entrega,
 .rota-card.svc-recolha,
 .rota-card.svc-outros,
-.rota-card.svc-default { border-left: none !important; }
+.rota-card.svc-default {
+  border-left: none !important;
+}
 
 /* Forçar hierarquia do texto */
 .rota-cliente {
@@ -1354,24 +1377,41 @@ body .summary-card {
 }
 
 /* Accent bar as pseudo-element for cd-cards (fila de preparação) */
-.central-despacho-container .cd-card { border-radius: 15px !important; overflow: hidden !important; padding-left: 30px !important; }
+.central-despacho-container .cd-card {
+  border-radius: 15px !important;
+  overflow: hidden !important;
+  padding-left: 30px !important;
+}
+
 .central-despacho-container .cd-card::before {
   content: "";
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 10px; /* espessura da voltinha */
+  width: 10px;
+  /* espessura da voltinha */
   border-top-left-radius: 15px;
   border-bottom-left-radius: 15px;
   background: transparent;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.06) inset;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06) inset;
 }
 
-.central-despacho-container .cd-card.svc-entrega::before { background: #3498db !important; }
-.central-despacho-container .cd-card.svc-recolha::before { background: #e67e22 !important; }
-.central-despacho-container .cd-card.svc-outros::before { background: #9b59b6 !important; }
-.central-despacho-container .cd-card.svc-default::before { background: rgba(255,255,255,0.04) !important; }
+.central-despacho-container .cd-card.svc-entrega::before {
+  background: #3498db !important;
+}
+
+.central-despacho-container .cd-card.svc-recolha::before {
+  background: #e67e22 !important;
+}
+
+.central-despacho-container .cd-card.svc-outros::before {
+  background: #9b59b6 !important;
+}
+
+.central-despacho-container .cd-card.svc-default::before {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
 
 .cd-card.svc-outros .cd-badge {
   background: #a855f7 !important;
