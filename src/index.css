@@ -431,17 +431,24 @@ button:focus-visible {
 
 .rota-card {
   background: var(--card);
-  padding: 16px;
-  /* padding 16px conforme diretriz */
+  padding: 16px 16px 16px 30px; /* aumenta o espaço à esquerda para 'respirar' da barra */
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border: 1px solid var(--glass-border);
   box-shadow: 0 6px 18px rgba(2, 6, 23, 0.3);
+  position: relative; /* para posicionar badges no canto */
 }
 
-/* Service color helpers */
+.rota-info { display:flex; flex-direction:column; align-items:flex-start; justify-content:center; }
+
+/* Badges tipo no canto superior direito */
+.tipo-badge { position:absolute; top:10px; right:10px; font-size:12px; padding:4px 8px; border-radius:999px; font-weight:700; }
+.rota-card.svc-entrega .tipo-badge { background: var(--btn-primary); color: #ffffff; box-shadow: 0 6px 18px rgba(59,130,246,0.12); }
+.rota-card.svc-recolha .tipo-badge { background: #f97316; color: #ffffff; box-shadow: 0 6px 18px rgba(249,115,22,0.12); }
+.rota-card.svc-outros .tipo-badge { background: #a855f7; color:#ffffff; box-shadow: 0 6px 18px rgba(168,85,247,0.12); }
+.rota-card.svc-default .tipo-badge { background: rgba(255,255,255,0.04); color: var(--muted); }
 .svc-entrega {
   border-left: 4px solid var(--btn-primary) !important;
 }
@@ -491,16 +498,29 @@ button:focus-visible {
 }
 
 .rota-cliente {
-  margin: 0;
-  font-size: 14px;
+  margin: 0 0 8px 0; /* spacing below */
+  font-size: 1.1rem; /* destaque maior */
+  font-weight: 700;
+  color: #ffffff; /* branco puro */
+  text-align: left;
 }
 
 .rota-endereco {
-  margin: 0;
-  font-size: 12px;
-  color: #94a3b8;
+  margin: 0 0 8px 0;
+  font-size: 0.95rem;
+  color: #cbd5e1; /* levemente acinzentado/azulado */
+  font-weight: 500;
+  text-align: left;
 }
 
+.rota-observacoes {
+  margin: 0 0 8px 0;
+  font-size: 0.92rem;
+  color: #94a3b8;
+  text-align: left;
+}
+.rota-observacoes strong { font-weight:700; color:#ffffff; margin-right:6px; }
+.rota-observacoes em { font-style: italic; color:#94a3b8; }
 .rota-status {
   display: flex;
   align-items: center;

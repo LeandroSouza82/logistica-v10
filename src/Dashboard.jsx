@@ -491,10 +491,18 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                             <div className="rotas-list custom-scrollbar">
                                 {entregas.map(e => (
                                     <div key={e.id} className={`rota-card ${getServiceClass(e.tipo)}`}>
+
+                                        <div className="tipo-badge">{e.tipo || 'Entrega'}</div>
+
                                         <div className="rota-info">
-                                            <p className="rota-cliente"><strong>{e.cliente}</strong></p>
+                                            <p className="rota-cliente">{e.cliente}</p>
                                             <p className="rota-endereco">{e.endereco || ''}</p>
+
+                                            {e.observacoes && (
+                                                <p className="rota-observacoes"><strong>Obs:</strong> <em>{e.observacoes}</em></p>
+                                            )}
                                         </div>
+
                                         <div className="rota-status">
                                             <span className={`status-dot delivered ${getDotClass(e.tipo)}`} aria-hidden="true"></span>
                                             <span className="status-label">Entregue</span>
