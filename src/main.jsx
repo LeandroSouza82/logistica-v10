@@ -1,7 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './App.css'
 import App from './App.jsx'
+import { MotoristasProvider } from './contexts/MotoristasContext';
 
 // Truque: em mobile, mostre um alert simples para que o aparelho 'grite' o erro (útil para QA)
 const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -30,6 +32,8 @@ if (isMobile) {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <MotoristasProvider>
+      <App />
+    </MotoristasProvider>
   </StrictMode>,
 )
