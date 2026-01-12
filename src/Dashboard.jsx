@@ -45,6 +45,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
     const [motoristas, setMotoristas] = useState([]);
     const [entregas, setEntregas] = useState([]);
+    // Estado para marcador ativo do motorista (garante render imediato do Marker)
+    const [activeMarker, setActiveMarker] = useState(null);
     // Histórico de clientes modal + prefill
     const [historicoOpen, setHistoricoOpen] = useState(false);
     const [prefill, setPrefill] = useState(null);
@@ -56,10 +58,43 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
         setSelectedDriver(m);
         // foco no mapa e troca de aba
         setAbaAtiva('visao-geral');
-        if (m.lat && m.lng) {
-            setMotoPosition({ lat: Number(m.lat), lng: Number(m.lng) });
-            try { mapRef.current?.panTo({ lat: Number(m.lat), lng: Number(m.lng) }); } catch (e) { }
+
+        // Se já temos coordenadas, posiciona imediatamente e garante que o Marker seja renderizado
+        if (m.lat != null && m.lng != null) {
+            const lat = Number(m.lat);
+            const lng = Number(m.lng);
+            setMotoPosition({ lat, lng });
+            const newMarker = { id: m.id, lat, lng, nome: m.nome };
+            setActiveMarker(newMarker);
+            console.log('SET_ACTIVE_MARKER immediate', newMarker);
+            try {
+                mapRef.current?.panTo({ lat, lng });
+                mapRef.current?.setZoom(15);
+            } catch (e) { /* ignore */ }
+            return;
         }
+
+        // Caso não tenhamos coordenadas no objeto, buscar a localização mais recente do motorista
+        (async () => {
+            try {
+                const { data } = await supabase.from('localizacoes').select('lat,lng,created_at').eq('motorista_id', m.id).order('created_at', { ascending: false }).limit(1);
+                if (data && data.length > 0) {
+                    const l = data[0];
+                    if (l.lat != null && l.lng != null) {
+                        const lat = Number(l.lat);
+                        const lng = Number(l.lng);
+                        setActiveMarker({ id: m.id, lat, lng, nome: m.nome });
+                        setMotoPosition({ lat, lng });
+                        try {
+                            mapRef.current?.panTo({ lat, lng });
+                            mapRef.current?.setZoom(15);
+                        } catch (e) { /* ignore */ }
+                    }
+                }
+            } catch (err) {
+                console.warn('Erro ao buscar posição do motorista selecionado:', err);
+            }
+        })();
     };
     // Estado inicial da posição da moto para evitar iniciar o mapa no mar
     const [motoPosition, setMotoPosition] = useState({ lat: -27.6608, lng: -48.7087 });
@@ -288,6 +323,34 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
         }
     }, [selectedDriver, motoPosition, abaAtiva]);
 
+    // Quando o selectedDriver muda (id/coords), centraliza o mapa e garante que o Marker ativo seja atualizado
+    useEffect(() => {
+        if (!mapRef.current) return;
+        if (selectedDriver && selectedDriver.lat != null && selectedDriver.lng != null) {
+            const lat = Number(selectedDriver.lat);
+            const lng = Number(selectedDriver.lng);
+            setActiveMarker(prev => {
+                if (!prev || prev.id !== selectedDriver.id || prev.lat !== lat || prev.lng !== lng) return { id: selectedDriver.id, lat, lng, nome: selectedDriver.nome };
+                return prev;
+            });
+            try {
+                mapRef.current.panTo({ lat, lng });
+                mapRef.current.setZoom(15);
+            } catch (e) { /* ignore */ }
+        }
+    }, [selectedDriver?.id, selectedDriver?.lat, selectedDriver?.lng]);
+
+    // Sincroniza posição do activeMarker quando o array de motoristas é atualizado em realtime
+    useEffect(() => {
+        if (!activeMarker) return;
+        const m = motoristas.find(x => String(x.id) === String(activeMarker.id));
+        if (m && m.lat != null && m.lng != null && (Number(m.lat) !== activeMarker.lat || Number(m.lng) !== activeMarker.lng)) {
+            const updated = { ...activeMarker, lat: Number(m.lat), lng: Number(m.lng) };
+            setActiveMarker(updated);
+            console.log('UPDATED_ACTIVE_MARKER from motoristas', updated);
+        }
+    }, [motoristas]);
+
     // Reatividade adicional: quando o motorista selecionado mudar (em qualquer aba), centraliza o mapa e garante render do marcador
     useEffect(() => {
         if (!mapRef.current) return;
@@ -388,6 +451,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                         <div className="visao-geral-map-card">
                             <div className="visao-geral-map">
                                 <GoogleMap
+                                    key={selectedDriver?.id || 'mapa-vazio'}
                                     mapContainerStyle={{ width: '100%', height: '420px' }}
                                     center={motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao)}
                                     zoom={13}
@@ -398,6 +462,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                                     }}
                                     onUnmount={() => (mapRef.current = null)}
                                 >
+                                    {/* debug: exposes activeMarker state for e2e checks */}
+                                    <div id="active-marker-debug" style={{ display: 'none' }}>{activeMarker ? `${activeMarker.id}|${activeMarker.lat}|${activeMarker.lng}` : ''}</div>
                                     {motoristas.filter(m => m.lat != null && m.lng != null).map(m => {
                                         const online = !!m.isOnline;
                                         const iconColor = online ? '#10b981' : '#3b82f6';
@@ -412,12 +478,13 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                                     })}
 
                                     {/* Marker temporário para o motorista selecionado (garante que a motinha apareça sem precisar de F5) */}
-                                    {selectedDriver && selectedDriver.lat != null && selectedDriver.lng != null && (
+                                    {activeMarker && activeMarker.lat != null && activeMarker.lng != null && (
                                         <Marker
-                                            key={`selected-driver-${selectedDriver.id}`}
-                                            position={{ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) }}
+                                            key={`active-marker-${activeMarker.id}-${activeMarker.lat}-${activeMarker.lng}`}
+                                            position={{ lat: Number(activeMarker.lat), lng: Number(activeMarker.lng) }}
+                                            optimized={false}
                                             icon={{ url: pulsingMotoSvg('#3b82f6'), scaledSize: new window.google.maps.Size(80, 80), anchor: new window.google.maps.Point(40, 40) }}
-                                            label={{ text: selectedDriver.nome || 'MOTO', color: 'white', fontWeight: 'bold', fontSize: '14px' }}
+                                            label={{ text: activeMarker.nome || 'MOTO', color: 'white', fontWeight: 'bold', fontSize: '14px' }}
                                         />
                                     )}
                                 </GoogleMap>
