@@ -209,7 +209,6 @@ const NovaCarga = ({ setAbaAtiva }) => {
                     </button>
                     
                 </div>
-            </div>
 
                 {/* Lista de endereços abaixo (visível após adicionar) */}
                 <div className="mt-6 destinos-list custom-scrollbar">
