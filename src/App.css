@@ -885,7 +885,7 @@ body .summary-card {
 
 /* Margin-bottom entre toolbar e grade */
 .central-despacho-container .cd-controls-header {
-  margin-bottom: 30px !important;
+  margin-bottom: 30px;
 }
 
 
@@ -905,31 +905,37 @@ body .summary-card {
   align-items: center !important;
 }
 
-.cd-grid {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 1.5rem !important;
-  /* 24px gap para espaçamento mais generoso */
-  align-items: flex-start !important;
-  align-content: flex-start !important;
-  /* garante que o conteúdo comece no topo */
+/* Grid moderno e limpo para a Fila de Preparação */
+.central-despacho-container .cd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.5rem; /* 24px */
+  align-items: stretch;
+  grid-auto-rows: 1fr; /* garante que cada linha tenha a mesma altura entre colunas */
 }
 
-.cd-card {
-  background: #0b1222 !important;
-  /* azul escuro */
-  border-radius: 12px !important;
-  padding: 12px !important;
-  min-width: 220px !important;
-  max-width: 320px !important;
-  flex: 1 1 260px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: space-between !important;
-  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.6) !important;
-  border: 1px solid rgba(255, 255, 255, 0.03) !important;
-  position: relative !important;
+/* Cada card toma a altura da célula do grid e organiza seu conteúdo com flex para manter o footer no fim */
+.central-despacho-container .cd-card {
+  box-sizing: border-box;
+  background: var(--card-dark, #0b1222);
+  border-radius: 12px;
+  padding: 12px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 12px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  position: relative;
 }
+
+/* Força o footer do card a ficar na base, garantindo alinhamento vertical consistente */
+.central-despacho-container .cd-card-footer {
+  margin-top: auto;
+}
+
 
 .cd-card-entrega {
   border-left: 6px solid #3b82f6 !important;
@@ -955,35 +961,35 @@ body .summary-card {
   gap: 8px;
 }
 
-.cd-card-title {
-  color: #fff !important;
-  font-weight: 700 !important;
-  font-size: 14px !important;
+.central-despacho-container .cd-card-title {
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
 }
 
-.cd-badge {
-  background: #fff !important;
-  color: #0b1222 !important;
-  padding: 4px 8px !important;
-  border-radius: 999px !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
+.central-despacho-container .cd-badge {
+  background: #fff;
+  color: #0b1222;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
 }
 
-.cd-card-body {
-  margin-top: 8px !important;
-  margin-bottom: 8px !important;
+.central-despacho-container .cd-card-body {
+  margin-top: 8px;
+  margin-bottom: 8px;
 }
 
-.cd-address {
-  color: #94a3b8 !important;
-  font-size: 13px !important;
+.central-despacho-container .cd-address {
+  color: #94a3b8;
+  font-size: 13px;
 }
 
-.cd-obs {
-  color: #94a3b8 !important;
-  font-size: 12px !important;
-  margin-top: 6px !important;
+.central-despacho-container .cd-obs {
+  color: #94a3b8;
+  font-size: 12px;
+  margin-top: 6px;
 }
 
 .cd-card-footer {
@@ -1022,39 +1028,36 @@ body .summary-card {
   }
 }
 
-/* Scroll area para Fila de Preparação */
-.cd-grid-container {
-  height: calc(100vh - 200px) !important;
-  /* área dinâmica conforme tamanho da tela */
-  max-height: 75vh !important;
-  overflow-y: auto !important;
-  padding-right: 10px !important;
-  padding-bottom: 5rem !important;
-  /* garante espaço no final para o último card aparecer inteiro */
-  display: block !important;
-  box-sizing: border-box !important;
-  scrollbar-width: thin !important;
-  scrollbar-color: #334155 transparent !important;
-  scroll-padding-bottom: 5rem !important;
+/* Scroll area para Fila de Preparação (container pai) */
+.central-despacho-container .cd-grid-container {
+  /* altura responsiva que considera o header/topo e outros elementos */
+  height: calc(100vh - 240px);
+  max-height: 78vh;
+  overflow-y: auto;
+  padding-right: 12px; /* evita colar cards na scrollbar */
+  padding-bottom: 6rem; /* espaço extra para últimos cards e botões */
+  display: block;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+  scroll-padding-bottom: 6rem;
 }
 
-.cd-grid-container .cd-grid {
-  align-content: flex-start !important;
-  row-gap: 1.5rem !important;
+.central-despacho-container .cd-grid-container .cd-grid {
+  align-content: start;
+  row-gap: 1.5rem;
 }
 
 /* WebKit scrollbar */
-.cd-grid-container::-webkit-scrollbar {
-  width: 8px !important;
+.central-despacho-container .cd-grid-container::-webkit-scrollbar {
+  width: 8px;
 }
-
-.cd-grid-container::-webkit-scrollbar-track {
-  background: transparent !important;
+.central-despacho-container .cd-grid-container::-webkit-scrollbar-track {
+  background: transparent;
 }
-
-.cd-grid-container::-webkit-scrollbar-thumb {
-  background: #334155 !important;
-  border-radius: 999px !important;
+.central-despacho-container .cd-grid-container::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 999px;
 }
 
 .sidebar {
