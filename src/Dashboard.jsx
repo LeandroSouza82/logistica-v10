@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { GoogleMap, useJsApiLoader } from '@react-google-maps/api';
-// AdvancedMarker and Marker não são usados no novo layout de lista — modal usa GoogleMap básico
+import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
+// AdvancedMarker is used elsewhere; we use Marker here for Visão Geral map markers
 import CentralDespacho from './CentralDespacho';
 import { supabase } from './supabase';
 import NovaCarga from './components/NovaCarga';
@@ -49,6 +49,12 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
     const openDriverOnMap = (m) => {
         if (!m) return;
         setSelectedDriver(m);
+        // foco no mapa e troca de aba
+        setAbaAtiva('visao-geral');
+        if (m.lat && m.lng) {
+            setMotoPosition({ lat: Number(m.lat), lng: Number(m.lng) });
+            try { mapRef.current?.panTo({ lat: Number(m.lat), lng: Number(m.lng) }); } catch(e){}
+        }
     };
     // Estado inicial da posição da moto para evitar iniciar o mapa no mar
     const [motoPosition, setMotoPosition] = useState({ lat: -27.6608, lng: -48.7087 });
@@ -279,14 +285,39 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     <NovaCarga setAbaAtiva={setAbaAtiva} />
                 ) : abaAtiva === 'central-despacho' ? (
                     <CentralDespacho />
-                ) : (
-                    // Substitui o mapa central pela lista de motoristas (Equipe)
+                ) : abaAtiva === 'visao-geral' ? (
+                    isLoaded ? (
+                        <GoogleMap
+                            mapContainerStyle={{ width: '100%', height: '100%' }}
+                            center={motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao)}
+                            zoom={13}
+                            onLoad={(mapInstance) => { mapRef.current = mapInstance; if (selectedDriver && selectedDriver.lat && selectedDriver.lng) {
+                                try { mapInstance.panTo({ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) }); } catch(e){}
+                            } }}
+                            onUnmount={() => (mapRef.current = null)}
+                        >
+                            {motoristas.filter(m => m.lat != null && m.lng != null).map(m => {
+                                const online = !!m.isOnline;
+                                const iconColor = online ? '#10b981' : '#3b82f6';
+                                return (
+                                    <Marker
+                                        key={m.id}
+                                        position={{ lat: Number(m.lat), lng: Number(m.lng) }}
+                                        icon={{ url: pulsingMotoSvg(iconColor), scaledSize: new window.google.maps.Size(80, 80), anchor: new window.google.maps.Point(40, 40) }}
+                                        label={{ text: m.nome || `MOTO ${m.id}`, color: 'white', fontWeight: 'bold', fontSize: '14px' }}
+                                    />
+                                );
+                            })}
+                        </GoogleMap>
+                    ) : (
+                        <div style={{ color: '#ccc', padding: 20 }}>Iniciando Radar...</div>
+                    )
+                ) : abaAtiva === 'equipe' ? (
                     <div className="motoristas-wrapper">
                         <div className="motoristas-list">
                             {motoristas && motoristas.length > 0 ? (
-                                // Ordena com online primeiro
-                                motoristas.slice().sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0)).map(m => (
-                                    <div key={m.id} className={`motorista-card ${m.isOnline ? 'online' : 'offline'}`} onClick={() => openDriverOnMap(m)} role="button" tabIndex={0}>
+                                motoristas.slice().sort((a,b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0)).map(m => (
+                                    <div key={m.id} className={`motorista-card ${m.isOnline ? 'online' : 'offline'}`} onClick={() => { if (m.lat && m.lng) { setMotoPosition({ lat: Number(m.lat), lng: Number(m.lng) }); setSelectedDriver(m); setAbaAtiva('visao-geral'); try { mapRef.current?.panTo({ lat: Number(m.lat), lng: Number(m.lng) }); } catch(e){} } else { setSelectedDriver(m); setAbaAtiva('visao-geral'); } }} role="button" tabIndex={0}>
                                         <div className="motorista-row">
                                             <div className="motorista-avatar">{(m.nome || '').split(' ').map(s => s[0]).slice(0,2).join('')}</div>
                                             <div className="motorista-info">
@@ -304,26 +335,9 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                                 <div className="text-muted">Nenhum motorista cadastrado.</div>
                             )}
                         </div>
-
-                        {/* Modal simples para abrir mapa no ponto do motorista selecionado */}
-                        {isLoaded && selectedDriver && (
-                            <div className="motorista-map-modal" role="dialog" aria-modal="true">
-                                <div className="modal-inner">
-                                    <button className="modal-close" onClick={() => setSelectedDriver(null)}>Fechar</button>
-                                    <GoogleMap
-                                        mapContainerStyle={{ width: '100%', height: '320px' }}
-                                        center={{ lat: Number(selectedDriver.lat || 0), lng: Number(selectedDriver.lng || 0) }}
-                                        zoom={15}
-                                    />
-                                    <div className="modal-footer">{selectedDriver.nome} • {selectedDriver.email || ''} • {selectedDriver.telefone || selectedDriver.phone || ''}</div>
-                                </div>
-                            </div>
-                        )}
-
-                        {!isLoaded && (
-                            <div style={{ color: '#ccc', padding: 20 }}>Iniciando Radar...</div>
-                        )}
                     </div>
+                ) : (
+                    <div style={{ color: '#ccc', padding: 20 }}>Aba inválida</div>
                 )}
             </div>
 
@@ -352,33 +366,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                                 </button>
                             </div>
 
-                            <table className="w-full text-left text-white">
-                                <thead>
-                                    <tr className="border-b border-slate-700 text-slate-400 uppercase text-xs">
-                                        <th className="py-4">Motorista</th>
-                                        <th>Status</th>
-                                        <th>Última Posição</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr className="border-b border-slate-800 hover:bg-slate-800/50">
-                                        <td className="py-4 flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">LM</div>
-                                            Leandro Motoka
-                                        </td>
-                                        <td>
-                                            <span className="bg-emerald-500/20 text-emerald-500 px-3 py-1 rounded-full text-xs font-bold">
-                                                ● ONLINE
-                                            </span>
-                                        </td>
-                                        <td className="text-slate-400 text-sm">Palhoça, SC - há 2 min</td>
-                                        <td>
-                                            <button className="text-blue-400 hover:underline">Ver no Mapa</button>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                            <p className="text-slate-400">Lista de motoristas e gerenciamento. Clique em um motorista na aba à esquerda para ver sua localização no mapa.</p>
+
                         </div>
                     </div>
                 ) : (

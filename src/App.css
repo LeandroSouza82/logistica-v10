@@ -919,18 +919,34 @@ body .summary-card {
   z-index: 100 !important;
   background: var(--bg-main) !important;
   padding: 12px 8px !important;
-  border-bottom: 1px solid rgba(255,255,255,0.02) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
 }
 
-.barra-acoes-grid .bcp-left { justify-self: start !important; }
-.barra-acoes-grid .bcp-center { justify-self: center !important; }
-.barra-acoes-grid .bcp-right { justify-self: end !important; }
+.barra-acoes-grid .bcp-left {
+  justify-self: start !important;
+}
 
-.barra-acoes-grid .select-motorista-despacho { width: 250px !important; height: 48px !important; }
-.barra-acoes-grid button { height: 48px !important; }
+.barra-acoes-grid .bcp-center {
+  justify-self: center !important;
+}
+
+.barra-acoes-grid .bcp-right {
+  justify-self: end !important;
+}
+
+.barra-acoes-grid .select-motorista-despacho {
+  width: 250px !important;
+  height: 48px !important;
+}
+
+.barra-acoes-grid button {
+  height: 48px !important;
+}
 
 /* garantir espaçamento inferior quando sticky for ativada (evita sobreposição) */
-.central-despacho-container { padding-top: 8px !important; }
+.central-despacho-container {
+  padding-top: 8px !important;
+}
 
 .barra-comando-unica>* {
   margin-top: 0 !important;
@@ -979,7 +995,7 @@ body .summary-card {
   z-index: 40 !important;
   background: inherit !important;
   padding: 10px 8px !important;
-  border-bottom: 1px solid rgba(255,255,255,0.03) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
 }
 
 .barra-comandos-principal .bcp-left,
@@ -989,8 +1005,13 @@ body .summary-card {
   align-items: center !important;
 }
 
-.barra-comandos-principal .bcp-left { justify-content: flex-start !important; }
-.barra-comandos-principal .bcp-right { justify-content: flex-end !important; }
+.barra-comandos-principal .bcp-left {
+  justify-content: flex-start !important;
+}
+
+.barra-comandos-principal .bcp-right {
+  justify-content: flex-end !important;
+}
 
 .barra-comandos-principal .bcp-center {
   flex: 1 1 auto !important;
@@ -1158,13 +1179,13 @@ body .summary-card {
   overflow-y: auto;
   padding-right: 12px;
   /* evita colar cards na scrollbar */
-  padding-bottom: 150px !important;
-  /* espaço extra para últimos cards e botões (150px) */
+  padding-bottom: 200px !important;
+  /* espaço extra para últimos cards e botões (200px) */
   display: block;
   box-sizing: border-box;
   scrollbar-width: thin;
   scrollbar-color: #334155 transparent;
-  scroll-padding-bottom: 150px;
+  scroll-padding-bottom: 200px;
 }
 
 .central-despacho-container .cd-grid-container .cd-grid {
@@ -1205,30 +1226,91 @@ body .summary-card {
   align-items: center !important;
   gap: 12px !important;
   cursor: pointer !important;
-  border: 1px solid rgba(255,255,255,0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.02) !important;
 }
 
-.motorista-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.35) !important; transform: translateY(-2px) !important; }
+.motorista-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+  transform: translateY(-2px) !important;
+}
 
 .motorista-avatar {
-  width: 48px !important; height: 48px !important; border-radius: 999px !important;
-  background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)) !important;
-  color: #fff !important; display:flex !important; align-items:center !important; justify-content:center !important; font-weight:700 !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)) !important;
+  color: #fff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 700 !important;
 }
 
-.motorista-info { flex: 1 1 auto !important; }
-.motorista-nome { font-weight: 700 !important; }
-.motorista-meta { font-size: 12px !important; color: #9aa4b2 !important; }
+.motorista-info {
+  flex: 1 1 auto !important;
+}
 
-.motorista-status { display:flex !important; align-items:center !important; gap:8px !important; }
-.motorista-status .dot { width:10px !important; height:10px !important; border-radius:999px !important; background:#d1d5db !important; }
-.motorista-card.online .dot { background: #10b981 !important; box-shadow: 0 0 0 6px rgba(16,185,129,0.08) !important; }
+.motorista-nome {
+  font-weight: 700 !important;
+}
+
+.motorista-meta {
+  font-size: 12px !important;
+  color: #9aa4b2 !important;
+}
+
+.motorista-status {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.motorista-status .dot {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 999px !important;
+  background: #d1d5db !important;
+}
+
+.motorista-card.online .dot {
+  background: #10b981 !important;
+  box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.08) !important;
+}
 
 /* Modal map */
-.motorista-map-modal { position: fixed !important; inset: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; background: rgba(2,6,23,0.6) !important; z-index: 9999 !important; }
-.motorista-map-modal .modal-inner { width: 720px !important; max-width: calc(100% - 32px) !important; border-radius: 12px !important; overflow: hidden !important; background: var(--card-dark) !important; padding: 12px !important; }
-.motorista-map-modal .modal-close { background: transparent !important; color: #fff !important; border: 1px solid rgba(255,255,255,0.04) !important; padding: 6px 10px !important; border-radius: 8px !important; float: right !important; }
-.motorista-map-modal .modal-footer { padding: 8px 6px 4px !important; color: #9aa4b2 !important; font-size: 13px !important; }
+.motorista-map-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(2, 6, 23, 0.6) !important;
+  z-index: 9999 !important;
+}
+
+.motorista-map-modal .modal-inner {
+  width: 720px !important;
+  max-width: calc(100% - 32px) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  background: var(--card-dark) !important;
+  padding: 12px !important;
+}
+
+.motorista-map-modal .modal-close {
+  background: transparent !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  float: right !important;
+}
+
+.motorista-map-modal .modal-footer {
+  padding: 8px 6px 4px !important;
+  color: #9aa4b2 !important;
+  font-size: 13px !important;
+}
 
 .sidebar {
   width: 350px;
