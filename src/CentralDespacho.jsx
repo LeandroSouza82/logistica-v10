@@ -168,40 +168,34 @@ const CentralDespacho = () => {
                     </div>
                 </div>
 
-                {/* CONTROLES: seletor à esquerda, botão à direita */}
-                <div className="cd-controls-header">
-                    <div className="cd-controls-left">
-                        <select
-                            className="select-motorista-despacho"
-                            value={motoristaSelecionado}
-                            onChange={(e) => setMotoristaSelecionado(e.target.value)}
-                        >
-                            <option value="" disabled>Selecione um motorista</option>
-                            {motoristas.map(m => (
-                                <option key={m.id} value={m.id}>{m.isOnline ? '🟢 ' : ''}{m.nome}</option>
-                            ))}
-                        </select>
-                    </div>
+                {/* BARRA DE AÇÕES: Seletor + Otimizar + Disparar em uma linha */}
+                <div className="barra-acoes-dashboard">
+                    <select
+                        className="select-motorista-despacho"
+                        value={motoristaSelecionado}
+                        onChange={(e) => setMotoristaSelecionado(e.target.value)}
+                    >
+                        <option value="" disabled>Selecione um motorista</option>
+                        {motoristas.map(m => (
+                            <option key={m.id} value={m.id}>{m.isOnline ? '🟢 ' : ''}{m.nome}</option>
+                        ))}
+                    </select>
 
-                    <div className="cd-controls-center">
-                        <button
-                            onClick={otimizarRota}
-                            className="cd-btn-otimizar"
-                            disabled={pedidos.length === 0 || otimizando}
-                        >
-                            OTIMIZAR ROTA
-                        </button>
-                    </div>
+                    <button
+                        onClick={otimizarRota}
+                        className="cd-btn-otimizar"
+                        disabled={pedidos.length === 0 || otimizando}
+                    >
+                        OTIMIZAR ROTA
+                    </button>
 
-                    <div className="cd-controls-right">
-                        <button
-                            onClick={dispararRota}
-                            className="cd-btn-disparar"
-                            disabled={pedidos.length === 0 || carregando || !motoristaSelecionado}
-                        >
-                            DISPARAR ROTA
-                        </button>
-                    </div>
+                    <button
+                        onClick={dispararRota}
+                        className="cd-btn-disparar cd-btn-disparar-inline"
+                        disabled={pedidos.length === 0 || carregando || !motoristaSelecionado}
+                    >
+                        DISPARAR ROTA
+                    </button>
                 </div>
 
                 {/* GRID COMPACTA DE CARDS */}

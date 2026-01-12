@@ -885,27 +885,40 @@ body .summary-card {
   border-left-color: var(--accent-purple) !important;
 }
 
-/* Toolbar principal: Seletor + Otimizar + Disparar */
-.central-despacho-container .cd-controls-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 20px;
-  width: 100%;
-  margin-bottom: 30px;
-  flex-wrap: wrap; /* quebra em telas pequenas */
+/* Barra de ações (Seletor + Otimizar + Disparar) */
+.barra-acoes-dashboard {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 15px !important;
+  width: 100% !important;
+  margin-bottom: 30px !important;
+  flex-wrap: nowrap !important;
 }
 
-/* Garante que itens do header (select e botões) compartilhem altura e centralização */
-.central-despacho-container .cd-controls-header > * {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.barra-acoes-dashboard > * {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  float: none !important;
+  position: static !important;
 }
 
-/* envia o botão DISPARAR para a direita quando houver espaço disponível */
-.central-despacho-container .cd-controls-right {
-  margin-left: auto;
+/* Padronização de altura */
+.barra-acoes-dashboard .select-motorista-despacho,
+.barra-acoes-dashboard .cd-btn-otimizar,
+.barra-acoes-dashboard .cd-btn-disparar-inline {
+  height: 45px !important;
+  line-height: 45px !important;
+  padding: 0 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Garantir que o botão DISPARAR fique à direita quando houver espaço */
+.barra-acoes-dashboard .cd-btn-disparar-inline {
+  margin-left: auto !important;
 }
 
 
