@@ -145,10 +145,10 @@ const NovaCarga = ({ setAbaAtiva }) => {
 
 
     return (
-        <div className="min-h-screen bg-[#0B1F3A] flex items-start justify-center p-8">
-            <div className="w-full max-w-2xl mx-auto">
+        <div className="min-h-screen bg-[#0B1F3A] flex flex-col items-center justify-center p-8">
+            <div className="w-full max-w-xl mx-auto">
                 {/* Formulário central estilo screenshot */}
-                <div className="bg-[#081427] rounded-3xl p-8 shadow-2xl border border-slate-800 mb-6">
+                <div className="nova-carga-card bg-[#081427] rounded-3xl p-8 shadow-2xl border border-slate-800 mb-6">
                     <h2 className="text-2xl font-black text-slate-200 mb-6">Registrar Encomenda</h2>
 
                     <form className="nova-carga-form" onSubmit={(e) => { e.preventDefault(); adicionarParada(); }}>
@@ -188,7 +188,7 @@ const NovaCarga = ({ setAbaAtiva }) => {
                 </div>
 
                 {/* Barra de ações centralizada (fora do card) */}
-                <div className="central-action-bar w-full max-w-2xl mx-auto flex gap-4 mt-6">
+                <div className="central-action-bar w-full max-w-xl mx-auto flex gap-4">
                     <button type="button" onClick={adicionarParada} disabled={carregando} className="btn-primary flex-1">
                         {carregando ? 'Adicionando...' : 'ADICIONAR À LISTA'}
                     </button>
