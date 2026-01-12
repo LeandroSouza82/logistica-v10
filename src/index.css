@@ -914,9 +914,11 @@ button:focus-visible {
 
 /* Ensure both buttons have same height and alignment */
 .central-action-bar {
-  max-width: 576px; /* match max-w-xl */
+  max-width: 576px;
+  /* match max-w-xl */
   margin: 0 auto;
 }
+
 .central-action-bar .btn-primary,
 .central-action-bar .btn-nav {
   display: inline-flex;
@@ -931,8 +933,10 @@ button:focus-visible {
 /* Primary button styling: larger with left icon block */
 .central-action-bar .btn-primary {
   flex: 2;
-  min-width: 0; /* allow shrink on small screens */
-  padding-left: 14px; /* extra space for icon block */
+  min-width: 0;
+  /* allow shrink on small screens */
+  padding-left: 14px;
+  /* extra space for icon block */
   padding-right: 20px;
   background: linear-gradient(180deg, #2563eb 0%, #1e40af 100%);
   box-shadow: 0 8px 26px rgba(37, 99, 235, 0.18);
@@ -942,7 +946,7 @@ button:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,0.12);
+  background: rgba(255, 255, 255, 0.12);
   padding: 8px;
   border-radius: 10px;
   color: #fff;
@@ -958,8 +962,8 @@ button:focus-visible {
   min-width: 0;
   padding-left: 18px;
   padding-right: 18px;
-  background: rgba(15,23,42,0.9);
-  border: 1px solid rgba(255,255,255,0.04);
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.04);
   color: #fff;
 }
 
@@ -1053,6 +1057,28 @@ button:focus-visible {
   transform: translateY(-2px);
   filter: brightness(1.06);
 }
+
+/* NovaCarga theme helpers */
+.nova-btn-primary {
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  border: none;
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.18);
+  transition: transform 120ms ease, filter 120ms ease, background 120ms ease;
+}
+.nova-btn-primary:hover {
+  background: linear-gradient(180deg, #2563eb 0%, #1e40af 100%);
+}
+.nova-btn-primary:active { transform: scale(0.98); }
+.nova-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.nova-btn-secondary { background: #0f172a; color: #fff; border: 1px solid rgba(255,255,255,0.04); }
+.nova-btn-secondary:hover { background: #0b1524; }
+
+.input-bg { background: #1e293b; border: 1px solid rgba(255,255,255,0.03); color: #fff; }
+.input-bg::placeholder { color: #94a3b8; }
+
+.icon-wrapper { display:inline-flex; align-items:center; justify-content:center; padding:8px; border-radius:12px; background:rgba(255,255,255,0.08); }
 
 
 .entrega-card {
