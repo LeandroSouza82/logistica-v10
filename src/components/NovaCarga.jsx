@@ -189,10 +189,10 @@ const NovaCarga = ({ setAbaAtiva }) => {
 
                 {/* Barra de ações centralizada (fora do card) */}
                 <div className="central-action-bar w-full max-w-xl mx-auto flex gap-4">
-                    <button type="button" onClick={adicionarParada} disabled={carregando} className="btn-primary">
+                    <button type="button" onClick={adicionarParada} disabled={carregando} className="btn-primary rounded-xl font-bold py-4">
                         {carregando ? 'Adicionando...' : 'ADICIONAR À LISTA'}
                     </button>
-                    <button type="button" onClick={() => setAbaAtiva && setAbaAtiva('central-despacho')} className="btn-nav">
+                    <button type="button" onClick={() => setAbaAtiva && setAbaAtiva('central-despacho')} className="btn-nav rounded-xl font-bold py-4 text-sm">
                         ➡️ IR AO DESPACHO
                     </button>
                 </div>
