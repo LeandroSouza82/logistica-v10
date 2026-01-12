@@ -241,9 +241,12 @@ const CentralDespacho = () => {
                                 >
                                     <div className="cd-card-header">
                                         <div className="cd-card-title">{item.cliente}</div>
-                                        <div className={`cd-badge tipo-badge ${badgeClass}`}>{item.tipo}</div>
                                     </div>
                                     <div className="cd-card-body">
+                                        {/* Badge central conforme tipo */}
+                                        <div className="cd-status" style={{ marginBottom: 8 }}>
+                                            <span className={`status-badge ${badgeClass}`}>{badgeClass === 'badge-entrega' ? 'ENTREGA' : (badgeClass === 'badge-recolha' ? 'RECOLHA' : 'OUTROS')}</span>
+                                        </div>
                                         <div className="cd-address">{item.endereco}</div>
                                         <div className="cd-obs">Obs: {item.observacoes || '-'}</div>
                                     </div>

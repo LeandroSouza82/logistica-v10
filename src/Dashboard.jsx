@@ -288,6 +288,20 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
         }
     }, [selectedDriver, motoPosition, abaAtiva]);
 
+    // Reatividade adicional: quando o motorista selecionado mudar (em qualquer aba), centraliza o mapa e garante render do marcador
+    useEffect(() => {
+        if (!mapRef.current) return;
+        if (selectedDriver && selectedDriver.lat != null && selectedDriver.lng != null) {
+            try {
+                // panTo + setZoom garante que o mapa centralize e o marcador apareça
+                mapRef.current.panTo({ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) });
+                mapRef.current.setZoom(15);
+            } catch (e) {
+                console.warn('Erro ao centralizar mapa no selectedDriver:', e);
+            }
+        }
+    }, [selectedDriver?.id, selectedDriver?.lat, selectedDriver?.lng]);
+
     const getServiceClass = (type) => {
         if (!type) return 'svc-default';
         const t = String(type).toLowerCase();
@@ -396,6 +410,16 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                                             />
                                         );
                                     })}
+
+                                    {/* Marker temporário para o motorista selecionado (garante que a motinha apareça sem precisar de F5) */}
+                                    {selectedDriver && selectedDriver.lat != null && selectedDriver.lng != null && (
+                                        <Marker
+                                            key={`selected-driver-${selectedDriver.id}`}
+                                            position={{ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) }}
+                                            icon={{ url: pulsingMotoSvg('#3b82f6'), scaledSize: new window.google.maps.Size(80, 80), anchor: new window.google.maps.Point(40, 40) }}
+                                            label={{ text: selectedDriver.nome || 'MOTO', color: 'white', fontWeight: 'bold', fontSize: '14px' }}
+                                        />
+                                    )}
                                 </GoogleMap>
                             </div>
                         </div>
@@ -492,7 +516,6 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                                 {entregas.map(e => (
                                     <div key={e.id} className={`rota-card ${getServiceClass(e.tipo)}`}>
 
-                                        <div className="tipo-badge">{e.tipo || 'Entrega'}</div>
 
                                         <div className="rota-info">
                                             <p className="rota-cliente">{e.cliente}</p>
@@ -505,7 +528,10 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
                                         <div className="rota-status">
                                             <span className={`status-dot delivered ${getDotClass(e.tipo)}`} aria-hidden="true"></span>
-                                            <span className={`status-label ${getDotClass(e.tipo)}`}>{e.tipo || 'Entrega'}</span>
+                                            {/* Badge com contorno e texto conforme tipo */}
+                                            <span className={`status-badge ${getDotClass(e.tipo) === 'entrega' ? 'badge-entrega' : (getDotClass(e.tipo) === 'recolha' ? 'badge-recolha' : 'badge-outros')}`}>
+                                                {getDotClass(e.tipo) === 'entrega' ? 'ENTREGA' : (getDotClass(e.tipo) === 'recolha' ? 'RECOLHA' : 'OUTROS')}
+                                            </span>
                                         </div>
                                     </div>
                                 ))}

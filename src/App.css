@@ -458,20 +458,65 @@ body,
    ---------------------------- */
 .status-panel .rotas-list .rota-card {
   border-radius: 15px !important;
-  overflow: hidden !important; /* essential for rounded accent */
-  border-left-width: 10px !important; /* base width */
-  border-left-style: solid !important; /* ensure solid border */
-  border-left-color: transparent !important; /* default transparent, colored by svc-* classes */
-  padding-left: 20px !important; /* spacing from accent */
-  background: var(--card-dark) !important; /* keep card dark for good contrast */
-  min-height: 120px !important; /* aumentar altura para melhor leitura/click target */
-  border-top-left-radius: 15px !important; /* ensure the left border follows rounding */
+  overflow: hidden !important;
+  /* essential for rounded accent */
+  border-left-width: 12px !important;
+  /* base width increased to 12px for better visibility */
+  border-left-style: solid !important;
+  /* ensure solid border */
+  border-left-color: transparent !important;
+  /* default transparent, colored by svc-* classes */
+  padding-left: 20px !important;
+  /* spacing from accent */
+  background: var(--card-dark) !important;
+  /* keep card dark for good contrast */
+  min-height: 120px !important;
+  /* aumentar altura para melhor leitura/click target */
+  border-top-left-radius: 15px !important;
+  /* ensure the left border follows rounding */
   border-bottom-left-radius: 15px !important;
 }
 
-.status-panel .rotas-list .rota-card.svc-entrega { border-left-color: #3498db !important; }
-.status-panel .rotas-list .rota-card.svc-recolha { border-left-color: #e67e22 !important; }
-.status-panel .rotas-list .rota-card.svc-outros { border-left-color: #9b59b6 !important; }
+/* Estilo base para o contorno (badge) */
+.status-panel .rotas-list .status-badge {
+  padding: 4px 12px !important;
+  border-radius: 20px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  font-size: 0.8rem !important;
+  display: inline-block !important;
+}
+
+/* Cores específicas conforme solicitado */
+.status-panel .rotas-list .badge-entrega {
+  background-color: rgba(52, 152, 219, 0.2) !important;
+  border: 1px solid #3498db !important;
+  color: #3498db !important;
+}
+
+.status-panel .rotas-list .badge-recolha {
+  background-color: rgba(230, 126, 34, 0.2) !important;
+  border: 1px solid #e67e22 !important;
+  color: #e67e22 !important;
+}
+
+.status-panel .rotas-list .badge-outros {
+  background-color: rgba(155, 89, 182, 0.2) !important;
+  border: 1px solid #9b59b6 !important;
+  color: #9b59b6 !important;
+}
+
+.status-panel .rotas-list .rota-card.svc-entrega {
+  border-left-color: #3498db !important;
+}
+
+.status-panel .rotas-list .rota-card.svc-recolha {
+  border-left-color: #e67e22 !important;
+}
+
+.status-panel .rotas-list .rota-card.svc-outros {
+  border-left-color: #9b59b6 !important;
+}
 
 /* sync status-label color */
 .status-panel .rotas-list .status-label.entrega {
@@ -492,6 +537,82 @@ body,
 /* ensure label text contrasts on dark background */
 .status-panel .rotas-list .status-label {
   font-size: 12px;
+}
+
+/* Texto azul para status 'ENTREGA' (aplicado via classe dinâmica no JSX) */
+.status-panel .rotas-list .texto-azul {
+  color: #3498db !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+}
+
+/* === Badges: estilo base e variações globais para serem usadas tanto em Status da Operação quanto na Fila de Preparação === */
+.status-badge {
+  padding: 4px 12px !important;
+  border-radius: 20px !important; /* arredondado */
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  font-size: 0.8rem !important;
+  display: inline-block !important;
+}
+
+.badge-entrega {
+  background-color: rgba(52, 152, 219, 0.12) !important;
+  border: 1px solid #3498db !important;
+  color: #3498db !important;
+}
+
+.badge-recolha {
+  background-color: rgba(230, 126, 34, 0.12) !important;
+  border: 1px solid #e67e22 !important;
+  color: #e67e22 !important;
+}
+
+.badge-outros {
+  background-color: rgba(155, 89, 182, 0.12) !important;
+  border: 1px solid #9b59b6 !important;
+  color: #9b59b6 !important;
+}
+
+/* Aumentar a espessura da 'voltinha' para todos os svc-* (12px) */
+.svc-entrega {
+  border-left-width: 12px !important;
+  border-left-style: solid !important;
+  border-left-color: #3498db !important;
+}
+
+.svc-recolha {
+  border-left-width: 12px !important;
+  border-left-style: solid !important;
+  border-left-color: #e67e22 !important;
+}
+
+.svc-outros {
+  border-left-width: 12px !important;
+  border-left-style: solid !important;
+  border-left-color: #9b59b6 !important;
+}
+
+/* Estilos aplicados às cd-cards (Fila de Preparação) para manter a mesma aparência das rota-card */
+.cd-card {
+  border-radius: 15px !important;
+  overflow: hidden !important;
+  border-left-style: solid !important;
+  padding-left: 20px !important;
+  background: var(--card-dark) !important;
+  min-height: 120px !important;
+  border-top-left-radius: 15px !important;
+  border-bottom-left-radius: 15px !important;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.2) !important;
+  margin-bottom: 12px !important;
+}
+
+.cd-card .cd-card-header {
+  padding: 14px 16px 0 16px !important;
+}
+
+.cd-card .cd-card-body {
+  padding: 8px 16px 16px 16px !important;
 }
 
 /* Garantir alinhamento/sem margens extras */
