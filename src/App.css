@@ -6,7 +6,8 @@ body,
   padding: 0 !important;
   width: 100vw;
   height: 100vh;
-  overflow: auto; /* Permite rolagem da página inteira */
+  overflow: auto;
+  /* Permite rolagem da página inteira */
   /* Impede que a tela "balance" */
   background-color: #0b0e14;
 }
@@ -812,13 +813,15 @@ body .summary-card {
   padding: 0 12px !important;
   border: 1px solid rgba(0, 0, 0, 0.08) !important;
   width: 250px !important;
-  height: 44px !important; /* altura padronizada */
+  height: 44px !important;
+  /* altura padronizada */
   display: inline-flex !important;
   align-items: center !important;
   -webkit-appearance: none !important;
   appearance: none !important;
   font-weight: 600 !important;
-  margin-left: 0 !important; /* usa gap do header agora */
+  margin-left: 0 !important;
+  /* usa gap do header agora */
   background-image: linear-gradient(45deg, transparent 50%, #0b1222 50%), linear-gradient(135deg, #0b1222 50%, transparent 50%);
   background-position: calc(100% - 18px) calc(1em + 2px), calc(100% - 13px) calc(1em + 2px);
   background-size: 6px 6px, 6px 6px;
@@ -842,7 +845,8 @@ body .summary-card {
   background-color: var(--btn-success, #2ecc71) !important;
   color: #062018 !important;
   font-weight: 800 !important;
-  height: 44px !important; /* padronizado */
+  height: 44px !important;
+  /* padronizado */
   padding: 0 18px !important;
   border-radius: 10px !important;
   margin-right: 20px !important;
@@ -855,7 +859,8 @@ body .summary-card {
   background-color: var(--accent-purple, #a855f7) !important;
   color: #fff !important;
   font-weight: 800 !important;
-  height: 44px !important; /* padronizado */
+  height: 44px !important;
+  /* padronizado */
   padding: 0 16px !important;
   border-radius: 10px !important;
   display: inline-flex !important;
@@ -894,11 +899,12 @@ body .summary-card {
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  justify-content: flex-start !important;
-  gap: 20px !important;
+  justify-content: flex-end !important;
+  gap: 24px !important;
   width: 100% !important;
   margin-bottom: 20px !important;
   flex-wrap: nowrap !important;
+  padding-right: 16px !important;
 }
 
 .barra-comando-unica > * {
@@ -957,9 +963,11 @@ body .summary-card {
 .central-despacho-container .cd-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1.5rem; /* 24px */
+  gap: 1.5rem;
+  /* 24px */
   align-items: stretch;
-  grid-auto-rows: 1fr; /* garante que cada linha tenha a mesma altura entre colunas */
+  grid-auto-rows: 1fr;
+  /* garante que cada linha tenha a mesma altura entre colunas */
 }
 
 /* Cada card toma a altura da célula do grid e organiza seu conteúdo com flex para manter o footer no fim */
@@ -1079,11 +1087,14 @@ body .summary-card {
 /* Scroll area para Fila de Preparação (container pai) */
 .central-despacho-container .cd-grid-container {
   /* altura responsiva que considera o header/topo e outros elementos */
-  height: auto; /* allow the container to expand naturally */
+  height: auto;
+  /* allow the container to expand naturally */
   max-height: 78vh;
   overflow-y: auto;
-  padding-right: 12px; /* evita colar cards na scrollbar */
-  padding-bottom: 120px; /* espaço extra para últimos cards e botões (120px) */
+  padding-right: 12px;
+  /* evita colar cards na scrollbar */
+  padding-bottom: 120px;
+  /* espaço extra para últimos cards e botões (120px) */
   display: block;
   box-sizing: border-box;
   scrollbar-width: thin;
@@ -1100,9 +1111,11 @@ body .summary-card {
 .central-despacho-container .cd-grid-container::-webkit-scrollbar {
   width: 8px;
 }
+
 .central-despacho-container .cd-grid-container::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .central-despacho-container .cd-grid-container::-webkit-scrollbar-thumb {
   background: #334155;
   border-radius: 999px;
