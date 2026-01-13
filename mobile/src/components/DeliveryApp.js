@@ -216,9 +216,37 @@ export default function DeliveryApp(props) {
                 if (initialErr) {
                     console.warn('Erro ao buscar entregas iniciais (mobile):', initialErr.message || initialErr);
                 } else if (initial) {
+                    // Mostra um exemplo de linha para ajudar debug de nomes de colunas e formato
+                    try { console.log('Dados do Banco (exemplo):', initial[0]); } catch (e) { /* ignore */ }
+
                     // normalize tipo_servico and ensure strings
                     const normalized = initial.map(i => normalizePedido(i));
-                    setPedidos(normalized);
+
+                    // Se o usuário já reordenou a lista localmente, não destruímos a ordem: apenas atualizamos os itens existentes e anexamos novos
+                    setPedidos(prev => {
+                        try {
+                            if (prev && prev.length > 0 && userReorderedRef.current) {
+                                console.log('Mesclando pedidos do servidor preservando ordem local');
+                                const fetchedById = new Map(normalized.map(f => [String(f.id), f]));
+                                const merged = prev.map(p => {
+                                    const f = fetchedById.get(String(p.id));
+                                    if (f) {
+                                        fetchedById.delete(String(p.id));
+                                        return { ...p, ...f }; // mantém ordem local, atualiza com dados do banco
+                                    }
+                                    return p;
+                                });
+                                // adicionar novos itens vindos do banco que não existiam localmente
+                                for (const f of fetchedById.values()) merged.push(f);
+                                return merged;
+                            } else {
+                                return normalized;
+                            }
+                        } catch (e) {
+                            console.warn('Erro ao mesclar pedidos iniciais:', e);
+                            return normalized;
+                        }
+                    });
                 }
             } catch (err) {
                 console.warn('Erro ao buscar entregas iniciais (mobile):', err?.message || err);
@@ -250,6 +278,9 @@ export default function DeliveryApp(props) {
             centeredOnceRef.current = true;
         }
     }, [pedidos]);
+
+    // Marca se o usuário já reordenou manualmente os pedidos — usado para preservar ordem local ao mesclar dados do servidor
+    const userReorderedRef = useRef(false);
 
     useEffect(() => {
         if (pedidoSelecionado && pedidoSelecionado.lat && pedidoSelecionado.lng) {
@@ -359,6 +390,8 @@ export default function DeliveryApp(props) {
     const trocarPosicao = (id, index) => {
         // 1. Marca qual card vai passar por cima
         setIdVoando(id);
+        // O usuário está reordenando manualmente — marca para preservar ordem ao mesclar fetchs
+        userReorderedRef.current = true;
 
         // 2. Configura a animação de flutuação e escala
         LayoutAnimation.configureNext({
@@ -674,6 +707,8 @@ export default function DeliveryApp(props) {
     };
 
     const moverPedido = (fromIndex, toIndex) => {
+        // Marca que o usuário reordenou a lista manualmente
+        userReorderedRef.current = true;
         setPedidos(prev => {
             const novoRoteiro = [...prev]; // cria novo array para forçar rerender
             if (toIndex < 0 || toIndex >= novoRoteiro.length) return prev;
@@ -729,11 +764,11 @@ export default function DeliveryApp(props) {
 
     const getCardStyle = (item) => {
         const tipo = (item && item.tipo_servico) ? String(item.tipo_servico).toLowerCase() : '';
-        if (tipo === 'entrega') return { backgroundColor: 'rgba(0,122,255,0.3)' };
-        if (tipo === 'recolha') return { backgroundColor: 'rgba(255,149,0,0.3)' };
-        if (tipo === 'outros') return { backgroundColor: 'rgba(175,82,222,0.3)' };
-        return { backgroundColor: '#111827' };
-    };
+        if (tipo === 'entrega') return { backgroundColor: 'rgba(0,150,255,0.4)' };
+        if (tipo === 'recolha') return { backgroundColor: 'rgba(255,120,0,0.4)' };
+        if (tipo === 'outros') return { backgroundColor: 'rgba(150,0,255,0.4)' };
+        return { backgroundColor: 'rgba(255,255,255,0.8)' };
+    }; 
 
     function renderPedidoItem(p, idx) {
         const item = p;
