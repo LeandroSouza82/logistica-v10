@@ -766,21 +766,24 @@ export default function DeliveryApp(props) {
     };
 
     const getCardStyle = (item) => {
-        const valorBanco = String(item.tipo_servico || '').toLowerCase().trim();
-        let corCard = 'rgba(150, 0, 255, 0.4)'; // Padrão Lilás (Outros)
+        // Procura o tipo em várias colunas possíveis que você pode ter usado
+        const textoTipo = (item.tipo_servico || item.tipo || item.categoria || item.descricao || '').toLowerCase();
 
-        if (valorBanco.includes('entreg')) {
-            corCard = 'rgba(0, 122, 255, 0.4)'; // Azul (Entrega)
-        } else if (valorBanco.includes('recolh') || valorBanco.includes('colet')) {
-            corCard = 'rgba(255, 149, 0, 0.4)'; // Laranja (Recolha/Coleta)
+        let corFundo = 'rgba(150, 0, 255, 0.4)'; // Lilás (Padrão)
+
+        if (textoTipo.includes('entreg')) {
+            corFundo = 'rgba(0, 122, 255, 0.6)'; // Azul (Ficou mais forte para você ver)
+        } else if (textoTipo.includes('recolh') || textoTipo.includes('colet')) {
+            corFundo = 'rgba(255, 149, 0, 0.6)'; // Laranja
         }
 
-        return { backgroundColor: corCard };
+        return { backgroundColor: corFundo };
     };  
 
     function renderPedidoItem(p, idx) {
         const item = p;
-        // Diagnostic: mostra exatamente o valor vindo do banco para tipo_servico
+        // Diagnostic: mostra exatamente o objeto do card e o valor bruto do tipo
+        try { console.log('CONTEÚDO DO CARD:', item); } catch (e) { /* ignore */ }
         try { console.log('Tipo Real:', item.tipo_servico); } catch (e) { /* ignore */ }
         return (
             <TouchableOpacity style={[styles.cardGrande, getCardStyle(item), (pedidoSelecionado && pedidoSelecionado.id === item.id) ? styles.cardEmDestaque : null]} key={item.id} onPress={() => {
