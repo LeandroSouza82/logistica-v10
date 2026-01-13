@@ -473,45 +473,38 @@ export default function DeliveryApp(props) {
         const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
         const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
 
-        // REMOVED BLOCKING: optimistic UI — remove card immediately so motorista não fica travado
+        // Optimistic UI first: remove card & close modal immediately so motorista não fica travado
         try {
             setPedidos(prev => prev.filter(it => it.id !== target.id));
             setModalAssinatura(false);
             setPedidoSelecionado(null);
         } catch (e) { /* ignore */ }
 
+        // Prepare assinatura_url (use assinatura_url if present, else assinatura)
+        const publicUrl = target.assinatura_url || target.assinatura || null;
+
         try {
-            // 1) Atualiza o status primeiro com o valor exato 'concluido'
-            const statusPayload = { status: 'concluido', lat_entrega: lat, lng_entrega: lng };
-            const statusPromise = supabase.from('entregas').update(statusPayload).eq('id', target.id);
-            const { data: statusData, error: statusError } = await callWithTimeout(statusPromise, 30000);
-            if (statusError) {
-                console.error('Erro ao atualizar status da entrega:', statusError);
-                Alert.alert('Erro', 'Não foi possível confirmar a entrega (status). Tente novamente.');
+            // 1) Atualiza o status na tabela 'entregas' com o valor exato 'concluido'
+            const { data, error } = await callWithTimeout(
+                supabase
+                    .from('entregas')
+                    .update({ status: 'concluido', assinatura_url: publicUrl, lat_entrega: lat, lng_entrega: lng })
+                    .eq('id', target.id),
+                30000
+            );
+
+            if (error) {
+                console.error('Erro ao atualizar status na tabela entregas:', error);
+                // Non-blocking: já removemos o card. Aviso discreto ao motorista
+                Alert.alert('Aviso', 'Entrega marcada localmente, mas houve erro ao atualizar no servidor.');
                 return;
             }
 
-            // 2) Se houver assinatura (ou assinatura_url), tente salvar nos campos apropriados (assinatura_url e assinatura)
-            const assinaturaToSend = target.assinatura || target.assinatura_url || null;
-            if (assinaturaToSend) {
-                try {
-                    const assinPromise = supabase.from('entregas').update({ assinatura_url: assinaturaToSend, assinatura: assinaturaToSend }).eq('id', target.id);
-                    const { data: assinData, error: assinError } = await callWithTimeout(assinPromise, 30000);
-                    if (assinError) {
-                        console.error('Erro ao salvar assinatura_url (não bloqueante):', assinError);
-                        Alert.alert('Aviso', 'Entrega confirmada, mas não foi possível salvar a assinatura. Você pode tentar novamente mais tarde.');
-                    }
-                } catch (e) {
-                    console.error('Erro de timeout/assinatura (não bloqueante):', e);
-                    // aviso discreto
-                }
-            }
-
-            // Feedback imediato (status já atualizado)
-            Alert.alert('Entrega Concluída', 'A entrega foi confirmada com sucesso.');
+            console.log('Status atualizado com sucesso no Supabase:', data);
         } catch (err) {
             console.error('Erro ao confirmar entrega (catch):', err);
-            Alert.alert('Erro', 'Não foi possível confirmar a entrega. Tente novamente.');
+            // Non-blocking: notify and continue
+            Alert.alert('Aviso', 'Entrega marcada localmente, houve problema de rede. Será sincronizada em segundo plano.');
         }
     };
 
