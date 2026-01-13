@@ -40,9 +40,10 @@ export default function DeliveryApp(props) {
 
     const [pedidos, setPedidos] = useState([]);
 
-    // Contadores dinâmicos do resumo (entregas / recolhas) conforme solicitado
-    const totalEntregas = pedidos.filter(p => String(p.tipo).toLowerCase().includes('entreg')).length;
-    const totalRecolhas = pedidos.filter(p => String(p.tipo).toLowerCase().includes('recolh')).length;
+    // Contadores dinâmicos do resumo (entregas / recolhas / outros) conforme solicitado
+    const totalEntregas = pedidos.filter(p => p.tipo?.toLowerCase().includes('entrega')).length;
+    const totalRecolhas = pedidos.filter(p => p.tipo?.toLowerCase().includes('recolha')).length;
+    const totalOutros = pedidos.filter(p => !p.tipo?.toLowerCase().includes('entrega') && !p.tipo?.toLowerCase().includes('recolha')).length;
 
     // Carrega pedidos salvos localmente (se existirem) ou usa fallback para dev
     useEffect(() => {
@@ -1158,7 +1159,7 @@ export default function DeliveryApp(props) {
                             <View style={styles.resumoRow}>
                                 <View style={styles.resumoBadge}><Text style={[styles.resumoIcon]}>👤</Text><Text style={styles.resumoText}>{totalEntregas}</Text></View>
                                 <View style={styles.resumoBadge}><Text style={[styles.resumoIcon]}>📦</Text><Text style={styles.resumoText}>{totalRecolhas}</Text></View>
-                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon]}>✨</Text><Text style={styles.resumoText}>{pedidos.filter(p => { const t = String(p.tipo_servico || p.tipo || '').toLowerCase(); return !t.includes('entreg') && !t.includes('recolh'); }).length}</Text></View>
+                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon]}>✨</Text><Text style={styles.resumoText}>{totalOutros}</Text></View>
                             </View>
 
                             <FlatList
@@ -1252,7 +1253,7 @@ export default function DeliveryApp(props) {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalAssinaturaFull}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                             <Text style={styles.modalTitle}>ASSINATURA DO CLIENTE</Text>
                             {/* Camera icon: tira foto e confirma entrega */}
                             <TouchableOpacity style={{ padding: 8 }} onPress={() => capturePhotoAndConfirm(pedidoSelecionado)}>
