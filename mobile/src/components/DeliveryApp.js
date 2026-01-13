@@ -783,17 +783,19 @@ export default function DeliveryApp(props) {
     function renderPedidoItem(p, idx) {
         const item = p;
         // Diagnostic: mostra exatamente o objeto do card e o valor bruto do tipo
-        try { console.log('CONTEÚDO DO CARD:', item); } catch (e) { /* ignore */ }
+        try { console.log('PEDIDO COMPLETO:', item); } catch (e) { /* ignore */ }
         try { console.log('Tipo Real:', item.tipo_servico); } catch (e) { /* ignore */ }
 
-        // Lógica dinâmica de label e cor baseada no tipo
-        const tipoDinamico = String(item.tipo_servico || '').toLowerCase().trim();
+        // Procura o tipo em várias colunas possíveis (fallback resistente)
+        const tipoReal = (item.tipo_servico || item.tipo || item.categoria || item.descricao || '').toLowerCase();
+
         let label = 'Outros';
         let corCard = 'rgba(150, 0, 255, 0.4)'; // Lilás
-        if (tipoDinamico.includes('entreg')) {
+
+        if (tipoReal.includes('entreg')) {
             label = 'Entrega';
             corCard = 'rgba(0, 122, 255, 0.4)';
-        } else if (tipoDinamico.includes('recolh') || tipoDinamico.includes('colet')) {
+        } else if (tipoReal.includes('recolh') || tipoReal.includes('colet')) {
             label = 'Recolha';
             corCard = 'rgba(255, 149, 0, 0.4)';
         }
@@ -816,7 +818,7 @@ export default function DeliveryApp(props) {
             }} activeOpacity={0.9}>
 
                 <View style={styles.cardHeader}>
-                    <View style={styles.badge}><Text style={styles.badgeTextLarge}>{idx + 1}º - {label}</Text></View>
+                    <View style={styles.badge}><Text style={styles.badgeTextLarge}>{idx + 1}º - {label} #{item.id}</Text></View>
                     <View style={styles.cardHeaderRight}>
                         <TouchableOpacity disabled={idx === 0} onPress={() => moverPedido(idx, idx - 1)} style={styles.arrowBtn}><Text>⬆️</Text></TouchableOpacity>
                         <TouchableOpacity disabled={idx === pedidos.length - 1} onPress={() => moverPedido(idx, idx + 1)} style={styles.arrowBtn}><Text>⬇️</Text></TouchableOpacity>
