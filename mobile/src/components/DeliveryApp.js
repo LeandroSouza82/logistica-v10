@@ -144,7 +144,7 @@ export default function DeliveryApp(props) {
                 (payload) => {
                     try {
                         const motoristaId = props?.motoristaId ?? 1;
-                                const novo = payload.new || {};
+                        const novo = payload.new || {};
                         if (Number(novo.motorista_id) !== Number(motoristaId)) return;
                         console.log('Realtime INSERT entrega para este motorista:', novo);
                         const normalized = normalizePedido(novo);
@@ -187,7 +187,7 @@ export default function DeliveryApp(props) {
                 },
                 (payload) => {
                     try {
-                                const old = payload.old || {};
+                        const old = payload.old || {};
                         const motoristaId = props?.motoristaId ?? 1;
                         if (Number(old.motorista_id) !== Number(motoristaId)) return;
                         console.log('Realtime DELETE entrega para este motorista:', old);
@@ -412,7 +412,7 @@ export default function DeliveryApp(props) {
 
         // 3. Reseta o ID após a animação para ele voltar ao nível normal
         setTimeout(() => setIdVoando(null), 700);
-    }; 
+    };
 
     // Abre o discador para chamar o motorista
     const callMotorista = (phone) => {
@@ -654,20 +654,52 @@ export default function DeliveryApp(props) {
         }
     })).current;
 
-    const abrirWhatsApp = async (motivo) => {
-        // envia mensagem ao gestor com o motivo e dados do pedido selecionado
-        if (!pedidoSelecionado) {
+    const abrirOcorrenciaRapida = async (item) => {
+        // action sheet with quick options
+        const options = ['Endereço não localizado', 'Cliente ausente', 'Recusado', 'Cancelar'];
+        const handlers = [
+            async () => handleOcorrenciaChoice('Endereço não localizado', item),
+            async () => handleOcorrenciaChoice('Cliente ausente', item),
+            async () => handleOcorrenciaChoice('Recusado', item),
+            () => null
+        ];
+
+        if (Platform.OS === 'ios') {
+            ActionSheetIOS.showActionSheetWithOptions({ options, cancelButtonIndex: 3 }, (idx) => { handlers[idx]?.(); });
+        } else {
+            Alert.alert('Ocorrência', 'Escolha o motivo', [
+                { text: options[0], onPress: handlers[0] },
+                { text: options[1], onPress: handlers[1] },
+                { text: options[2], onPress: handlers[2] },
+                { text: 'Cancelar', style: 'cancel' }
+            ]);
+        }
+    };
+
+    const handleOcorrenciaChoice = async (motivo, item) => {
+        try {
+            // pega coords atuais
+            let coords = null;
+            try { const l = await Location.getCurrentPositionAsync(); coords = { latitude: l.coords.latitude, longitude: l.coords.longitude }; } catch (e) { /* ignore */ }
+            await abrirWhatsApp(motivo, item, coords);
+        } catch (e) { console.warn('Erro ao processar ocorrência rápida:', e); }
+    };
+
+    const abrirWhatsApp = async (motivo, item = null, coords = null) => {
+        const pedido = item || pedidoSelecionado;
+        if (!pedido) {
             Alert.alert('Erro', 'Nenhum pedido selecionado para reportar.');
             return;
         }
         const phone = (GESTOR_PHONE || '').replace(/[^0-9]/g, '');
-        const text = `Ocorrência no pedido #${pedidoSelecionado.id} - ${pedidoSelecionado.cliente}\nMotivo: ${motivo}\nObservações: ${textoOcorrencia || ''}\nEndereço: ${pedidoSelecionado.endereco || ''}`;
+        const lat = coords?.latitude ?? pedido.lat ?? '';
+        const lng = coords?.longitude ?? pedido.lng ?? '';
+        const maps = (lat && lng) ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : 'Localização não disponível';
+        const text = `Ocorrência no Pedido #${pedido.id}: ${motivo}. Localização: ${maps}`;
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
         try {
             await Linking.openURL(url);
-            setModalOcorrencia(false);
-            setTextoOcorrencia('');
-            setPedidoSelecionado(null);
+            // no modal handling here (we use quick menu)
         } catch (err) {
             console.warn('Erro ao abrir WhatsApp:', err);
             Alert.alert('Erro', 'Não foi possível abrir o WhatsApp.');
@@ -675,7 +707,8 @@ export default function DeliveryApp(props) {
     };
 
     const openExternalNavigation = async (item) => {
-        const lat = item?.lat;
+        // ensure ActionSheet/Alert options include Google / Waze
+        // unchanged implementation continues...        const lat = item?.lat;
         const lng = item?.lng;
         if (!lat || !lng) {
             Alert.alert('Localização indisponível', 'Este pedido não tem coordenadas.');
@@ -743,6 +776,7 @@ export default function DeliveryApp(props) {
                 setPedidoSelecionado(sel || null);
             }
 
+            // Update summary counters (will be recalculated from pedidos state)
             return novoRoteiro;
         });
     };
@@ -797,7 +831,7 @@ export default function DeliveryApp(props) {
         }
 
         return { backgroundColor: corFundo };
-    };  
+    };
 
     function renderPedidoItem(p, idx) {
         const item = p;
@@ -854,6 +888,16 @@ export default function DeliveryApp(props) {
                 <View style={styles.btnRowThree}>
                     <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#002366' }]} onPress={() => { const top = pedidos[0] || item; openExternalNavigation(top); }}>
                         <Text style={[styles.btnIconText, { color: '#fff' }]}>ROTA</Text>
+                    </TouchableOpacity>
+
+                    {/* Camera button */}
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#444' }]} onPress={() => tirarFoto(item)}>
+                        <Text style={[styles.btnIconText, { color: '#fff' }]}>📷</Text>
+                    </TouchableOpacity>
+
+                    {/* Não Entregue quick menu */}
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#e74c3c' }]} onPress={() => abrirOcorrenciaRapida(item)}>
+                        <Text style={[styles.btnIconText, { color: '#fff' }]}>NÃO ENTREGUE</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#e74c3c' }]} onPress={() => { setPedidoSelecionado(item); setModalOcorrencia(true); }}>
@@ -954,6 +998,11 @@ export default function DeliveryApp(props) {
                         </TouchableOpacity>
 
                         <View style={styles.sheetContentGlass}>
+                            {/* Resumo do dia */}
+                            <View style={styles.resumoRow}>
+                                <Text style={styles.resumoText}>✅ Entregas: {pedidos.filter(p => String(p.tipo).toLowerCase().includes('entreg')).length} | 📦 Recolhas: {pedidos.filter(p => String(p.tipo).toLowerCase().includes('recolh') || String(p.tipo).toLowerCase().includes('colet')).length}</Text>
+                            </View>
+
                             <FlatList
                                 data={pedidos}
                                 extraData={pedidos}
@@ -1170,6 +1219,8 @@ const styles = StyleSheet.create({
     badgeText: { color: '#fff', fontWeight: '700' },
     badgeTextLarge: { color: '#fff', fontWeight: '800', fontSize: 22 },
     badgeId: { color: '#fff', fontWeight: '600', fontSize: 12, marginTop: 2 },
+    resumoRow: { backgroundColor: 'rgba(255,255,255,0.06)', padding: 8, borderRadius: 10, marginBottom: 8, alignItems: 'center' },
+    resumoText: { color: '#fff', fontWeight: '700' },
     modalButtonsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
     btnCancel: { flex: 1, backgroundColor: '#e74c3c', paddingVertical: 12, borderRadius: 10, marginRight: 8, alignItems: 'center' },
     btnSend: { flex: 1, backgroundColor: '#28a745', paddingVertical: 12, borderRadius: 10, marginLeft: 8, alignItems: 'center' },
