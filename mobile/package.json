@@ -37,9 +37,10 @@
   },
   "devDependencies": {
     "@expo/webpack-config": "^19.0.1",
-    "babel-preset-expo": "^54.0.9"  },
+    "babel-preset-expo": "^54.0.9"
+  },
   "overrides": {
     "semver": "7.5.2",
-    "webpack-dev-server": "5.2.3"
+    "webpack-dev-server": "4.15.2"
   }
 }
