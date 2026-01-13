@@ -325,7 +325,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     console.log('Realtime INSERT motorista:', novo);
                     const m = normalizeMotorista(novo);
                     // adiciona ao estado
-                    setMotoristas(prev => [ { ...m, isOnline: String(novo.status || '').toLowerCase() === 'online' }, ...prev ]);
+                    setMotoristas(prev => [{ ...m, isOnline: String(novo.status || '').toLowerCase() === 'online' }, ...prev]);
 
                     // se já tiver coords e estiver online, atualiza a posição imediatamente
                     const lat = novo.lat != null ? Number(novo.lat) : null;

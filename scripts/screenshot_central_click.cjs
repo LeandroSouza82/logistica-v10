@@ -8,8 +8,8 @@ const { chromium } = require('playwright');
         const useFile = !!process.env.USE_FILE;
         const pathModule = require('path');
         const tab = process.env.TAB || 'central-despacho';
-    const selectorByTab = tab === 'nova-carga' ? 'text=Registrar Encomenda' : 'text=Fila de Preparação';
-    const base = useFile ? `file://${pathModule.resolve(process.cwd(), 'dist', 'index.html')}?tab=${tab}` : `http://${host}:${port}/?tab=${tab}`;
+        const selectorByTab = tab === 'nova-carga' ? 'text=Registrar Encomenda' : 'text=Fila de Preparação';
+        const base = useFile ? `file://${pathModule.resolve(process.cwd(), 'dist', 'index.html')}?tab=${tab}` : `http://${host}:${port}/?tab=${tab}`;
         console.log('CONNECTING_TO', base);
         await page.goto(base, { waitUntil: 'load', timeout: 30000 });
         // Tentar clicar na aba correspondente (caso precisemos ativar via nav)

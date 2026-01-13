@@ -549,7 +549,8 @@ body,
 /* === Badges: estilo base e variações globais para serem usadas tanto em Status da Operação quanto na Fila de Preparação === */
 .status-badge {
   padding: 4px 12px !important;
-  border-radius: 20px !important; /* arredondado */
+  border-radius: 20px !important;
+  /* arredondado */
   font-weight: 800 !important;
   text-transform: uppercase !important;
   font-size: 0.8rem !important;

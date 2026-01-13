@@ -157,13 +157,14 @@ export default function App() {
     const enviarLocalizacao = async (lat, lng) => {
         if (!motoristaId) return;
         try {
+            const now = new Date();
             const { error } = await supabase
                 .from('motoristas')
-                .update({ lat, lng, ultimo_sinal: new Date() })
+                .update({ lat, lng, ultimo_sinal: now, status: 'online' })
                 .eq('id', motoristaId);
 
             if (error) console.error('Erro ao subir GPS:', error.message);
-            else console.log('Localização enviada:', lat, lng);
+            else console.log('Localização enviada:', lat, lng, 'status set to online at', now.toISOString());
         } catch (e) {
             console.error('Erro ao enviar localização:', e);
         }
