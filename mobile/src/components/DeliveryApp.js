@@ -119,6 +119,68 @@ export default function DeliveryApp(props) {
                     }
                 }
             )
+            // Realtime para entregas referentes a este motorista — evita receber todo o tráfego do DB
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'entregas',
+                },
+                (payload) => {
+                    try {
+                        const motoristaId = props?.motoristaId ?? 1;
+                        const novo = payload.new || {};
+                        if (Number(novo.motorista_id) !== Number(motoristaId)) return;
+                        console.log('Realtime INSERT entrega para este motorista:', novo);
+                        setPedidos(prev => {
+                            // evita duplicata
+                            if (prev.some(p => Number(p.id) === Number(novo.id))) return prev;
+                            return [novo, ...prev];
+                        });
+                    } catch (e) {
+                        console.warn('Erro ao processar INSERT em entregas (mobile):', e?.message || e);
+                    }
+                }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'entregas',
+                },
+                (payload) => {
+                    try {
+                        const motoristaId = props?.motoristaId ?? 1;
+                        const novo = payload.new || {};
+                        if (Number(novo.motorista_id) !== Number(motoristaId)) return;
+                        console.log('Realtime UPDATE entrega para este motorista:', novo);
+                        setPedidos(prev => prev.map(p => (Number(p.id) === Number(novo.id) ? { ...p, ...novo } : p)));
+                    } catch (e) {
+                        console.warn('Erro ao processar UPDATE em entregas (mobile):', e?.message || e);
+                    }
+                }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'DELETE',
+                    schema: 'public',
+                    table: 'entregas',
+                },
+                (payload) => {
+                    try {
+                        const old = payload.old || {};
+                        const motoristaId = props?.motoristaId ?? 1;
+                        if (Number(old.motorista_id) !== Number(motoristaId)) return;
+                        console.log('Realtime DELETE entrega para este motorista:', old);
+                        setPedidos(prev => prev.filter(p => Number(p.id) !== Number(old.id)));
+                    } catch (e) {
+                        console.warn('Erro ao processar DELETE em entregas (mobile):', e?.message || e);
+                    }
+                }
+            )
             .subscribe();
 
         return () => {
@@ -319,12 +381,68 @@ export default function DeliveryApp(props) {
         ]);
     };
 
-    // Confirma a entrega do pedido atualmente selecionado
+    // Confirma a entrega do pedido atualmente selecionado (sem assinatura)
     const confirmarEntrega = () => {
         if (!pedidoSelecionado) return;
         setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'entregue' } : it));
         setModalAssinatura(false);
         setPedidoSelecionado(null);
+    };
+
+    // Handler quando a assinatura foi capturada (img é dataURL)
+    const handleSignatureOk = async (imgDataUrl) => {
+        if (!pedidoSelecionado) {
+            Alert.alert('Erro', 'Nenhum pedido selecionado para receber a assinatura.');
+            return;
+        }
+
+        try {
+            // pega coordenadas atuais do motorista (capturadas pelo Location watcher)
+            const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
+            const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
+            const concluded_at = new Date().toISOString();
+
+            let signatureUrlToSave = imgDataUrl; // fallback caso upload falhe
+
+            try {
+                // Tenta fazer upload para Supabase Storage (bucket 'signatures') — usa fetch para converter dataURL em blob
+                const blob = await (await fetch(imgDataUrl)).blob();
+                const filename = `entrega-${pedidoSelecionado.id || Date.now()}-${Date.now()}.png`;
+                const path = `signatures/${filename}`;
+                const { data: uploadData, error: uploadErr } = await supabase.storage.from('signatures').upload(path, blob, { upsert: true });
+                if (uploadErr) {
+                    console.warn('Upload de assinatura falhou, salvando como dataURL no DB:', uploadErr.message || uploadErr);
+                } else {
+                    const { data: pub } = supabase.storage.from('signatures').getPublicUrl(path);
+                    if (pub && pub.publicUrl) {
+                        signatureUrlToSave = pub.publicUrl;
+                    }
+                }
+            } catch (uErr) {
+                console.warn('Erro ao tentar enviar assinatura para Storage, fallback para dataURL:', uErr?.message || uErr);
+            }
+
+            // Atualiza a entrega com assinatura (URL ou dataURL) e coordenadas
+            const { data, error } = await supabase.from('entregas').update({
+                status: 'entregue',
+                assinatura_url: signatureUrlToSave,
+                lat_conclusao: lat,
+                lng_conclusao: lng,
+                concluded_at
+            }).eq('id', pedidoSelecionado.id);
+            if (error) throw error;
+
+            // Atualiza UI local (usa o valor final gravado)
+            setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'entregue', assinatura_url: signatureUrlToSave, lat_conclusao: lat, lng_conclusao: lng, concluded_at } : it));
+
+            Alert.alert('Sucesso', 'Assinatura registrada e entrega confirmada.');
+        } catch (err) {
+            console.error('Erro ao salvar assinatura:', err?.message || err);
+            Alert.alert('Erro', 'Não foi possível salvar a assinatura. Tente novamente.');
+        } finally {
+            setModalAssinatura(false);
+            setPedidoSelecionado(null);
+        }
     };
 
     // LOGICA PARA PEGAR A LOCALIZAÇÃO REAL EM TEMPO REAL
@@ -562,8 +680,8 @@ export default function DeliveryApp(props) {
                         <View style={styles.containerAssinatura}>
                             <SignatureScreen
                                 onOK={(img) => {
-                                    console.log(img); // Aqui você recebe a imagem da assinatura
-                                    confirmarEntrega();
+                                    // img é dataURL (base64). Salvamos assinatura + coords no pedido
+                                    handleSignatureOk(img);
                                 }}
                                 onEmpty={() => Alert.alert('Aviso', 'O cliente precisa assinar!')}
                                 descriptionText="Assine acima para confirmar"
