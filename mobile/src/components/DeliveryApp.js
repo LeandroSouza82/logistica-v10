@@ -6,6 +6,7 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import SignatureScreen from 'react-native-signature-canvas';
 import * as Location from 'expo-location'; // Biblioteca para o GPS
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { supabase } from '../supabaseClient';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -71,6 +72,13 @@ export default function DeliveryApp(props) {
 
     // LISTENER REALTIME: atualiza a posição quando o Supabase enviar updates (mesma frequência do banco)
     useEffect(() => {
+        (async () => {
+            try {
+                await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+            } catch (e) {
+                console.warn('Falha ao travar orientação:', e);
+            }
+        })();
         const channel = supabase
             .channel('schema-db-changes')
             .on(
@@ -405,18 +413,18 @@ export default function DeliveryApp(props) {
         try {
             const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
             const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
-            const concluded_at = new Date().toISOString();
 
+            const assinaturaToSend = pedidoSelecionado && pedidoSelecionado.assinatura ? pedidoSelecionado.assinatura : null;
             const { data, error } = await supabase.from('entregas').update({
-                status: 'entregue',
-                assinatura: null,
+                status: 'concluido',
+                assinatura: assinaturaToSend,
                 lat: lat,
                 lng: lng,
-                concluded_at
+                motorista_id: 1
             }).eq('id', pedidoSelecionado.id);
             if (error) throw error;
 
-            setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'entregue', assinatura: null, lat: lat, lng: lng, concluded_at } : it));
+            setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'concluido', assinatura: assinaturaToSend, lat: lat, lng: lng, motorista_id: 1 } : it));
             Alert.alert('Sucesso', 'Entrega confirmada.');
         } catch (err) {
             console.error('Erro ao confirmar entrega:', err?.message || err);
@@ -438,21 +446,22 @@ export default function DeliveryApp(props) {
             // pega coordenadas atuais do motorista (capturadas pelo Location watcher)
             const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
             const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
-            const concluded_at = new Date().toISOString();
 
             // assinatura em base64/dataURL para salvar no DB
             const assinaturaBase64 = imgDataUrl; // gravamos a assinatura (dataURL/base64) diretamente na coluna `assinatura` e as coordenadas em `lat`/`lng`
 
             // Atualiza a entrega no banco: gravamos apenas `assinatura`, `lat` e `lng` como requerido
             const { data, error } = await supabase.from('entregas').update({
+                status: 'concluido',
                 assinatura: assinaturaBase64,
                 lat: lat,
-                lng: lng
+                lng: lng,
+                motorista_id: 1
             }).eq('id', pedidoSelecionado.id);
             if (error) throw error;
 
-            // Atualiza UI local (mostramos o pedido como entregue localmente)
-            setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'entregue', assinatura: assinaturaBase64, lat: lat, lng: lng, concluded_at } : it));
+            // Atualiza UI local (mostramos o pedido como concluído localmente)
+            setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'concluido', assinatura: assinaturaBase64, lat: lat, lng: lng, motorista_id: 1 } : it));
 
             Alert.alert('Sucesso', 'Assinatura registrada e entrega confirmada.');
         } catch (err) {
