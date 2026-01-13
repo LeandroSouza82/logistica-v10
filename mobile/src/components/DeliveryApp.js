@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
     StyleSheet, Text, View, TouchableOpacity, Pressable, Animated, Modal, Image,
-    Dimensions, Linking, FlatList, TextInput, Alert, StatusBar, Platform, UIManager, LayoutAnimation, PanResponder, Easing
+    Dimensions, Linking, FlatList, TextInput, Alert, StatusBar, Platform, UIManager, LayoutAnimation, PanResponder, Easing, ActionSheetIOS
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import SignatureScreen from 'react-native-signature-canvas';
@@ -686,22 +686,44 @@ export default function DeliveryApp(props) {
         }
         const latNum = Number(lat);
         const lngNum = Number(lng);
-        // Try Waze first, then Google Navigation / Apple Maps, then fallback to web
+
         const wazeUrl = `waze://?ll=${latNum},${lngNum}&navigate=yes`;
-        const googleUrl = `google.navigation:q=${latNum},${lngNum}`;
+        const googleAndroid = `google.navigation:q=${latNum},${lngNum}`;
+        const googleIos = `comgooglemaps://?daddr=${latNum},${lngNum}`;
         const appleUrl = `http://maps.apple.com/?daddr=${latNum},${lngNum}`;
         const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latNum},${lngNum}`;
+
         try {
-            if (Platform.OS === 'android') {
+            // Build available options
+            const options = [];
+            const handlers = [];
+
+            if (Platform.OS === 'ios') {
+                const canGoogle = await Linking.canOpenURL(googleIos);
+                if (canGoogle) { options.push('Google Maps'); handlers.push(() => Linking.openURL(googleIos)); }
                 const canWaze = await Linking.canOpenURL(wazeUrl);
-                if (canWaze) return Linking.openURL(wazeUrl);
-                const canGoogle = await Linking.canOpenURL(googleUrl);
-                if (canGoogle) return Linking.openURL(googleUrl);
-                return Linking.openURL(webUrl);
+                if (canWaze) { options.push('Waze'); handlers.push(() => Linking.openURL(wazeUrl)); }
+                // Apple Maps is always an option on iOS
+                options.push('Apple Maps'); handlers.push(() => Linking.openURL(appleUrl));
             } else {
-                const canApple = await Linking.canOpenURL(appleUrl);
-                if (canApple) return Linking.openURL(appleUrl);
-                return Linking.openURL(webUrl);
+                const canGoogle = await Linking.canOpenURL(googleAndroid);
+                if (canGoogle) { options.push('Google Maps'); handlers.push(() => Linking.openURL(googleAndroid)); }
+                const canWaze = await Linking.canOpenURL(wazeUrl);
+                if (canWaze) { options.push('Waze'); handlers.push(() => Linking.openURL(wazeUrl)); }
+            }
+
+            // Fallback web
+            options.push('Abrir no navegador'); handlers.push(() => Linking.openURL(webUrl));
+            options.push('Cancelar'); handlers.push(() => null);
+
+            if (Platform.OS === 'ios') {
+                ActionSheetIOS.showActionSheetWithOptions({ options, cancelButtonIndex: options.length - 1 }, (buttonIndex) => {
+                    try { handlers[buttonIndex]?.(); } catch (e) { console.warn('Erro ao abrir opção escolhida:', e); }
+                });
+            } else {
+                // Android: use Alert with buttons
+                const buttons = options.map((opt, idx) => ({ text: opt, onPress: handlers[idx] }));
+                Alert.alert('Escolha o app de navegação', undefined, buttons);
             }
         } catch (err) {
             console.warn('Erro ao abrir navegação externa:', err);
@@ -833,8 +855,8 @@ export default function DeliveryApp(props) {
                 <View style={{ height: 12 }} />
 
                 <View style={styles.btnRowThree}>
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#3498db' }]} onPress={() => { const top = pedidos[0] || item; openExternalNavigation(top); }}>
-                        <Text style={[styles.btnIconText, { color: '#fff' }]}>Rota</Text>
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#0047AB' }]} onPress={() => { const top = pedidos[0] || item; openExternalNavigation(top); }}>
+                        <Text style={[styles.btnIconText, { color: '#fff' }]}>ROTA</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#e74c3c' }]} onPress={() => { setPedidoSelecionado(item); setModalOcorrencia(true); }}>
