@@ -1,8 +1,13 @@
 // Lightweight Sentry wrapper for mobile (expo). It will only try to use @sentry/expo if installed and SENTRY_DSN provided.
 export function captureException(e) {
     try {
-        // eslint-disable-next-line global-require
-        const Sentry = require('@sentry/expo');
+        // Avoid static require so bundlers don't error when package is absent
+        let Sentry = null;
+        try {
+            Sentry = eval('require')('@sentry/expo');
+        } catch (reqErr) {
+            Sentry = null;
+        }
         const dsn = process.env.SENTRY_DSN || process.env.EXPO_PUBLIC_SENTRY_DSN;
         if (Sentry && dsn) {
             try { Sentry.init({ dsn }); } catch (err) { /* ignore */ }
