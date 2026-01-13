@@ -179,15 +179,13 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
         // garante que a aba será alterada (Nova Carga) e que o componente receba o prefill
         setTimeout(() => setAbaAtiva('nova-carga'), 80);
     };
-    // Normalizador: converte latitude/longitude ou lat/lng para lat/lng numéricos
+    // Normalizador: usa apenas colunas `lat` e `lng` e converte para Number
     const normalizeMotorista = (m) => {
         if (!m) return m;
-        const latSrc = m.latitude ?? m.lat;
-        const lngSrc = m.longitude ?? m.lng;
         return {
             ...m,
-            lat: latSrc != null ? Number(latSrc) : (m.lat != null ? Number(m.lat) : undefined),
-            lng: lngSrc != null ? Number(lngSrc) : (m.lng != null ? Number(m.lng) : undefined),
+            lat: m.lat != null ? Number(m.lat) : undefined,
+            lng: m.lng != null ? Number(m.lng) : undefined,
         };
     };
 
@@ -256,10 +254,10 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     console.log('Realtime UPDATE motorista (raw):', newRaw, 'normalized:', updated);
 
                     // Detecta mudanças relevantes (lat/lng/ultimo_sinal/status)
-                    const latOld = oldRaw.lat != null ? Number(oldRaw.lat) : (oldRaw.latitude != null ? Number(oldRaw.latitude) : null);
-                    const lngOld = oldRaw.lng != null ? Number(oldRaw.lng) : (oldRaw.longitude != null ? Number(oldRaw.longitude) : null);
-                    const latNew = newRaw.lat != null ? Number(newRaw.lat) : (newRaw.latitude != null ? Number(newRaw.latitude) : null);
-                    const lngNew = newRaw.lng != null ? Number(newRaw.lng) : (newRaw.longitude != null ? Number(newRaw.longitude) : null);
+                    const latOld = oldRaw.lat != null ? Number(oldRaw.lat) : null;
+                    const lngOld = oldRaw.lng != null ? Number(oldRaw.lng) : null;
+                    const latNew = newRaw.lat != null ? Number(newRaw.lat) : null;
+                    const lngNew = newRaw.lng != null ? Number(newRaw.lng) : null;
                     const statusOld = String(oldRaw.status || '').toLowerCase();
                     const statusNew = String(newRaw.status || '').toLowerCase();
                     const ultimoOld = oldRaw.ultimo_sinal;
@@ -321,23 +319,27 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     console.warn('Erro ao processar DELETE em motoristas:', err);
                 }
             })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'localizacoes' }, (payload) => {
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'motoristas' }, (payload) => {
                 try {
-                    const loc = payload.new;
-                    console.log('Realtime INSERT localizacao:', loc);
+                    const novo = payload.new;
+                    console.log('Realtime INSERT motorista:', novo);
+                    const m = normalizeMotorista(novo);
+                    // adiciona ao estado
+                    setMotoristas(prev => [ { ...m, isOnline: String(novo.status || '').toLowerCase() === 'online' }, ...prev ]);
 
-                    // Atualiza posição do motorista correspondente em memória sem refetch pesado
-                    setMotoristas(prev => prev.map(m => (String(m.id) === String(loc.motorista_id) ? { ...m, lat: loc.lat, lng: loc.lng, ultimo_sinal: loc.created_at || loc.ultimo_sinal || new Date().toISOString() } : m)));
-
-                    // Se a localização pertence ao selecionado, centraliza o mapa
-                    if (selectedDriver && String(selectedDriver.id) === String(loc.motorista_id)) {
-                        const lat = Number(loc.lat);
-                        const lng = Number(loc.lng);
+                    // se já tiver coords e estiver online, atualiza a posição imediatamente
+                    const lat = novo.lat != null ? Number(novo.lat) : null;
+                    const lng = novo.lng != null ? Number(novo.lng) : null;
+                    const isOnlineNow = String(novo.status || '').toLowerCase() === 'online';
+                    if (lat != null && lng != null && isOnlineNow) {
                         setMotoPosition({ lat, lng });
+                        if (selectedDriver && String(selectedDriver.id) === String(novo.id)) {
+                            setActiveMarker({ id: novo.id, lat, lng, nome: novo.nome });
+                        }
                         try { mapRef.current?.panTo({ lat, lng }); } catch (e) { /* ignore */ }
                     }
                 } catch (err) {
-                    if (!handleSchemaCacheError(err)) console.warn('Erro ao processar INSERT em localizacoes:', err);
+                    if (!handleSchemaCacheError(err)) console.warn('Erro ao processar INSERT em motoristas:', err);
                 }
             })
             .subscribe();
