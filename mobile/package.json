@@ -40,6 +40,4 @@
     "@expo/webpack-config": "^19.0.1",
     "babel-preset-expo": "^54.0.9",
     "webpack-dev-server": "^4.15.2"
-  },
-
-}
+  }}
