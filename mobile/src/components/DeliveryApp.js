@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
     StyleSheet, Text, View, TouchableOpacity, Pressable, Animated, Modal, Image,
     Dimensions, Linking, ScrollView, TextInput, Alert, StatusBar, Platform, UIManager, LayoutAnimation, PanResponder, Easing
@@ -8,6 +8,13 @@ import SignatureScreen from 'react-native-signature-canvas';
 import * as Location from 'expo-location'; // Biblioteca para o GPS
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { supabase } from '../supabaseClient';
+
+// Optional blur support (expo-blur). Usamos require em try/catch para não quebrar o bundler quando não instalado
+let BlurView = null;
+try { BlurView = require('expo-blur').BlurView; } catch (e) { BlurView = null; }
+
+// Bottom sheet (manual implementation using PanResponder & Animated)
+// removed dependency on @gorhom/bottom-sheet and react-native-reanimated
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -34,41 +41,7 @@ export default function DeliveryApp(props) {
     const [pedidoSelecionado, setPedidoSelecionado] = useState(null);
     const [textoOcorrencia, setTextoOcorrencia] = useState('');
 
-    // dimensões obtidas no escopo do módulo
-    // Rastreia o movimento do dedo (pan responder)
-    const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-    const panResponder = useRef(
-        PanResponder.create({
-            onMoveShouldSetPanResponder: () => true,
-            onPanResponderMove: (e, gesture) => {
-                // Movimento direto sem atraso
-                panY.setValue(gesture.dy + SCREEN_HEIGHT / 2.2);
-            },
-            onPanResponderRelease: (e, gesture) => {
-                // Se o movimento for rápido (vel) ou longo (dy), ele fecha
-                if (gesture.dy > 150 || gesture.vy > 0.5) {
-                    Animated.spring(panY, {
-                        toValue: SCREEN_HEIGHT - 100,
-                        friction: 8, // Controle de balanço
-                        tension: 40, // Velocidade de resposta
-                        useNativeDriver: false,
-                    }).start();
-                } else {
-                    // Volta para a posição de comando
-                    Animated.spring(panY, {
-                        toValue: SCREEN_HEIGHT / 2.2,
-                        friction: 8,
-                        tension: 40,
-                        useNativeDriver: false,
-                    }).start();
-                }
-            },
-        })
-    ).current;
 
-    useEffect(() => {
-        Animated.spring(panY, { toValue: SCREEN_HEIGHT / 2.2, useNativeDriver: false }).start();
-    }, []);
 
     // LISTENER REALTIME: atualiza a posição quando o Supabase enviar updates (mesma frequência do banco)
     useEffect(() => {
@@ -408,23 +381,25 @@ export default function DeliveryApp(props) {
     };
 
     // Confirma a entrega do pedido atualmente selecionado (sem assinatura)
-    const confirmarEntrega = async () => {
-        if (!pedidoSelecionado) return;
+    // Confirma a entrega (aceita item opcional para permitir chamada imediata)
+    const confirmarEntrega = async (item = null) => {
+        const target = item || pedidoSelecionado;
+        if (!target) return;
         try {
             const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
             const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
 
-            const assinaturaToSend = pedidoSelecionado && pedidoSelecionado.assinatura ? pedidoSelecionado.assinatura : null;
+            const assinaturaToSend = target && target.assinatura ? target.assinatura : null;
             const { data, error } = await supabase.from('entregas').update({
                 status: 'concluido',
                 assinatura: assinaturaToSend,
                 lat: lat,
                 lng: lng,
                 motorista_id: 1
-            }).eq('id', pedidoSelecionado.id);
+            }).eq('id', target.id);
             if (error) throw error;
 
-            setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'concluido', assinatura: assinaturaToSend, lat: lat, lng: lng, motorista_id: 1 } : it));
+            setPedidos(pedidos.map(it => it.id === target.id ? { ...it, status: 'concluido', assinatura: assinaturaToSend, lat: lat, lng: lng, motorista_id: 1 } : it));
             Alert.alert('Sucesso', 'Entrega confirmada.');
         } catch (err) {
             console.error('Erro ao confirmar entrega:', err?.message || err);
@@ -548,6 +523,111 @@ export default function DeliveryApp(props) {
     // Forçando rastreio ativo por padrão para testes
     const [trackingActive, setTrackingActive] = useState(true);
 
+    // Bottom sheet (manual) positions
+    const TOP_Y = SCREEN_HEIGHT * 0.10; // 90% height visible
+    const MID_Y = SCREEN_HEIGHT * 0.50; // 50% height
+    const BOTTOM_Y = SCREEN_HEIGHT * 0.85; // 15% visible
+
+    const sheetTranslateY = useRef(new Animated.Value(BOTTOM_Y)).current;
+    const lastSnapY = useRef(BOTTOM_Y);
+    const startY = useRef(0);
+    const [isAtTop, setIsAtTop] = useState(false); // controls scroll
+
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+    const panResponder = useRef(PanResponder.create({
+        onMoveShouldSetPanResponder: (e, gestureState) => {
+            // Allow ScrollView to handle vertical gestures when the sheet is at the TOP
+            // and the touch did not start on the handle area.
+            try {
+                const touchedY = (e && e.nativeEvent && typeof e.nativeEvent.locationY === 'number') ? e.nativeEvent.locationY : 0;
+                const isHandleArea = touchedY <= 40; // matches handleContainer height
+                if (lastSnapY.current === TOP_Y && !isHandleArea) return false;
+            } catch (ex) {
+                // ignore and fall through to default behavior
+            }
+            return Math.abs(gestureState.dy) > 5; // require a small vertical move to engage
+        },
+        onPanResponderGrant: () => { startY.current = lastSnapY.current; },
+        onPanResponderMove: (e, gesture) => {
+            const newY = clamp(startY.current + gesture.dy, TOP_Y, BOTTOM_Y);
+            sheetTranslateY.setValue(newY);
+        },
+        onPanResponderRelease: (e, gesture) => {
+            let vy = gesture.vy;
+            const proposedY = clamp(startY.current + gesture.dy, TOP_Y, BOTTOM_Y);
+            let chosenY = proposedY;
+            if (vy < -0.5) chosenY = TOP_Y;
+            else if (vy > 0.5) chosenY = BOTTOM_Y;
+            else {
+                const distances = [
+                    { y: TOP_Y, d: Math.abs(proposedY - TOP_Y) },
+                    { y: MID_Y, d: Math.abs(proposedY - MID_Y) },
+                    { y: BOTTOM_Y, d: Math.abs(proposedY - BOTTOM_Y) },
+                ];
+                distances.sort((a, b) => a.d - b.d);
+                chosenY = distances[0].y;
+            }
+            Animated.spring(sheetTranslateY, { toValue: chosenY, useNativeDriver: true }).start(() => {
+                lastSnapY.current = chosenY;
+                setIsAtTop(chosenY === TOP_Y);
+            });
+        }
+    })).current;
+
+    const renderPedidoItem = useCallback((p) => {
+        const item = p;
+        return (
+            <TouchableOpacity style={[styles.cardGrande, (pedidoSelecionado && pedidoSelecionado.id === item.id) ? styles.cardEmDestaque : null]} key={item.id} onPress={() => {
+                // Seleciona o pedido e centraliza o mapa suavemente
+                setPedidoSelecionado(item);
+                if (item.lat && item.lng) {
+                    mapRef.current?.animateToRegion({ latitude: Number(item.lat), longitude: Number(item.lng), latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500);
+                }
+            }} activeOpacity={0.9}>
+                <Text style={styles.cardName}>#{item.id} — {item.cliente}</Text>
+                {item.observacoes ? <Text style={styles.observacoesText} numberOfLines={2}>{item.observacoes}</Text> : null}
+                <Text style={styles.addressText} numberOfLines={2}>{item.endereco || (item.rua ? `${item.rua}, ${item.numero || ''} ${item.bairro || ''}` : 'Endereço não disponível')}</Text>
+
+                <View style={{ height: 12 }} />
+
+                <View style={styles.btnRowThree}>
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#3498db' }]} onPress={async () => {
+                        if (item.lat && item.lng) {
+                            const lat = Number(item.lat);
+                            const lng = Number(item.lng);
+                            // animação interna
+                            mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500);
+                            // tenta abrir app de navegação externo
+                            const googleUrl = `google.navigation:q=${lat},${lng}`;
+                            const appleUrl = `http://maps.apple.com/?daddr=${lat},${lng}`;
+                            const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+                            try {
+                                const url = Platform.OS === 'ios' ? appleUrl : googleUrl;
+                                const can = await Linking.canOpenURL(url);
+                                if (can) await Linking.openURL(url);
+                                else await Linking.openURL(webUrl);
+                            } catch (e) {
+                                // fallback para web maps
+                                try { await Linking.openURL(webUrl); } catch (err) { console.warn('Não foi possível abrir a navegação:', err); }
+                            }
+                        }
+                    }}>
+                        <Text style={styles.btnIconText}>🗺️  Mapa</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#6c757d' }]} onPress={() => { setPedidoSelecionado(item); setModalAssinatura(true); }}>
+                        <Text style={styles.btnIconText}>✍️  Assinar</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#28a745' }]} onPress={() => { confirmarEntrega(item); }}>
+                        <Text style={styles.btnIconText}>✅  Confirmar</Text>
+                    </TouchableOpacity>
+                </View>
+            </TouchableOpacity>
+        );
+    }, [mapRef, setModalAssinatura, setPedidoSelecionado, confirmarEntrega, pedidoSelecionado]);
+
 
 
     return (
@@ -615,59 +695,32 @@ export default function DeliveryApp(props) {
 
 
 
-            <Animated.View {...panResponder.panHandlers} style={[styles.aba, { transform: [{ translateY: panY }] }]}>
-                <View style={styles.handleContainer}>
-                    <View style={styles.handle} />
-                </View>
-                {pedidos.length > 3 && (
-                    <View style={styles.dragHint}>
-                        <Text style={styles.dragHintText}>⬇️ Arraste para ver mais</Text>
+            {/* Bottom sheet - manual Animated View with PanResponder (glass backdrop) */}
+            <Animated.View
+                style={[styles.sheet, { transform: [{ translateY: sheetTranslateY }] }]}
+                {...panResponder.panHandlers}
+            >
+                <View style={styles.sheetBackdrop}>
+                    {BlurView ? <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} /> : null}
+
+                    <View style={styles.sheetInner}>
+                        <TouchableOpacity style={styles.handleContainer} activeOpacity={0.7} onPress={() => {
+                            const next = (lastSnapY.current === TOP_Y) ? MID_Y : TOP_Y;
+                            Animated.spring(sheetTranslateY, { toValue: next, useNativeDriver: true }).start(() => {
+                                lastSnapY.current = next;
+                                setIsAtTop(next === TOP_Y);
+                            });
+                        }}>
+                            <View style={styles.handle} />
+                        </TouchableOpacity>
+
+                        <View style={styles.sheetContentGlass}>
+                            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 160, paddingTop: 6, paddingHorizontal: 12 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isAtTop}>
+                                {pedidos.map(p => renderPedidoItem(p))}
+                            </ScrollView>
+                        </View>
                     </View>
-                )}
-                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100, paddingTop: 6 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                    {pedidos.map((p, index) => {
-                        const estaVoando = idVoando === p.id;
-
-                        return (
-                            (() => {
-                                const scale = getScale(p.id);
-                                return (
-                                    <Pressable
-                                        key={p.id}
-                                        onPress={() => trocarPosicao(p.id, index)}
-                                        onPressIn={() => Animated.spring(scale, { toValue: 0.98, useNativeDriver: true, friction: 4 }).start()}
-                                        onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4 }).start()}
-                                    >
-                                        <Animated.View style={[styles.cardCompacto, idVoando === p.id && styles.cardEmDestaque, { transform: [{ scale }] }]}>
-                                            {/* ÁREA DO GESTOR REDUZIDA */}
-                                            <View style={styles.areaGestorCompacta}>
-                                                <Text style={styles.textoGestorMini} numberOfLines={1}>
-                                                    ⚠️ {p.instrucao || "Sem avisos"}
-                                                </Text>
-                                            </View>
-
-                                            <Text style={styles.clienteNomeMini}>#{p.id} - {p.cliente}</Text>
-
-                                            <View style={styles.btnRowMini}>
-                                                <TouchableOpacity style={[styles.btnMini, { backgroundColor: '#3498db' }]} onPress={() => Linking.openURL(`google.navigation:q=${p.lat},${p.lng}`)}>
-                                                    <Text style={styles.btnTextMini}>GPS</Text>
-                                                </TouchableOpacity>
-
-                                                <TouchableOpacity style={[styles.btnMini, { backgroundColor: '#e74c3c' }]} onPress={() => { setPedidoSelecionado(p); setModalOcorrencia(true); }}>
-                                                    <Text style={styles.btnTextMini}>FALHA</Text>
-                                                </TouchableOpacity>
-
-                                                <TouchableOpacity style={[styles.btnMini, { backgroundColor: '#2ecc71' }]} onPress={() => { setPedidoSelecionado(p); setModalAssinatura(true); }}>
-                                                    <Text style={styles.btnTextMini}>OK</Text>
-                                                </TouchableOpacity>
-                                            </View>
-                                        </Animated.View>
-                                    </Pressable>
-                                );
-                            })()
-                        );
-                    })}
-                </ScrollView>
+                </View>
             </Animated.View>
 
 
@@ -789,19 +842,78 @@ const styles = StyleSheet.create({
         marginBottom: 15,
     },
     abaTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
+    sheet: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        height: SCREEN_HEIGHT,
+        backgroundColor: '#0f1720',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        zIndex: 50,
+        elevation: 30,
+    },
+    sheetContent: {
+        flex: 1,
+        paddingHorizontal: 8,
+        paddingBottom: 40,
+    },
+    /* Glassmorphism backdrop & inner content */
+    sheetBackdrop: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(12,14,18,0.6)',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        overflow: 'hidden',
+    },
+    sheetInner: {
+        flex: 1,
+        paddingTop: 6,
+    },
+    sheetContentGlass: {
+        flex: 1,
+        backgroundColor: 'rgba(255,255,255,0.02)',
+        paddingHorizontal: 8,
+        paddingBottom: 40,
+    },
+    btnRowThree: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    btnSmall: {
+        width: '32%',
+        paddingVertical: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    btnIconText: { color: '#FFF', fontWeight: 'bold', fontSize: 14, textAlign: 'center' },
     cardGrande: {
-        backgroundColor: '#1E1E1E',
-        borderRadius: 30,
-        padding: 22,
-        marginBottom: 20,
+        backgroundColor: '#111827',
+        borderRadius: 18,
+        padding: 24,
+        marginBottom: 18,
         elevation: 5,          // Sombra normal para os cards parados
         zIndex: 1,             // Nível normal
     },
     cardName: {
         color: '#FFF',
-        fontSize: 22,     // Nome do cliente bem grande
+        fontSize: 24,     // Nome do cliente bem grande
         fontWeight: 'bold',
-        marginBottom: 15,
+        marginBottom: 8,
+    },
+    observacoesText: {
+        color: '#FFD580',
+        fontStyle: 'italic',
+        marginBottom: 8,
+        fontSize: 15,
+    },
+    addressText: {
+        color: '#fff',
+        fontSize: 16,
+        marginBottom: 12,
+        fontWeight: '600'
     },
     btnRow: { flexDirection: 'row', justifyContent: 'space-between' },
     modalOverlay: {
@@ -1036,8 +1148,8 @@ const styles = StyleSheet.create({
     // estilos adicionados para o novo layout de botões
     btnLargo: {
         width: '100%',
-        paddingVertical: 12, // Diminuído conforme solicitado
-        borderRadius: 15,
+        paddingVertical: 16,
+        borderRadius: 14,
         alignItems: 'center',
     },
     btnTrocarInferior: {
