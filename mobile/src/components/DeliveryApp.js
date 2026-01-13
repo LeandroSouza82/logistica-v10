@@ -766,11 +766,16 @@ export default function DeliveryApp(props) {
     };
 
     const getCardStyle = (item) => {
-        const tipoBruto = item?.tipo_servico ? String(item.tipo_servico).trim().toLowerCase() : '';
-        let corFundo = 'rgba(150,0,255,0.4)'; // lilás por padrão (outros)
-        if (tipoBruto === 'entrega') corFundo = 'rgba(0,122,255,0.4)';
-        else if (tipoBruto === 'recolha') corFundo = 'rgba(255,149,0,0.4)';
-        return { backgroundColor: corFundo };
+        const valorBanco = String(item.tipo_servico || '').toLowerCase().trim();
+        let corCard = 'rgba(150, 0, 255, 0.4)'; // Padrão Lilás (Outros)
+
+        if (valorBanco.includes('entreg')) {
+            corCard = 'rgba(0, 122, 255, 0.4)'; // Azul (Entrega)
+        } else if (valorBanco.includes('recolh') || valorBanco.includes('colet')) {
+            corCard = 'rgba(255, 149, 0, 0.4)'; // Laranja (Recolha/Coleta)
+        }
+
+        return { backgroundColor: corCard };
     };  
 
     function renderPedidoItem(p, idx) {
