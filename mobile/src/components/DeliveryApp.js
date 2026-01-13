@@ -766,15 +766,17 @@ export default function DeliveryApp(props) {
     };
 
     const getCardStyle = (item) => {
-        const tipo = item?.tipo_servico?.toLowerCase?.() || '';
-        if (tipo === 'entrega') return { backgroundColor: 'rgba(0,150,255,0.4)' };
-        if (tipo === 'recolha') return { backgroundColor: 'rgba(255,120,0,0.4)' };
-        if (tipo === 'outros') return { backgroundColor: 'rgba(150,0,255,0.4)' };
-        return { backgroundColor: 'rgba(255,255,255,0.8)' };
+        const tipoBruto = item?.tipo_servico ? String(item.tipo_servico).trim().toLowerCase() : '';
+        let corFundo = 'rgba(150,0,255,0.4)'; // lilás por padrão (outros)
+        if (tipoBruto === 'entrega') corFundo = 'rgba(0,122,255,0.4)';
+        else if (tipoBruto === 'recolha') corFundo = 'rgba(255,149,0,0.4)';
+        return { backgroundColor: corFundo };
     };  
 
     function renderPedidoItem(p, idx) {
         const item = p;
+        // Diagnostic: mostra exatamente o valor vindo do banco para tipo_servico
+        try { console.log('Tipo Real:', item.tipo_servico); } catch (e) { /* ignore */ }
         return (
             <TouchableOpacity style={[styles.cardGrande, getCardStyle(item), (pedidoSelecionado && pedidoSelecionado.id === item.id) ? styles.cardEmDestaque : null]} key={item.id} onPress={() => {
                 // Seleciona o pedido, centraliza o mapa suavemente e sobe a aba para TOP
