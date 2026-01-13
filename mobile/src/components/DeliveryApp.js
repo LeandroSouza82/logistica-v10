@@ -786,22 +786,22 @@ export default function DeliveryApp(props) {
         try { console.log('PEDIDO COMPLETO:', item); } catch (e) { /* ignore */ }
         try { console.log('Tipo Real:', item.tipo_servico); } catch (e) { /* ignore */ }
 
-        // Procura o tipo em várias colunas possíveis (fallback resistente)
-        const tipoReal = (item.tipo_servico || item.tipo || item.categoria || item.descricao || '').toLowerCase();
+        // Use a coluna `tipo` explicitamente (mas normalize para evitar problemas de caixa/espaços)
+        const rawTipo = String(item.tipo || '').trim();
+        const tipoNormalized = rawTipo.toLowerCase();
 
         let label = 'Outros';
-        let corCard = 'rgba(150, 0, 255, 0.4)'; // Lilás
+        let corCard = 'rgba(175, 82, 222, 0.5)'; // Lilás (Outros)
 
-        if (tipoReal.includes('entreg')) {
+        if (tipoNormalized === 'entrega') {
             label = 'Entrega';
-            corCard = 'rgba(0, 122, 255, 0.4)';
-        } else if (tipoReal.includes('recolh') || tipoReal.includes('colet')) {
+            corCard = 'rgba(0, 122, 255, 0.5)'; // Azul
+        } else if (tipoNormalized === 'recolha') {
             label = 'Recolha';
-            corCard = 'rgba(255, 149, 0, 0.4)';
+            corCard = 'rgba(255, 149, 0, 0.5)'; // Laranja
         }
 
         const cardStyle = { backgroundColor: corCard };
-
         return (
             <TouchableOpacity style={[styles.cardGrande, cardStyle, (pedidoSelecionado && pedidoSelecionado.id === item.id) ? styles.cardEmDestaque : null]} key={item.id} onPress={() => {
                 // Seleciona o pedido, centraliza o mapa suavemente e sobe a aba para TOP
@@ -818,7 +818,8 @@ export default function DeliveryApp(props) {
             }} activeOpacity={0.9}>
 
                 <View style={styles.cardHeader}>
-                    <View style={styles.badge}><Text style={styles.badgeTextLarge}>{idx + 1}º - {label} #{item.id}</Text></View>
+                    <View style={styles.badge}><Text style={styles.badgeTextLarge}>{idx + 1}º - {label}</Text></View>
+                    <View style={{ marginLeft: 10 }}><Text style={styles.badgeId}>#{item.id}</Text></View>
                     <View style={styles.cardHeaderRight}>
                         <TouchableOpacity disabled={idx === 0} onPress={() => moverPedido(idx, idx - 1)} style={styles.arrowBtn}><Text>⬆️</Text></TouchableOpacity>
                         <TouchableOpacity disabled={idx === pedidos.length - 1} onPress={() => moverPedido(idx, idx + 1)} style={styles.arrowBtn}><Text>⬇️</Text></TouchableOpacity>
@@ -1149,6 +1150,7 @@ const styles = StyleSheet.create({
     badge: { backgroundColor: '#111827', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20 },
     badgeText: { color: '#fff', fontWeight: '700' },
     badgeTextLarge: { color: '#fff', fontWeight: '800', fontSize: 22 },
+    badgeId: { color: '#fff', fontWeight: '600', fontSize: 12, marginTop: 2 },
     modalButtonsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
     btnCancel: { flex: 1, backgroundColor: '#e74c3c', paddingVertical: 12, borderRadius: 10, marginRight: 8, alignItems: 'center' },
     btnSend: { flex: 1, backgroundColor: '#28a745', paddingVertical: 12, borderRadius: 10, marginLeft: 8, alignItems: 'center' },
