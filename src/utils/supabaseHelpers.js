@@ -26,3 +26,44 @@ export async function safeInsertMotorista(payload) {
     }
     return await supabase.from('motoristas').insert([p]);
 }
+
+// Helpers para interpretar o campo ultimo_sinal (pode conter timestamp, JSON com coords/timestamp, ou string com coords)
+export function extractCoordsFromUltimoSinal(val) {
+    if (!val) return null;
+    if (typeof val === 'object') {
+        const o = val;
+        if (o.lat != null && o.lng != null) return { lat: Number(o.lat), lng: Number(o.lng) };
+        if (o.latitude != null && o.longitude != null) return { lat: Number(o.latitude), lng: Number(o.longitude) };
+        if (o.coords && o.coords.lat != null && o.coords.lng != null) return { lat: Number(o.coords.lat), lng: Number(o.coords.lng) };
+    }
+    if (typeof val === 'string') {
+        try {
+            const parsed = JSON.parse(val);
+            return extractCoordsFromUltimoSinal(parsed);
+        } catch (e) { /* ignore */ }
+        const m = val.match(/(-?\d+\.\d+)[^\d-]+(-?\d+\.\d+)/);
+        if (m) return { lat: Number(m[1]), lng: Number(m[2]) };
+    }
+    return null;
+}
+
+export function parseUltimoSinalDate(val) {
+    if (!val) return null;
+    if (typeof val === 'string') {
+        const d = new Date(val);
+        if (!isNaN(d)) return d;
+        try {
+            const parsed = JSON.parse(val);
+            return parseUltimoSinalDate(parsed);
+        } catch (e) { /* ignore */ }
+    }
+    if (typeof val === 'object') {
+        const o = val;
+        const t = o.created_at || o.timestamp || o.ts || o.time;
+        if (t) {
+            const d = new Date(t);
+            if (!isNaN(d)) return d;
+        }
+    }
+    return null;
+}

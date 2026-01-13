@@ -176,15 +176,71 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
         // garante que a aba será alterada (Nova Carga) e que o componente receba o prefill
         setTimeout(() => setAbaAtiva('nova-carga'), 80);
     };
-    // Normalizador: converte latitude/longitude ou lat/lng para lat/lng numéricos
+    // Helper: tenta extrair coordenadas de vários formatos, incluindo JSON em `ultimo_sinal` ou strings com dois floats separados por vírgula
+    const extractCoordsFromUltimoSinal = (val) => {
+        if (!val) return null;
+        // já é objeto
+        if (typeof val === 'object') {
+            const o = val;
+            if (o.lat != null && o.lng != null) return { lat: Number(o.lat), lng: Number(o.lng) };
+            if (o.latitude != null && o.longitude != null) return { lat: Number(o.latitude), lng: Number(o.longitude) };
+            if (o.coords && o.coords.lat != null && o.coords.lng != null) return { lat: Number(o.coords.lat), lng: Number(o.coords.lng) };
+        }
+        if (typeof val === 'string') {
+            // tenta JSON
+            try {
+                const parsed = JSON.parse(val);
+                return extractCoordsFromUltimoSinal(parsed);
+            } catch (e) { /* não era JSON */ }
+            // tenta extrair dois floats (lat, lng)
+            const m = val.match(/(-?\d+\.\d+)[^\d-]+(-?\d+\.\d+)/);
+            if (m) return { lat: Number(m[1]), lng: Number(m[2]) };
+        }
+        return null;
+    };
+
+    // Helper: tenta extrair timestamp de ultimo_sinal (pode ser string ISO, JSON com created_at/timestamp, ou objeto)
+    const parseUltimoSinalDate = (val) => {
+        if (!val) return null;
+        if (typeof val === 'string') {
+            const d = new Date(val);
+            if (!isNaN(d)) return d;
+            try {
+                const parsed = JSON.parse(val);
+                return parseUltimoSinalDate(parsed);
+            } catch (e) { /* ignore */ }
+        }
+        if (typeof val === 'object') {
+            const o = val;
+            const t = o.created_at || o.timestamp || o.ts || o.time;
+            if (t) {
+                const d = new Date(t);
+                if (!isNaN(d)) return d;
+            }
+        }
+        return null;
+    };
+
+    // Normalizador: converte latitude/longitude ou lat/lng para lat/lng numéricos, e tenta extrair de ultimo_sinal se necessário
     const normalizeMotorista = (m) => {
         if (!m) return m;
         const latSrc = m.latitude ?? m.lat;
         const lngSrc = m.longitude ?? m.lng;
+        let lat = latSrc != null ? Number(latSrc) : (m.lat != null ? Number(m.lat) : undefined);
+        let lng = lngSrc != null ? Number(lngSrc) : (m.lng != null ? Number(m.lng) : undefined);
+        if ((lat == null || lng == null) && m.ultimo_sinal) {
+            const coords = extractCoordsFromUltimoSinal(m.ultimo_sinal);
+            if (coords) {
+                lat = coords.lat;
+                lng = coords.lng;
+            }
+        }
+        const ultimoSinalDate = parseUltimoSinalDate(m.ultimo_sinal);
         return {
             ...m,
-            lat: latSrc != null ? Number(latSrc) : (m.lat != null ? Number(m.lat) : undefined),
-            lng: lngSrc != null ? Number(lngSrc) : (m.lng != null ? Number(m.lng) : undefined),
+            lat: lat != null ? Number(lat) : undefined,
+            lng: lng != null ? Number(lng) : undefined,
+            ultimo_sinal_ts: ultimoSinalDate ? ultimoSinalDate.toISOString() : (m.ultimo_sinal || null)
         };
     };
 
@@ -199,7 +255,12 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
             if (mData) {
                 // Define isOnline com base em ultimo_sinal (nos últimos 5 minutos)
                 const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-                enriched = mData.map(m => ({ ...normalizeMotorista(m), isOnline: m.ultimo_sinal ? (new Date(m.ultimo_sinal) > fiveMinAgo) : false }));
+                enriched = mData.map(m => {
+                    const nm = normalizeMotorista(m);
+                    const sigDate = parseUltimoSinalDate(m);
+                    const online = sigDate ? (sigDate > fiveMinAgo) : false;
+                    return { ...nm, isOnline: online };
+                });
                 console.log('Motoristas iniciais:', enriched);
                 setMotoristas(enriched);
             }
@@ -237,7 +298,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
                     setMotoristas(prev => {
                         const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-                        const updatedWithOnline = { ...updated, isOnline: updated.ultimo_sinal ? (new Date(updated.ultimo_sinal) > fiveMinAgo) : false };
+                        const sigDate = parseUltimoSinalDate(updated);
+                        const updatedWithOnline = { ...updated, isOnline: sigDate ? (sigDate > fiveMinAgo) : false };
                         const found = prev.find(m => String(m.id) === String(updatedWithOnline.id));
                         if (found) return prev.map(m => String(m.id) === String(updatedWithOnline.id) ? { ...m, ...updatedWithOnline } : m);
                         // se não existe no array, adiciona no topo
@@ -256,7 +318,9 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
                     // Se o status mudou para offline/logout, garante remoção imediata do marker ativo
                     try {
-                        const isActiveNow = isDriverActive(updated);
+                        const fiveMinAgoGlobal = new Date(Date.now() - 5 * 60 * 1000);
+                        const sigDateNow = parseUltimoSinalDate(updated);
+                        const isActiveNow = sigDateNow ? (sigDateNow > fiveMinAgoGlobal) : isDriverActive(updated);
                         if (activeMarker && String(activeMarker.id) === String(updated.id) && !isActiveNow) {
                             setActiveMarker(null);
                         }
@@ -281,7 +345,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     const novo = normalizeMotorista(payload.new);
                     console.log('Realtime INSERT motorista:', novo);
                     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-                    const novoWithOnline = { ...novo, isOnline: novo.ultimo_sinal ? (new Date(novo.ultimo_sinal) > fiveMinAgo) : false };
+                    const sigDateNovo = parseUltimoSinalDate(novo);
+                    const novoWithOnline = { ...novo, isOnline: sigDateNovo ? (sigDateNovo > fiveMinAgo) : false };
                     setMotoristas(prev => [novoWithOnline, ...prev]);
                 } catch (err) {
                     if (!handleSchemaCacheError(err)) console.warn('Erro ao processar INSERT em motoristas:', err);

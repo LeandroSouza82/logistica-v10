@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
+import { parseUltimoSinalDate } from './utils/supabaseHelpers';
 
 const CentralDespacho = () => {
     const [pedidos, setPedidos] = useState([]);
@@ -39,10 +40,10 @@ const CentralDespacho = () => {
             }
 
             const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-            const normalized = (data || []).map(m => ({
-                ...m,
-                isOnline: m.ultimo_sinal ? (new Date(m.ultimo_sinal) > fiveMinAgo) : false,
-            }));
+            const normalized = (data || []).map(m => {
+                const sig = parseUltimoSinalDate(m.ultimo_sinal || m);
+                return { ...m, isOnline: sig ? (sig > fiveMinAgo) : false };
+            });
 
             // ordenar com online primeiro
             const ordered = normalized.slice().sort((a, b) => {
