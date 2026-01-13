@@ -40,6 +40,10 @@ export default function DeliveryApp(props) {
 
     const [pedidos, setPedidos] = useState([]);
 
+    // Contadores dinâmicos do resumo (entregas / recolhas) conforme solicitado
+    const totalEntregas = pedidos.filter(p => String(p.tipo).toLowerCase().includes('entreg')).length;
+    const totalRecolhas = pedidos.filter(p => String(p.tipo).toLowerCase().includes('recolh')).length;
+
     // Carrega pedidos salvos localmente (se existirem) ou usa fallback para dev
     useEffect(() => {
         (async () => {
@@ -722,6 +726,18 @@ export default function DeliveryApp(props) {
             let coords = null;
             try { const l = await Location.getCurrentPositionAsync(); coords = { latitude: l.coords.latitude, longitude: l.coords.longitude }; } catch (e) { /* ignore */ }
 
+            // Remove o pedido localmente (optimistic) para atualizar contadores imediatamente
+            try { setPedidos(prev => prev.filter(p => Number(p.id) !== Number(item?.id))); } catch (e) { /* ignore */ }
+
+            // Tenta atualizar o servidor com a ocorrência (silencioso se falhar)
+            (async () => {
+                try {
+                    if (item?.id) {
+                        await supabase.from('entregas').update({ status: 'nao_entregue', ocorrencia: motivo, lat_entrega: coords?.latitude ?? item.lat, lng_entrega: coords?.longitude ?? item.lng }).eq('id', item.id);
+                    }
+                } catch (err) { console.warn('Erro ao reportar ocorrência ao servidor:', err?.message || err); }
+            })();
+
             await abrirWhatsApp(motivo, item, coords, BOSS_PHONE);
 
             // Fecha modal e limpa estado
@@ -742,8 +758,8 @@ export default function DeliveryApp(props) {
         const lat = coords?.latitude ?? pedido.lat ?? '';
         const lng = coords?.longitude ?? pedido.lng ?? '';
         const maps = (lat && lng) ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : 'Localização não disponível';
-        // Mensagem conforme solicitado
-        const text = `Motorista: Leandro\nCliente: ${pedido.cliente}\nLocal: ${maps}\nMotivo: ${motivo}`;
+        // Mensagem com emojis conforme pedido
+        const text = `🚨 Motorista: Leandro\n👤 Cliente: ${pedido.cliente}\n📍 Local: ${maps}\nMotivo: ${motivo}`;
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
         try {
             await Linking.openURL(url);
@@ -947,14 +963,16 @@ export default function DeliveryApp(props) {
                         <Text style={[styles.btnIconText, { color: '#fff' }]}>📷</Text>
                     </TouchableOpacity>
 
-                    {/* Não Entregue quick menu (single button) */}
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#e74c3c' }]} onPress={() => abrirOcorrenciaRapida(item)}>
-                        <Text style={[styles.btnIconText, { color: '#fff' }]}>NÃO ENTREGUE</Text>
-                    </TouchableOpacity>
+                    {/* Split row: NÃO ENTREGUE (vermelho) | FINALIZAR (verde) - mesmos tamanhos */}
+                    <View style={styles.btnSplitContainer}>
+                        <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#e74c3c', marginRight: 8 }]} onPress={() => abrirOcorrenciaRapida(item)}>
+                            <Text style={[styles.btnIconText, { color: '#fff' }]}>NÃO ENTREGUE</Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#28a745' }]} onPress={() => { setPedidoSelecionado(item); setModalAssinatura(true); }}>
-                        <Text style={[styles.btnIconText, { color: '#fff' }]}>Finalizar</Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#28a745', marginLeft: 8 }]} onPress={() => { setPedidoSelecionado(item); setModalAssinatura(true); }}>
+                            <Text style={[styles.btnIconText, { color: '#fff' }]}>FINALIZAR</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </TouchableOpacity>
         );
@@ -1048,8 +1066,8 @@ export default function DeliveryApp(props) {
                         <View style={styles.sheetContentGlass}>
                             {/* Resumo do dia */}
                             <View style={styles.resumoRow}>
-                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon, {color: '#0077CC'}]}>✅</Text><Text style={styles.resumoText}>Entregas: {pedidos.filter(p => String(p.tipo_servico || p.tipo || '').toLowerCase().includes('entreg')).length}</Text></View>
-                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon, {color: '#FF9500'}]}>📦</Text><Text style={styles.resumoText}>Recolhas: {pedidos.filter(p => String(p.tipo_servico || p.tipo || '').toLowerCase().includes('recolh') || String(p.tipo_servico || p.tipo || '').toLowerCase().includes('colet')).length}</Text></View>
+                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon, {color: '#0077CC'}]}>✅</Text><Text style={styles.resumoText}>Entregas Pendentes: {totalEntregas}</Text></View>
+                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon, {color: '#FF9500'}]}>📦</Text><Text style={styles.resumoText}>Recolhas Pendentes: {totalRecolhas}</Text></View>
                             </View>
 
                             <FlatList
@@ -1299,6 +1317,9 @@ const styles = StyleSheet.create({
     modalButtonsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
     btnCancel: { flex: 1, backgroundColor: '#e74c3c', paddingVertical: 12, borderRadius: 10, marginRight: 8, alignItems: 'center' },
     btnSend: { flex: 1, backgroundColor: '#28a745', paddingVertical: 12, borderRadius: 10, marginLeft: 8, alignItems: 'center' },
+    // Split buttons used inside the card so NÃO ENTREGUE and FINALIZAR fill side-by-side
+    btnSplitContainer: { flexDirection: 'row', flex: 1, alignItems: 'center' },
+    btnSplit: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     cardHeaderRight: { flexDirection: 'row', alignItems: 'center' },
     arrowBtn: { paddingHorizontal: 8, paddingVertical: 4 },
     selectedMarker: { alignItems: 'center', justifyContent: 'center' },
