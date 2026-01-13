@@ -30,8 +30,8 @@ export default function DeliveryApp(props) {
     const GESTOR_PHONE = props?.gestorPhone || '+5511999999999';
 
     const [pedidos, setPedidos] = useState([
-        { id: 1, cliente: 'Leandro (Coleta)', status: 'pendente', lat: -27.596, lng: -48.546, driverPhone: '+5511987654321' },
-        { id: 2, cliente: 'João Silva', status: 'pendente', lat: -27.600, lng: -48.550, driverPhone: '+5511976543210' },
+        { id: 1, cliente: 'Leandro (Coleta)', status: 'pendente', lat: -27.596, lng: -48.546, tipo_servico: 'Recolha', driverPhone: '+5511987654321' },
+        { id: 2, cliente: 'João Silva', status: 'pendente', lat: -27.600, lng: -48.550, tipo_servico: 'Entrega', driverPhone: '+5511976543210' },
     ]);
 
     const mapRef = useRef(null); // Referência para controlar a câmera do mapa
@@ -665,10 +665,18 @@ export default function DeliveryApp(props) {
         }
     }, [pedidos]);
 
+    const getCardStyle = (item) => {
+        const tipo = (item && item.tipo_servico) ? item.tipo_servico.toLowerCase() : '';
+        if (tipo === 'entrega') return { backgroundColor: 'rgba(0,122,255,0.12)' };
+        if (tipo === 'recolha') return { backgroundColor: 'rgba(255,149,0,0.12)' };
+        if (tipo === 'outros') return { backgroundColor: 'rgba(175,82,222,0.12)' };
+        return { backgroundColor: '#111827' };
+    };
+
     const renderPedidoItem = useCallback((p, idx) => {
         const item = p;
         return (
-            <TouchableOpacity style={[styles.cardGrande, (pedidoSelecionado && pedidoSelecionado.id === item.id) ? styles.cardEmDestaque : null]} key={item.id} onPress={() => {
+            <TouchableOpacity style={[styles.cardGrande, getCardStyle(item), (pedidoSelecionado && pedidoSelecionado.id === item.id) ? styles.cardEmDestaque : null]} key={item.id} onPress={() => {
                 // Seleciona o pedido, centraliza o mapa suavemente e sobe a aba para TOP
                 setPedidoSelecionado(item);
                 if (item.lat && item.lng) {
@@ -683,7 +691,7 @@ export default function DeliveryApp(props) {
             }} activeOpacity={0.9}>
 
                 <View style={styles.cardHeader}>
-                    <View style={styles.badge}><Text style={styles.badgeTextLarge}>{idx + 1}ª Entrega</Text></View>
+                    <View style={styles.badge}><Text style={styles.badgeTextLarge}>{idx + 1}º</Text></View>
                     <View style={styles.cardHeaderRight}>
                         <TouchableOpacity disabled={idx === 0} onPress={() => movePedido(idx, 'up')} style={styles.arrowBtn}><Text>⬆️</Text></TouchableOpacity>
                         <TouchableOpacity disabled={idx === pedidos.length - 1} onPress={() => movePedido(idx, 'down')} style={styles.arrowBtn}><Text>⬇️</Text></TouchableOpacity>
@@ -826,17 +834,19 @@ export default function DeliveryApp(props) {
                             value={textoOcorrencia}
                             onChangeText={setTextoOcorrencia}
                         />
-                        <TouchableOpacity style={styles.btnFechar} onPress={() => setModalOcorrencia(false)}>
-                            <Text style={{ color: '#fff' }}>CANCELAR</Text>
-                        </TouchableOpacity>
+                        <View style={styles.modalButtonsRow}>
+                            <TouchableOpacity style={styles.btnCancel} onPress={() => setModalOcorrencia(false)}>
+                                <Text style={{ color: '#fff' }}>CANCELAR</Text>
+                            </TouchableOpacity>
 
-                        <TouchableOpacity style={[styles.btnConfirmarFull, { marginTop: 10 }]} onPress={() => {
-                            // Envia para o gestor via WhatsApp
-                            const motivo = textoOcorrencia || 'Motivo não informado';
-                            abrirWhatsApp(motivo);
-                        }}>
-                            <Text style={styles.btnTextGeral}>ENVIAR AO GESTOR</Text>
-                        </TouchableOpacity>
+                            <TouchableOpacity style={styles.btnSend} onPress={() => {
+                                // Envia para o gestor via WhatsApp
+                                const motivo = textoOcorrencia || 'Motivo não informado';
+                                abrirWhatsApp(motivo);
+                            }}>
+                                <Text style={styles.btnTextGeral}>ENVIAR</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
             </Modal>
@@ -1006,6 +1016,9 @@ const styles = StyleSheet.create({
     badge: { backgroundColor: '#111827', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20 },
     badgeText: { color: '#fff', fontWeight: '700' },
     badgeTextLarge: { color: '#fff', fontWeight: '800', fontSize: 18 },
+    modalButtonsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
+    btnCancel: { flex: 1, backgroundColor: '#444', paddingVertical: 12, borderRadius: 10, marginRight: 8, alignItems: 'center' },
+    btnSend: { flex: 1, backgroundColor: '#28a745', paddingVertical: 12, borderRadius: 10, marginLeft: 8, alignItems: 'center' },
     cardHeaderRight: { flexDirection: 'row', alignItems: 'center' },
     arrowBtn: { paddingHorizontal: 8, paddingVertical: 4 },
     selectedMarker: { alignItems: 'center', justifyContent: 'center' },
