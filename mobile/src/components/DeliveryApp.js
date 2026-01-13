@@ -535,7 +535,7 @@ export default function DeliveryApp(props) {
 
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-    const panResponder = useRef(PanResponder.create({
+    const sheetPanResponder = useRef(PanResponder.create({
         onMoveShouldSetPanResponder: (e, gestureState) => {
             // Allow ScrollView to handle vertical gestures when the sheet is at the TOP
             // and the touch did not start on the handle area.
@@ -698,7 +698,7 @@ export default function DeliveryApp(props) {
             {/* Bottom sheet - manual Animated View with PanResponder (glass backdrop) */}
             <Animated.View
                 style={[styles.sheet, { transform: [{ translateY: sheetTranslateY }] }]}
-                {...panResponder.panHandlers}
+                {...sheetPanResponder.panHandlers}
             >
                 <View style={styles.sheetBackdrop}>
                     {BlurView ? <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} /> : null}
