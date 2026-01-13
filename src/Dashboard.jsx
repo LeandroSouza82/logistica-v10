@@ -73,18 +73,21 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
             return;
         }
 
-        // Caso não tenhamos coordenadas no objeto, buscar a última posição no próprio registro do motorista
+        // Caso não tenhamos coordenadas no objeto, buscar a localização mais recente do motorista
         (async () => {
             try {
-                const { data: motorista } = await supabase.from('motoristas').select('lat,lng,latitude,longitude,ultimo_sinal').eq('id', m.id).maybeSingle();
-                if (motorista) {
-                    const normalized = normalizeMotorista(motorista);
-                    if (normalized.lat != null && normalized.lng != null) {
-                        const lat = Number(normalized.lat);
-                        const lng = Number(normalized.lng);
+                const { data } = await supabase.from('localizacoes').select('lat,lng,created_at').eq('motorista_id', m.id).order('created_at', { ascending: false }).limit(1);
+                if (data && data.length > 0) {
+                    const l = data[0];
+                    if (l.lat != null && l.lng != null) {
+                        const lat = Number(l.lat);
+                        const lng = Number(l.lng);
                         setActiveMarker({ id: m.id, lat, lng, nome: m.nome });
                         setMotoPosition({ lat, lng });
-                        try { mapRef.current?.panTo({ lat, lng }); mapRef.current?.setZoom(15); } catch (e) { /* ignore */ }
+                        try {
+                            mapRef.current?.panTo({ lat, lng });
+                            mapRef.current?.setZoom(15);
+                        } catch (e) { /* ignore */ }
                     }
                 }
             } catch (err) {
@@ -176,71 +179,15 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
         // garante que a aba será alterada (Nova Carga) e que o componente receba o prefill
         setTimeout(() => setAbaAtiva('nova-carga'), 80);
     };
-    // Helper: tenta extrair coordenadas de vários formatos, incluindo JSON em `ultimo_sinal` ou strings com dois floats separados por vírgula
-    const extractCoordsFromUltimoSinal = (val) => {
-        if (!val) return null;
-        // já é objeto
-        if (typeof val === 'object') {
-            const o = val;
-            if (o.lat != null && o.lng != null) return { lat: Number(o.lat), lng: Number(o.lng) };
-            if (o.latitude != null && o.longitude != null) return { lat: Number(o.latitude), lng: Number(o.longitude) };
-            if (o.coords && o.coords.lat != null && o.coords.lng != null) return { lat: Number(o.coords.lat), lng: Number(o.coords.lng) };
-        }
-        if (typeof val === 'string') {
-            // tenta JSON
-            try {
-                const parsed = JSON.parse(val);
-                return extractCoordsFromUltimoSinal(parsed);
-            } catch (e) { /* não era JSON */ }
-            // tenta extrair dois floats (lat, lng)
-            const m = val.match(/(-?\d+\.\d+)[^\d-]+(-?\d+\.\d+)/);
-            if (m) return { lat: Number(m[1]), lng: Number(m[2]) };
-        }
-        return null;
-    };
-
-    // Helper: tenta extrair timestamp de ultimo_sinal (pode ser string ISO, JSON com created_at/timestamp, ou objeto)
-    const parseUltimoSinalDate = (val) => {
-        if (!val) return null;
-        if (typeof val === 'string') {
-            const d = new Date(val);
-            if (!isNaN(d)) return d;
-            try {
-                const parsed = JSON.parse(val);
-                return parseUltimoSinalDate(parsed);
-            } catch (e) { /* ignore */ }
-        }
-        if (typeof val === 'object') {
-            const o = val;
-            const t = o.created_at || o.timestamp || o.ts || o.time;
-            if (t) {
-                const d = new Date(t);
-                if (!isNaN(d)) return d;
-            }
-        }
-        return null;
-    };
-
-    // Normalizador: converte latitude/longitude ou lat/lng para lat/lng numéricos, e tenta extrair de ultimo_sinal se necessário
+    // Normalizador: converte latitude/longitude ou lat/lng para lat/lng numéricos
     const normalizeMotorista = (m) => {
         if (!m) return m;
         const latSrc = m.latitude ?? m.lat;
         const lngSrc = m.longitude ?? m.lng;
-        let lat = latSrc != null ? Number(latSrc) : (m.lat != null ? Number(m.lat) : undefined);
-        let lng = lngSrc != null ? Number(lngSrc) : (m.lng != null ? Number(m.lng) : undefined);
-        if ((lat == null || lng == null) && m.ultimo_sinal) {
-            const coords = extractCoordsFromUltimoSinal(m.ultimo_sinal);
-            if (coords) {
-                lat = coords.lat;
-                lng = coords.lng;
-            }
-        }
-        const ultimoSinalDate = parseUltimoSinalDate(m.ultimo_sinal);
         return {
             ...m,
-            lat: lat != null ? Number(lat) : undefined,
-            lng: lng != null ? Number(lng) : undefined,
-            ultimo_sinal_ts: ultimoSinalDate ? ultimoSinalDate.toISOString() : (m.ultimo_sinal || null)
+            lat: latSrc != null ? Number(latSrc) : (m.lat != null ? Number(m.lat) : undefined),
+            lng: lngSrc != null ? Number(lngSrc) : (m.lng != null ? Number(m.lng) : undefined),
         };
     };
 
@@ -253,21 +200,31 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
             }
             let enriched = [];
             if (mData) {
-                // Define isOnline com base em ultimo_sinal (nos últimos 5 minutos)
-                const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-                enriched = mData.map(m => {
-                    const nm = normalizeMotorista(m);
-                    const sigDate = parseUltimoSinalDate(m);
-                    const online = sigDate ? (sigDate > fiveMinAgo) : false;
-                    return { ...nm, isOnline: online };
-                });
+                // Define isOnline com base no campo `status` (somente 'online' exibe a moto)
+                enriched = mData.map(m => ({ ...normalizeMotorista(m), isOnline: String(m.status || '').toLowerCase() === 'online' }));
                 console.log('Motoristas iniciais:', enriched);
                 setMotoristas(enriched);
             }
 
-            // Observação: não buscamos mais na tabela `localizacoes` para inicializar posições.
-            // As posições agora são obtidas diretamente das colunas `lat`/`lng` ou `latitude`/`longitude` em `motoristas`.
-            // Se necessário, podemos implementar um fallback para `localizacoes` apenas quando a tabela existir.
+            // Buscar localizacoes recentes e mesclar posições mais recentes por motorista (garante estado inicial atualizado)
+            try {
+                const { data: locData } = await supabase.from('localizacoes').select('*').order('created_at', { ascending: false }).limit(1000);
+                if (locData && locData.length > 0) {
+                    const latestByMotorista = {};
+                    for (const l of locData) {
+                        const id = String(l.motorista_id);
+                        if (!latestByMotorista[id]) latestByMotorista[id] = l;
+                    }
+                    // aplica lat/lng mais recentes aos motoristas conhecidos
+                    setMotoristas(prev => prev.map(m => {
+                        const l = latestByMotorista[String(m.id)];
+                        if (l && l.lat != null && l.lng != null) return { ...m, lat: Number(l.lat), lng: Number(l.lng), ultimo_sinal: l.created_at || m.ultimo_sinal };
+                        return m;
+                    }));
+                }
+            } catch (err) {
+                console.warn('Erro ao buscar localizacoes iniciais:', err);
+            }
 
             const { data: eData } = await supabase.from('entregas').select('*').order('id', { ascending: false }).limit(20);
             if (eData) setEntregas(eData);
@@ -290,66 +247,75 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
         // Inscreve-se em mudanças de motoristas e localizacoes para atualizar a UI em tempo real
         const canal = supabase
-            .channel('realtime-motoristas')
+            .channel('schema-db-changes')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'motoristas' }, (payload) => {
                 try {
-                    const updated = normalizeMotorista(payload.new);
+                    const updatedRaw = payload.new;
+                    const updated = normalizeMotorista(updatedRaw);
                     console.log('Realtime UPDATE motorista:', updated);
 
+                    // Atualiza array de motoristas com base em status === 'online' para isOnline
                     setMotoristas(prev => {
-                        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-                        const sigDate = parseUltimoSinalDate(updated);
-                        const updatedWithOnline = { ...updated, isOnline: sigDate ? (sigDate > fiveMinAgo) : false };
+                        const updatedWithOnline = { ...updated, isOnline: String(updated.status || '').toLowerCase() === 'online' };
                         const found = prev.find(m => String(m.id) === String(updatedWithOnline.id));
                         if (found) return prev.map(m => String(m.id) === String(updatedWithOnline.id) ? { ...m, ...updatedWithOnline } : m);
-                        // se não existe no array, adiciona no topo
                         return [updatedWithOnline, ...prev];
                     });
 
-                    // Se o motorista atualizado é o selecionado ou estamos na Visão Geral, atualiza posição do mapa
-                    try {
-                        if ((selectedDriver && String(selectedDriver.id) === String(updated.id)) || abaAtiva === 'visao-geral') {
-                            if (updated.lat != null && updated.lng != null && !(updated.lat === 0 && updated.lng === 0)) {
-                                setMotoPosition({ lat: Number(updated.lat), lng: Number(updated.lng) });
-                                try { mapRef.current?.panTo({ lat: Number(updated.lat), lng: Number(updated.lng) }); } catch (e) { /* ignore */ }
-                            }
-                        }
-                    } catch (e) { /* ignore */ }
+                    // Extrai coordenadas: prefere lat/lng, senão tenta do ultimo_sinal
+                    const lat = (updated.lat != null) ? Number(updated.lat) : (updatedRaw && updatedRaw.ultimo_sinal && (function(){ try{ const s = JSON.parse(String(updatedRaw.ultimo_sinal)); if (s && s.lat!=null && s.lng!=null) return Number(s.lat); }catch(e){} return null; })());
+                    const lng = (updated.lng != null) ? Number(updated.lng) : (updatedRaw && updatedRaw.ultimo_sinal && (function(){ try{ const s = JSON.parse(String(updatedRaw.ultimo_sinal)); if (s && s.lat!=null && s.lng!=null) return Number(s.lng); }catch(e){} return null; })());
+                    const isOnlineNow = String(updated.status || '').toLowerCase() === 'online';
 
-                    // Se o status mudou para offline/logout, garante remoção imediata do marker ativo
-                    try {
-                        const fiveMinAgoGlobal = new Date(Date.now() - 5 * 60 * 1000);
-                        const sigDateNow = parseUltimoSinalDate(updated);
-                        const isActiveNow = sigDateNow ? (sigDateNow > fiveMinAgoGlobal) : isDriverActive(updated);
-                        if (activeMarker && String(activeMarker.id) === String(updated.id) && !isActiveNow) {
+                    if (lat != null && lng != null && isOnlineNow) {
+                        const numeric = { lat, lng };
+                        setMotoPosition(numeric);
+                        // Atualiza activeMarker se for o motorista selecionado ou se o marker ativo pertence a ele
+                        if (selectedDriver && String(selectedDriver.id) === String(updated.id)) {
+                            setActiveMarker({ id: updated.id, lat, lng, nome: updated.nome });
+                        } else if (activeMarker && String(activeMarker.id) === String(updated.id)) {
+                            setActiveMarker(prev => prev ? { ...prev, lat, lng } : prev);
+                        }
+                        try { mapRef.current?.panTo({ lat, lng }); } catch (e) { /* ignore */ }
+                    } else {
+                        // se ficou sem coords ou saiu do ar (offline), remove marker ativo se for o mesmo
+                        if (!isOnlineNow && activeMarker && String(activeMarker.id) === String(updated.id)) {
                             setActiveMarker(null);
                         }
-                    } catch (e) { /* ignore */ }
-
-                    // Se o motorista atualizado é o selecionado ou estamos na Visão Geral, atualiza posição do mapa
-                    try {
-                        if ((selectedDriver && String(selectedDriver.id) === String(updated.id)) || abaAtiva === 'visao-geral') {
-                            if (updated.lat != null && updated.lng != null && !(updated.lat === 0 && updated.lng === 0)) {
-                                setMotoPosition({ lat: Number(updated.lat), lng: Number(updated.lng) });
-                                try { mapRef.current?.panTo({ lat: Number(updated.lat), lng: Number(updated.lng) }); } catch (e) { /* ignore */ }
-                            }
-                        }
-                    } catch (e) { /* ignore */ }
+                    }
 
                 } catch (err) {
                     if (!handleSchemaCacheError(err)) console.warn('Erro ao processar UPDATE em motoristas:', err);
                 }
             })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'motoristas' }, (payload) => {
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'motoristas' }, (payload) => {
                 try {
-                    const novo = normalizeMotorista(payload.new);
-                    console.log('Realtime INSERT motorista:', novo);
-                    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-                    const sigDateNovo = parseUltimoSinalDate(novo);
-                    const novoWithOnline = { ...novo, isOnline: sigDateNovo ? (sigDateNovo > fiveMinAgo) : false };
-                    setMotoristas(prev => [novoWithOnline, ...prev]);
+                    const old = payload.old;
+                    console.log('Realtime DELETE motorista:', old);
+                    const id = String(old.id);
+                    setMotoristas(prev => prev.filter(m => String(m.id) !== id));
+                    if (activeMarker && String(activeMarker.id) === id) setActiveMarker(null);
                 } catch (err) {
-                    if (!handleSchemaCacheError(err)) console.warn('Erro ao processar INSERT em motoristas:', err);
+                    console.warn('Erro ao processar DELETE em motoristas:', err);
+                }
+            })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'localizacoes' }, (payload) => {
+                try {
+                    const loc = payload.new;
+                    console.log('Realtime INSERT localizacao:', loc);
+
+                    // Atualiza posição do motorista correspondente em memória sem refetch pesado
+                    setMotoristas(prev => prev.map(m => (String(m.id) === String(loc.motorista_id) ? { ...m, lat: loc.lat, lng: loc.lng, ultimo_sinal: loc.created_at || loc.ultimo_sinal || new Date().toISOString() } : m)));
+
+                    // Se a localização pertence ao selecionado, centraliza o mapa
+                    if (selectedDriver && String(selectedDriver.id) === String(loc.motorista_id)) {
+                        const lat = Number(loc.lat);
+                        const lng = Number(loc.lng);
+                        setMotoPosition({ lat, lng });
+                        try { mapRef.current?.panTo({ lat, lng }); } catch (e) { /* ignore */ }
+                    }
+                } catch (err) {
+                    if (!handleSchemaCacheError(err)) console.warn('Erro ao processar INSERT em localizacoes:', err);
                 }
             })
             .subscribe();
@@ -438,18 +404,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
     // Helper: considera online/logado como 'ativo' (apenas esses terão markers visíveis)
     const isDriverActive = (m) => {
         if (!m) return false;
-        if (m.isOnline) return true;
-        const s = String(m.status || '').toLowerCase();
-        if (s.includes('online') || s.includes('log') || s.includes('logado')) return true;
-        return false;
+        return String(m.status || '').toLowerCase() === 'online';
     };
-
-    // Mostra o marker ativo somente se o motorista correspondente estiver ativo
-    const showActiveMarker = (() => {
-        if (!activeMarker || activeMarker.lat == null || activeMarker.lng == null) return false;
-        const m = motoristas.find(x => String(x.id) === String(activeMarker.id));
-        return !m || isDriverActive(m);
-    })();
 
     if (loadError) return <div style={{ color: '#f88', padding: 20 }}>Erro no Google Maps.</div>;
 
@@ -533,8 +489,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                                     }}
                                     onUnmount={() => (mapRef.current = null)}
                                 >
-                                    {motoristas.filter(m => m.lat != null && m.lng != null && isDriverActive(m)).map(m => {
-                                        const online = isDriverActive(m);
+                                    {motoristas.filter(m => m.lat != null && m.lng != null).map(m => {
+                                        const online = !!m.isOnline;
                                         const iconColor = online ? '#10b981' : '#3b82f6';
                                         return (
                                             <Marker
@@ -574,10 +530,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                                                 <div className="motorista-nome">{m.nome || `Motorista ${m.id}`}</div>
                                                 <div className="motorista-meta">{m.email || 'sem-email'} • {m.telefone || m.phone || 'sem-telefone'}</div>
                                             </div>
-                                            <div className="motorista-status">
-                                                <span className="dot" aria-hidden="true" />
-                                                <div className="status-label">{m.isOnline ? 'online' : 'offline'}</div>
-                                            </div>
+
                                         </div>
                                     </div>
                                 ))
