@@ -7,6 +7,8 @@ import MapView, { Marker } from 'react-native-maps';
 import SignatureScreen from 'react-native-signature-canvas';
 import * as Location from 'expo-location'; // Biblioteca para o GPS
 import * as ScreenOrientation from 'expo-screen-orientation';
+let AsyncStorage;
+try { AsyncStorage = eval('require')('@react-native-async-storage/async-storage').default; } catch (e) { AsyncStorage = null; console.warn('AsyncStorage não disponível; persitência local desabilitada.'); }
 import { supabase } from '../supabaseClient';
 
 // Removed optional blur support to improve stability on mobile (use plain translucent background instead)
@@ -29,10 +31,41 @@ export default function DeliveryApp(props) {
     // Telefone do gestor para receber ocorrências (pode ser passado via props)
     const GESTOR_PHONE = props?.gestorPhone || '+5511999999999';
 
-    const [pedidos, setPedidos] = useState([
-        { id: 1, cliente: 'Leandro (Coleta)', status: 'pendente', lat: -27.596, lng: -48.546, tipo_servico: 'Recolha', driverPhone: '+5511987654321' },
-        { id: 2, cliente: 'João Silva', status: 'pendente', lat: -27.600, lng: -48.550, tipo_servico: 'Entrega', driverPhone: '+5511976543210' },
-    ]);
+    const [pedidos, setPedidos] = useState([]);
+
+    // Carrega pedidos salvos localmente (se existirem) ou usa fallback para dev
+    useEffect(() => {
+        (async () => {
+            try {
+                if (AsyncStorage) {
+                    const raw = await AsyncStorage.getItem('@rota_pedidos');
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        setPedidos(parsed);
+                        return;
+                    }
+                } else {
+                    console.warn('AsyncStorage não disponível; carregando fallback.');
+                }
+            } catch (e) { console.warn('Erro ao ler pedidos do AsyncStorage:', e); }
+
+            // fallback de dev (somente se não houver nada salvo)
+            setPedidos([
+                { id: 1, cliente: 'Leandro (Coleta)', status: 'pendente', lat: -27.596, lng: -48.546, tipo_servico: 'Recolha', driverPhone: '+5511987654321' },
+                { id: 2, cliente: 'João Silva', status: 'pendente', lat: -27.600, lng: -48.550, tipo_servico: 'Entrega', driverPhone: '+5511976543210' },
+            ]);
+        })();
+    }, []);
+
+    // Persiste a ordem/estado sempre que 'pedidos' mudar
+    useEffect(() => {
+        (async () => {
+            if (!AsyncStorage) return; // sem persistência se não instalado
+            try {
+                await AsyncStorage.setItem('@rota_pedidos', JSON.stringify(pedidos));
+            } catch (e) { console.warn('Erro ao salvar pedidos no AsyncStorage:', e); }
+        })();
+    }, [pedidos]);
 
     const mapRef = useRef(null); // Referência para controlar a câmera do mapa
 
