@@ -198,12 +198,6 @@ export default function DeliveryApp(props) {
                 }
             )
             .subscribe();
-                    } catch (e) {
-                        console.warn('Erro ao processar DELETE em entregas (mobile):', e?.message || e);
-                    }
-                }
-            )
-            .subscribe();
 
         // Busca inicial de entregas atribuídas ao motorista (por padrão 1) desde o início do dia UTC
         (async () => {
@@ -402,14 +396,23 @@ export default function DeliveryApp(props) {
             },
         });
 
-        const novaLista = [...pedidos];
-        const [removido] = novaLista.splice(index, 1);
-        novaLista.unshift(removido);
-        setPedidos(novaLista);
+        setPedidos(prev => {
+            const novaLista = [...prev];
+            const [removido] = novaLista.splice(index, 1);
+            novaLista.unshift(removido);
+
+            // atualiza seleção caso o pedido selecionado seja movido
+            if (pedidoSelecionado) {
+                const sel = novaLista.find(a => a.id === pedidoSelecionado.id);
+                setPedidoSelecionado(sel || null);
+            }
+
+            return novaLista;
+        });
 
         // 3. Reseta o ID após a animação para ele voltar ao nível normal
         setTimeout(() => setIdVoando(null), 700);
-    };
+    }; 
 
     // Abre o discador para chamar o motorista
     const callMotorista = (phone) => {
@@ -763,12 +766,12 @@ export default function DeliveryApp(props) {
     };
 
     const getCardStyle = (item) => {
-        const tipo = (item && item.tipo_servico) ? String(item.tipo_servico).toLowerCase() : '';
+        const tipo = item?.tipo_servico?.toLowerCase?.() || '';
         if (tipo === 'entrega') return { backgroundColor: 'rgba(0,150,255,0.4)' };
         if (tipo === 'recolha') return { backgroundColor: 'rgba(255,120,0,0.4)' };
         if (tipo === 'outros') return { backgroundColor: 'rgba(150,0,255,0.4)' };
         return { backgroundColor: 'rgba(255,255,255,0.8)' };
-    }; 
+    };  
 
     function renderPedidoItem(p, idx) {
         const item = p;
@@ -1120,7 +1123,7 @@ const styles = StyleSheet.create({
     badgeText: { color: '#fff', fontWeight: '700' },
     badgeTextLarge: { color: '#fff', fontWeight: '800', fontSize: 22 },
     modalButtonsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
-    btnCancel: { flex: 1, backgroundColor: '#444', paddingVertical: 12, borderRadius: 10, marginRight: 8, alignItems: 'center' },
+    btnCancel: { flex: 1, backgroundColor: '#e74c3c', paddingVertical: 12, borderRadius: 10, marginRight: 8, alignItems: 'center' },
     btnSend: { flex: 1, backgroundColor: '#28a745', paddingVertical: 12, borderRadius: 10, marginLeft: 8, alignItems: 'center' },
     cardHeaderRight: { flexDirection: 'row', alignItems: 'center' },
     arrowBtn: { paddingHorizontal: 8, paddingVertical: 4 },
