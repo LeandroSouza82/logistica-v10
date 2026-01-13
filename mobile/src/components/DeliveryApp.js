@@ -80,6 +80,8 @@ export default function DeliveryApp(props) {
     const [modalOcorrencia, setModalOcorrencia] = useState(false);
     const [pedidoSelecionado, setPedidoSelecionado] = useState(null);
     const [textoOcorrencia, setTextoOcorrencia] = useState('');
+    const [outroSelected, setOutroSelected] = useState(false);
+    const inputOcorrenciaRef = useRef(null);
 
 
 
@@ -562,13 +564,13 @@ export default function DeliveryApp(props) {
             try {
                 const { data, error } = await supabase.from('entregas').update({ foto_entrega: dataUrl, assinatura_url: dataUrl }).eq('id', item.id);
                 if (error) throw error;
-                // update local state
-                setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, foto_entrega: dataUrl } : p));
+                // update local state (salva também em assinatura_url para compatibilidade)
+                setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, foto_entrega: dataUrl, assinatura_url: dataUrl } : p));
                 Alert.alert('Sucesso', 'Foto salva.');
             } catch (e) {
                 console.error('Erro ao enviar foto para Supabase:', e);
-                // still update local state so user sees photo
-                setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, foto_entrega: dataUrl } : p));
+                // still update local state so user sees photo (and save to assinatura_url locally)
+                setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, foto_entrega: dataUrl, assinatura_url: dataUrl } : p));
                 Alert.alert('Aviso', 'Foto salva localmente, falha ao enviar ao servidor.');
             }
         } catch (err) {
@@ -706,34 +708,27 @@ export default function DeliveryApp(props) {
     })).current;
 
     const abrirOcorrenciaRapida = async (item) => {
-        // action sheet with quick options
-        const options = ['Ausente', 'Endereço Errado', 'Recusado', 'Cancelar'];
-        const handlers = [
-            async () => handleOcorrenciaChoice('Ausente', item),
-            async () => handleOcorrenciaChoice('Endereço Errado', item),
-            async () => handleOcorrenciaChoice('Recusado', item),
-            () => null
-        ];
-
-        if (Platform.OS === 'ios') {
-            ActionSheetIOS.showActionSheetWithOptions({ options, cancelButtonIndex: 3 }, (idx) => { handlers[idx]?.(); });
-        } else {
-            Alert.alert('Ocorrência', 'Escolha o motivo', [
-                { text: options[0], onPress: handlers[0] },
-                { text: options[1], onPress: handlers[1] },
-                { text: options[2], onPress: handlers[2] },
-                { text: 'Cancelar', style: 'cancel' }
-            ]);
-        }
+        // Abre modal de ocorrência com opções detalhadas
+        setPedidoSelecionado(item);
+        setTextoOcorrencia('');
+        setOutroSelected(false);
+        // Delay pequeno pra garantir que o estado foi aplicado antes de focar
+        setModalOcorrencia(true);
     };
 
     const handleOcorrenciaChoice = async (motivo, item) => {
         try {
-            // pega coords atuais
+            // pega coords atuais no momento do envio
             let coords = null;
             try { const l = await Location.getCurrentPositionAsync(); coords = { latitude: l.coords.latitude, longitude: l.coords.longitude }; } catch (e) { /* ignore */ }
-            // use BOSS_PHONE as requested (replace with real number)
+
             await abrirWhatsApp(motivo, item, coords, BOSS_PHONE);
+
+            // Fecha modal e limpa estado
+            setModalOcorrencia(false);
+            setTextoOcorrencia('');
+            setOutroSelected(false);
+            setPedidoSelecionado(null);
         } catch (e) { console.warn('Erro ao processar ocorrência rápida:', e); }
     };
 
@@ -747,11 +742,16 @@ export default function DeliveryApp(props) {
         const lat = coords?.latitude ?? pedido.lat ?? '';
         const lng = coords?.longitude ?? pedido.lng ?? '';
         const maps = (lat && lng) ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : 'Localização não disponível';
-        const text = `Ocorrência no Pedido #${pedido.id}: ${motivo}. Localização: ${maps}`;
+        // Mensagem conforme solicitado
+        const text = `Motorista: Leandro\nCliente: ${pedido.cliente}\nLocal: ${maps}\nMotivo: ${motivo}`;
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
         try {
             await Linking.openURL(url);
-            // no modal handling here (we use quick menu)
+            // Fecha modal e limpa campos
+            setModalOcorrencia(false);
+            setTextoOcorrencia('');
+            setOutroSelected(false);
+            setPedidoSelecionado(null);
         } catch (err) {
             console.warn('Erro ao abrir WhatsApp:', err);
             Alert.alert('Erro', 'Não foi possível abrir o WhatsApp.');
@@ -1048,8 +1048,8 @@ export default function DeliveryApp(props) {
                         <View style={styles.sheetContentGlass}>
                             {/* Resumo do dia */}
                             <View style={styles.resumoRow}>
-                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon, {color: '#0077CC'}]}>✅</Text><Text style={styles.resumoText}>Entregas: {pedidos.filter(p => String(p.tipo).toLowerCase().includes('entreg')).length}</Text></View>
-                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon, {color: '#FF9500'}]}>📦</Text><Text style={styles.resumoText}>Recolhas: {pedidos.filter(p => String(p.tipo).toLowerCase().includes('recolh') || String(p.tipo).toLowerCase().includes('colet')).length}</Text></View>
+                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon, {color: '#0077CC'}]}>✅</Text><Text style={styles.resumoText}>Entregas: {pedidos.filter(p => String(p.tipo_servico || p.tipo || '').toLowerCase().includes('entreg')).length}</Text></View>
+                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon, {color: '#FF9500'}]}>📦</Text><Text style={styles.resumoText}>Recolhas: {pedidos.filter(p => String(p.tipo_servico || p.tipo || '').toLowerCase().includes('recolh') || String(p.tipo_servico || p.tipo || '').toLowerCase().includes('colet')).length}</Text></View>
                             </View>
 
                             <FlatList
@@ -1074,26 +1074,50 @@ export default function DeliveryApp(props) {
                 <View style={styles.modalOverlayLight}>
                     <View style={styles.modalOcorrenciaContent}>
                         <Text style={styles.modalTitle}>Motivo da Ocorrência</Text>
-                        {['Cliente Ausente', 'Endereço não encontrado', 'Estabelecimento Fechado', 'Recusado'].map(motivo => (
-                            <TouchableOpacity key={motivo} style={styles.btnMotivo} onPress={() => setTextoOcorrencia(motivo)}>
+                        {['CLIENTE AUSENTE', 'ENDEREÇO NÃO LOCALIZADO', 'RECUSADO PELO CLIENTE', 'ESTABELECIMENTO FECHADO', 'OUTRO (DIGITAR)'].map(motivo => (
+                            <TouchableOpacity
+                                key={motivo}
+                                style={styles.btnMotivo}
+                                onPress={() => {
+                                    if (motivo === 'OUTRO (DIGITAR)') {
+                                        setOutroSelected(true);
+                                        setTextoOcorrencia('');
+                                        // foco no input quando aparecer
+                                        setTimeout(() => { inputOcorrenciaRef.current?.focus && inputOcorrenciaRef.current.focus(); }, 200);
+                                    } else {
+                                        // envia imediatamente para as opções predefinidas
+                                        handleOcorrenciaChoice(motivo, pedidoSelecionado);
+                                    }
+                                }}
+                            >
                                 <Text style={styles.txtMotivo}>{motivo}</Text>
                             </TouchableOpacity>
                         ))}
-                        <TextInput
-                            style={styles.inputOcorrencia}
-                            placeholder="Outro motivo... digite aqui"
-                            value={textoOcorrencia}
-                            onChangeText={setTextoOcorrencia}
-                        />
+
+                        {(outroSelected) ? (
+                            <TextInput
+                                ref={inputOcorrenciaRef}
+                                style={styles.inputOcorrencia}
+                                placeholder="Digite o motivo"
+                                value={textoOcorrencia}
+                                onChangeText={setTextoOcorrencia}
+                                multiline
+                            />
+                        ) : null}
+
                         <View style={styles.modalButtonsRow}>
-                            <TouchableOpacity style={styles.btnCancel} onPress={() => setModalOcorrencia(false)}>
+                            <TouchableOpacity style={styles.btnCancel} onPress={() => { setModalOcorrencia(false); setTextoOcorrencia(''); setOutroSelected(false); }}>
                                 <Text style={{ color: '#fff' }}>CANCELAR</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity style={styles.btnSend} onPress={() => {
-                                // Envia para o gestor via WhatsApp
-                                const motivo = textoOcorrencia || 'Motivo não informado';
-                                abrirWhatsApp(motivo);
+                                // Envia texto digitado (OUTRO) - captura coords e faz o envio
+                                const motivo = textoOcorrencia?.trim() || 'Motivo não informado';
+                                if (!pedidoSelecionado) {
+                                    Alert.alert('Erro', 'Nenhum pedido selecionado.');
+                                    return;
+                                }
+                                handleOcorrenciaChoice(motivo, pedidoSelecionado);
                             }}>
                                 <Text style={styles.btnTextGeral}>ENVIAR</Text>
                             </TouchableOpacity>
