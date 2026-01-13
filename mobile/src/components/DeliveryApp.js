@@ -473,10 +473,11 @@ export default function DeliveryApp(props) {
         const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
         const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
 
-        // 1º: Remove o card da tela imediatamente (optimistic UI)
+        // 1º: Remove o card da tela imediatamente (optimistic UI) — usa pedidoSelecionado.id conforme solicitado
         try {
-            setPedidos(prev => prev.filter(p => p.id !== target.id));
+            setPedidos(prevPedidos => prevPedidos.filter(p => p.id !== (pedidoSelecionado && pedidoSelecionado.id)));
             setModalAssinatura(false);
+            console.log('Removido localmente pedido:', pedidoSelecionado?.id);
         } catch (e) { /* ignore */ }
 
         // 2º: Tenta atualizar o servidor em segundo plano; se falhar, registra silenciosamente
