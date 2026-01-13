@@ -5,6 +5,7 @@ import CentralDespacho from './CentralDespacho';
 import { supabase } from './supabase';
 import NovaCarga from './components/NovaCarga';
 import ClientesHistorico from './components/ClientesHistorico';
+import Comprovantes from './Comprovantes';
 
 // Mantém o array de libraries estático para evitar re-criações (evita warning de performance)
 const GOOGLE_MAP_LIBRARIES = ['places', 'geometry'];
@@ -36,6 +37,10 @@ const pulsingMotoSvg = (color = '#3b82f6') => {
 };
 
 export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
+    // filtro opcional para a Central de Despacho (ex.: { pendentes: true })
+    const [centralFilter, setCentralFilter] = useState(null);
+    // filtro opcional para a aba Equipe (ex.: { online: true })
+    const [teamFilter, setTeamFilter] = useState(null);
     const { isLoaded, loadError } = useJsApiLoader({
         id: 'google-map-script',
         // CHAVE INJETADA DIRETAMENTE PARA FUNCIONAR AGORA
@@ -45,6 +50,10 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
     const [motoristas, setMotoristas] = useState([]);
     const [entregas, setEntregas] = useState([]);
+
+    // Métricas de Comprovantes / Assinaturas para hoje
+    const [totalEntregasHoje, setTotalEntregasHoje] = useState(0);
+    const [assinaturasConcluidas, setAssinaturasConcluidas] = useState(0);
     // Estado para marcador ativo do motorista (garante render imediato do Marker)
     const [activeMarker, setActiveMarker] = useState(null);
     // Histórico de clientes modal + prefill
@@ -178,10 +187,51 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 setMotoristas(enriched);
             }
 
+            // Buscar entregas recentes (limitadas para a lista), sem remover antigos — contagem é feita separadamente para não esconder pedidos
+            try {
+                const { data: eData } = await supabase.from('entregas').select('*').order('id', { ascending: false }).limit(20);
+                if (eData) setEntregas(eData);
+            } catch (err) {
+                console.warn('Erro ao buscar entregas iniciais (lista):', err);
+            }
 
+            // Consulta de contagem EXATA (sem limit) para pedidos pendentes/aguardando/sem motorista
+            try {
+                const { count, error: countErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).eq('status', 'em_preparacao');
+                if (countErr) {
+                    console.warn('Erro ao buscar contagem de pedidos pendentes (em_preparacao):', countErr);
+                } else {
+                    setPedidosPendentesCount(count || 0);
+                }
+            } catch (err) {
+                console.warn('Erro ao buscar contagem de pedidos pendentes:', err);
+            }
 
-            const { data: eData } = await supabase.from('entregas').select('*').order('id', { ascending: false }).limit(20);
-            if (eData) setEntregas(eData);
+            // --- MÉTRICAS DE ASSINATURAS HOJE ---
+            try {
+                // início do dia em ISO completo para evitar erros 400 na query
+                const hoje = new Date();
+                hoje.setHours(0, 0, 0, 0);
+                const dataISO = hoje.toISOString();
+
+                // total entregas hoje (>= início do dia)
+                const { count: totalCount, error: totalErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('created_at', dataISO);
+                if (totalErr) {
+                    console.warn('Erro ao buscar total de entregas hoje:', totalErr);
+                } else {
+                    setTotalEntregasHoje(totalCount || 0);
+                }
+
+                // assinaturas concluídas hoje (status concluido ou assinatura_url não nulo)
+                const { count: doneCount, error: doneErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('created_at', dataISO).or('status.eq.concluido,assinatura_url.not.is.null');
+                if (doneErr) {
+                    console.warn('Erro ao buscar assinaturas concluídas hoje:', doneErr);
+                } else {
+                    setAssinaturasConcluidas(doneCount || 0);
+                }
+            } catch (err) {
+                console.warn('Erro ao buscar métricas de assinaturas hoje:', err);
+            }
         };
         buscarDados();
 
@@ -297,6 +347,112 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     if (!handleSchemaCacheError(err)) console.warn('Erro ao processar INSERT em motoristas:', err);
                 }
             })
+            // Realtime para entregas: manter contador de pedidos pendentes atualizado sem limites
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entregas' }, (payload) => {
+                try {
+                    console.log('Realtime INSERT entrega payload:', payload);
+                    const novo = payload.new || {};
+                    const isInPreparacao = String(novo.status || '').toLowerCase() === 'em_preparacao';
+                    if (isInPreparacao) setPedidosPendentesCount(c => c + 1);
+                    // Atualiza lista de entregas (manter a lista local em sincronia)
+                    setEntregas(prev => {
+                        try {
+                            // evita duplicata
+                            if (prev.some(p => Number(p.id) === Number(novo.id))) return prev;
+                            return [novo, ...prev].slice(0, 20);
+                        } catch (e) { return prev; }
+                    });
+
+                    // Atualiza métricas de hoje se created_at cair hoje e status != 'pendente' (disparadas)
+                    const created = novo.created_at ? new Date(novo.created_at) : null;
+                    if (created) {
+                        const today = new Date();
+                        if (created.getFullYear() === today.getFullYear() && created.getMonth() === today.getMonth() && created.getDate() === today.getDate()) {
+                            const dispatched = String(novo.status || '').toLowerCase() !== 'pendente';
+                            if (dispatched) setTotalEntregasHoje(t => t + 1);
+                            const isDone = (String(novo.status || '').toLowerCase() === 'concluido' || (novo.assinatura_url != null && novo.assinatura_url !== ''));
+                            if (isDone) setAssinaturasConcluidas(s => s + 1);
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Erro ao processar INSERT em entregas:', err);
+                }
+            })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'entregas' }, (payload) => {
+                try {
+                    console.log('Realtime DELETE entrega payload:', payload);
+                    const old = payload.old || {};
+                    const wasInPreparacao = String(old.status || '').toLowerCase() === 'em_preparacao';
+                    if (wasInPreparacao) setPedidosPendentesCount(c => Math.max(0, c - 1));
+
+                    // Remove a entrega da lista local imediatamente (sincroniza UI)
+                    setEntregas(prev => prev.filter(p => Number(p.id) !== Number(old.id)));
+
+                    // Remove da lista local de entregas (se existir)
+                    setEntregas(prev => prev.filter(p => Number(p.id) !== Number(old.id)));
+
+                    const created = old.created_at ? new Date(old.created_at) : null;
+                    if (created) {
+                        const today = new Date();
+                        if (created.getFullYear() === today.getFullYear() && created.getMonth() === today.getMonth() && created.getDate() === today.getDate()) {
+                            const wasDispatched = String(old.status || '').toLowerCase() !== 'pendente';
+                            if (wasDispatched) setTotalEntregasHoje(t => Math.max(0, t - 1));
+                            const wasDone = (String(old.status || '').toLowerCase() === 'concluido' || (old.assinatura_url != null && old.assinatura_url !== ''));
+                            if (wasDone) setAssinaturasConcluidas(s => Math.max(0, s - 1));
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Erro ao processar DELETE em entregas:', err);
+                }
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'entregas' }, (payload) => {
+                try {
+                    console.log('Realtime UPDATE entrega payload:', payload);
+                    const old = payload.old || {};
+                    const novo = payload.new || {};
+                    const wasPending = (String(old.status || '').toLowerCase() === 'pendente' || String(old.status || '').toLowerCase() === 'aguardando' || old.motorista_id == null);
+                    const isNowPending = (String(novo.status || '').toLowerCase() === 'pendente' || String(novo.status || '').toLowerCase() === 'aguardando' || novo.motorista_id == null);
+                    if (wasPending && !isNowPending) setPedidosPendentesCount(c => Math.max(0, c - 1));
+                    if (!wasPending && isNowPending) setPedidosPendentesCount(c => c + 1);
+
+                    // Mantém a lista local de entregas atualizada (caso tenha alterações de dados)
+                    setEntregas(prev => prev.map(p => (Number(p.id) === Number(novo.id) ? { ...p, ...novo } : p)));
+
+                    // Atualiza métricas de hoje caso created_at esteja em hoje
+                    const createdOld = old.created_at ? new Date(old.created_at) : null;
+                    const createdNew = novo.created_at ? new Date(novo.created_at) : null;
+                    const today = new Date();
+                    const oldIsToday = createdOld && createdOld.getFullYear() === today.getFullYear() && createdOld.getMonth() === today.getMonth() && createdOld.getDate() === today.getDate();
+                    const newIsToday = createdNew && createdNew.getFullYear() === today.getFullYear() && createdNew.getMonth() === today.getMonth() && createdNew.getDate() === today.getDate();
+
+                    if (!oldIsToday && newIsToday) {
+                        // se entrou para hoje, contagem depende de novo status != 'pendente'
+                        const dispatchedNow = String(novo.status || '').toLowerCase() !== 'pendente';
+                        if (dispatchedNow) setTotalEntregasHoje(t => t + 1);
+                    } else if (oldIsToday && !newIsToday) {
+                        // saiu do dia de hoje
+                        const wasDispatched = String(old.status || '').toLowerCase() !== 'pendente';
+                        if (wasDispatched) setTotalEntregasHoje(t => Math.max(0, t - 1));
+                    } else if (oldIsToday && newIsToday) {
+                        // permaneceu no dia de hoje, mas status pode ter mudado entre pendente <> dispatched
+                        const wasDispatched = String(old.status || '').toLowerCase() !== 'pendente';
+                        const isDispatchedNow = String(novo.status || '').toLowerCase() !== 'pendente';
+                        if (!wasDispatched && isDispatchedNow) setTotalEntregasHoje(t => t + 1);
+                        if (wasDispatched && !isDispatchedNow) setTotalEntregasHoje(t => Math.max(0, t - 1));
+                    }
+
+                    const wasDone = (String(old.status || '').toLowerCase() === 'concluido' || (old.assinatura_url != null && old.assinatura_url !== ''));
+                    const isNowDone = (String(novo.status || '').toLowerCase() === 'concluido' || (novo.assinatura_url != null && novo.assinatura_url !== ''));
+
+                    // Se o registro pertence ao dia de hoje (antigo ou novo), atualiza o contador de assinaturas
+                    if (oldIsToday || newIsToday) {
+                        if (!wasDone && isNowDone) setAssinaturasConcluidas(s => s + 1);
+                        if (wasDone && !isNowDone) setAssinaturasConcluidas(s => Math.max(0, s - 1));
+                    }
+                } catch (err) {
+                    console.warn('Erro ao processar UPDATE em entregas:', err);
+                }
+            })
             .subscribe();
 
         return () => {
@@ -306,6 +462,21 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
     // Escolhe primeiro motorista com coordenadas válidas (não 0,0) para centralizar o mapa
     const firstMotoristaComCoords = motoristas.find(m => m.lat != null && m.lng != null && !(m.lat === 0 && m.lng === 0));
+
+    // Contador de Pedidos Pendentes (stateful, obtido do DB sem limits)
+    const [pedidosPendentesCount, setPedidosPendentesCount] = useState(0);
+
+    // Lista de motoristas exibida na aba Equipe aplicada o filtro (se houver)
+    const displayMotoristas = teamFilter && teamFilter.online ? motoristas.filter(m => String(m.status || '').toLowerCase() === 'online') : motoristas;
+    const sortedMotoristas = displayMotoristas.slice().sort((a, b) => (String(b.status || '').toLowerCase() === 'online' ? 1 : 0) - (String(a.status || '').toLowerCase() === 'online' ? 1 : 0));
+
+    // Quando abrimos a aba 'equipe' via o card, aplicamos o filtro uma vez e o limpamos logo em seguida (para não persistir indefinidamente)
+    useEffect(() => {
+        if (abaAtiva === 'equipe' && teamFilter && teamFilter.online) {
+            const t = setTimeout(() => setTeamFilter(null), 120);
+            return () => clearTimeout(t);
+        }
+    }, [abaAtiva, teamFilter]);
 
     // Ao mudar selectedDriver ou motoPosition enquanto estamos na Visão Geral, força o mapa a panTo (garante re-render visual imediato)
     useEffect(() => {
@@ -431,26 +602,61 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
                 {/* Cards de Resumo (Topo) */}
                 <div className="summary-grid" aria-hidden={false}>
-                    <div className="summary-card blue">
-                        <h3>Pedidos Pendentes</h3>
-                        <p className="value">0</p>
+                    <div
+                        className="summary-card blue"
+                        style={{ cursor: 'pointer', borderLeft: '4px solid #f59e0b' }}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                            // Foca na aba Central de Despacho mostrando somente pendentes/sem motorista
+                            setCentralFilter({ emPreparacao: true });
+                            setAbaAtiva('central-despacho');
+                        }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setCentralFilter({ pendentes: true }); setAbaAtiva('central-despacho'); } }}
+                    >
+                        <h3>Pedidos Pendentes ⏳</h3>
+                        <p className="value">{pedidosPendentesCount}</p>
                     </div>
 
-                    <div className="summary-card status">
+                    <div
+                        className="summary-card status"
+                        style={{ cursor: 'pointer' }}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => { setTeamFilter({ online: true }); setAbaAtiva('equipe'); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setTeamFilter({ online: true }); setAbaAtiva('equipe'); } }}
+                    >
                         <h3>Motoristas Online</h3>
                         <p className="value">{motoristas.filter(m => String(m.status || '').toLowerCase() === 'online').length}</p>
                     </div>
 
-                    <div className="summary-card indigo">
-                        <h3>Rota Ativa</h3>
-                        <p className="value">Aguardando</p>
+                    <div
+                        className="summary-card indigo"
+                        style={{ cursor: 'pointer' }}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setAbaAtiva('comprovantes')}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setAbaAtiva('comprovantes'); }}
+                    >
+                        <h3>ASSINATURAS</h3>
+                        <p className="value">{assinaturasConcluidas} / {totalEntregasHoje}</p>
+
+                        {/* Barra de progresso */}
+                        <div style={{ marginTop: 8 }}>
+                            <div style={{ background: '#243244', height: 10, borderRadius: 6, overflow: 'hidden' }}>
+                                <div style={{ width: `${totalEntregasHoje ? Math.min(100, Math.round((assinaturasConcluidas / totalEntregasHoje) * 100)) : 0}%`, height: '100%', background: '#10b981' }} />
+                            </div>
+                            <div style={{ fontSize: 12, color: '#9aa4b2', marginTop: 6 }}>Progresso das entregas</div>
+                        </div>
                     </div>
                 </div>
 
                 {abaAtiva === 'nova-carga' ? (
                     <NovaCarga setAbaAtiva={setAbaAtiva} prefill={prefill} />
                 ) : abaAtiva === 'central-despacho' ? (
-                    <CentralDespacho />
+                    <CentralDespacho filter={centralFilter} onClearFilter={() => setCentralFilter(null)} />
+                ) : abaAtiva === 'comprovantes' ? (
+                    <Comprovantes />
                 ) : abaAtiva === 'visao-geral' ? (
                     isLoaded ? (
                         <div className="visao-geral-map-card">
@@ -514,8 +720,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 ) : abaAtiva === 'equipe' ? (
                     <div className="motoristas-wrapper">
                         <div className="motoristas-list">
-                            {motoristas && motoristas.length > 0 ? (
-                                motoristas.slice().sort((a, b) => (String(b.status || '').toLowerCase() === 'online' ? 1 : 0) - (String(a.status || '').toLowerCase() === 'online' ? 1 : 0)).map(m => {
+                            {sortedMotoristas && sortedMotoristas.length > 0 ? (
+                                sortedMotoristas.map(m => {
                                     const isOnline = String(m.status || '').toLowerCase() === 'online';
                                     const initials = (m.nome || '').split(' ').map(s => s[0]).slice(0, 2).join('');
                                     return (
