@@ -382,11 +382,31 @@ export default function DeliveryApp(props) {
     };
 
     // Confirma a entrega do pedido atualmente selecionado (sem assinatura)
-    const confirmarEntrega = () => {
+    const confirmarEntrega = async () => {
         if (!pedidoSelecionado) return;
-        setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'entregue' } : it));
-        setModalAssinatura(false);
-        setPedidoSelecionado(null);
+        try {
+            const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
+            const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
+            const concluded_at = new Date().toISOString();
+
+            const { data, error } = await supabase.from('entregas').update({
+                status: 'entregue',
+                assinatura: null,
+                lat: lat,
+                lng: lng,
+                concluded_at
+            }).eq('id', pedidoSelecionado.id);
+            if (error) throw error;
+
+            setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'entregue', assinatura: null, lat: lat, lng: lng, concluded_at } : it));
+            Alert.alert('Sucesso', 'Entrega confirmada.');
+        } catch (err) {
+            console.error('Erro ao confirmar entrega:', err?.message || err);
+            Alert.alert('Erro', 'Não foi possível confirmar a entrega. Tente novamente.');
+        } finally {
+            setModalAssinatura(false);
+            setPedidoSelecionado(null);
+        }
     };
 
     // Handler quando a assinatura foi capturada (img é dataURL)
@@ -402,38 +422,23 @@ export default function DeliveryApp(props) {
             const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
             const concluded_at = new Date().toISOString();
 
-            let signatureUrlToSave = imgDataUrl; // fallback caso upload falhe
+            let assinaturaToSave = imgDataUrl; // assinatura em base64/dataURL para salvar no DB
 
-            try {
-                // Tenta fazer upload para Supabase Storage (bucket 'signatures') — usa fetch para converter dataURL em blob
-                const blob = await (await fetch(imgDataUrl)).blob();
-                const filename = `entrega-${pedidoSelecionado.id || Date.now()}-${Date.now()}.png`;
-                const path = `signatures/${filename}`;
-                const { data: uploadData, error: uploadErr } = await supabase.storage.from('signatures').upload(path, blob, { upsert: true });
-                if (uploadErr) {
-                    console.warn('Upload de assinatura falhou, salvando como dataURL no DB:', uploadErr.message || uploadErr);
-                } else {
-                    const { data: pub } = supabase.storage.from('signatures').getPublicUrl(path);
-                    if (pub && pub.publicUrl) {
-                        signatureUrlToSave = pub.publicUrl;
-                    }
-                }
-            } catch (uErr) {
-                console.warn('Erro ao tentar enviar assinatura para Storage, fallback para dataURL:', uErr?.message || uErr);
-            }
+            // Não fazemos upload para Storage: gravamos a assinatura (dataURL/base64) diretamente na coluna `assinatura` e as coordenadas em `lat`/`lng`
+            const assinaturaToSave = imgDataUrl;
 
-            // Atualiza a entrega com assinatura (URL ou dataURL) e coordenadas
+            // Atualiza a entrega com assinatura (dataURL) e coordenadas (uso de colunas lat/lng)
             const { data, error } = await supabase.from('entregas').update({
                 status: 'entregue',
-                assinatura_url: signatureUrlToSave,
-                lat_conclusao: lat,
-                lng_conclusao: lng,
+                assinatura: assinaturaToSave,
+                lat: lat,
+                lng: lng,
                 concluded_at
             }).eq('id', pedidoSelecionado.id);
             if (error) throw error;
 
             // Atualiza UI local (usa o valor final gravado)
-            setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'entregue', assinatura_url: signatureUrlToSave, lat_conclusao: lat, lng_conclusao: lng, concluded_at } : it));
+            setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'entregue', assinatura: assinaturaToSave, lat: lat, lng: lng, concluded_at } : it));
 
             Alert.alert('Sucesso', 'Assinatura registrada e entrega confirmada.');
         } catch (err) {

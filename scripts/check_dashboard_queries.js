@@ -27,20 +27,22 @@ async function getSupabaseClient() {
 
     try {
         const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0);
-        const inicioDiaISO = hoje.toISOString();
-        console.log('Usando inicioDiaISO:', inicioDiaISO);
+        hoje.setUTCHours(0, 0, 0, 0);
+        const filtroData = hoje.toISOString();
+        console.log('Usando filtroData:', filtroData);
 
-        const { count: totalCount, error: totalErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('created_at', inicioDiaISO);
+        const { count: totalCount, error: totalErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('criado_em', filtroData);
         if (totalErr) {
-            console.error('Erro total:', totalErr.message || totalErr);
+            console.error('Erro total (obj):', JSON.stringify(totalErr));
+            console.error('Erro total (details):', totalErr.message, totalErr.details, totalErr.hint, totalErr.code);
         } else {
             console.log('Total entregas hoje:', totalCount);
         }
 
-        const { count: doneCount, error: doneErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('created_at', inicioDiaISO).or('status.eq.concluido,assinatura_url.not.is.null');
+        const { count: doneCount, error: doneErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('criado_em', filtroData).or('status.eq.concluido,assinatura.not.is.null');
         if (doneErr) {
-            console.error('Erro assinaturas:', doneErr.message || doneErr);
+            console.error('Erro assinaturas (obj):', JSON.stringify(doneErr));
+            console.error('Erro assinaturas (details):', doneErr.message, doneErr.details, doneErr.hint, doneErr.code);
         } else {
             console.log('Assinaturas concluídas hoje:', doneCount);
         }

@@ -209,21 +209,21 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
             // --- MÉTRICAS DE ASSINATURAS HOJE ---
             try {
-                // início do dia em ISO completo para evitar erros 400 na query
+                // início do dia em ISO (UTC) para evitar erros 400 na query
                 const hoje = new Date();
-                hoje.setHours(0, 0, 0, 0);
-                const inicioDiaISO = hoje.toISOString();
+                hoje.setUTCHours(0, 0, 0, 0);
+                const filtroData = hoje.toISOString();
 
                 // total entregas hoje (>= início do dia)
-                const { count: totalCount, error: totalErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('created_at', inicioDiaISO);
+                const { count: totalCount, error: totalErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('criado_em', filtroData);
                 if (totalErr) {
                     console.error('Erro detalhado:', totalErr.message);
                 } else {
                     setTotalEntregasHoje(totalCount || 0);
                 }
 
-                // assinaturas concluídas hoje (status concluido ou assinatura_url não nulo)
-                const { count: doneCount, error: doneErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('created_at', inicioDiaISO).or('status.eq.concluido,assinatura_url.not.is.null');
+                // assinaturas concluídas hoje (status concluido ou assinatura não nulo)
+                const { count: doneCount, error: doneErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('criado_em', filtroData).or('status.eq.concluido,assinatura.not.is.null');
                 if (doneErr) {
                     console.error('Erro detalhado:', doneErr.message);
                 } else {
@@ -363,14 +363,14 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                         } catch (e) { return prev; }
                     });
 
-                    // Atualiza métricas de hoje se created_at cair hoje e status != 'pendente' (disparadas)
-                    const created = novo.created_at ? new Date(novo.created_at) : null;
+                    // Atualiza métricas de hoje se criado_em cair hoje e status != 'pendente' (disparadas)
+                    const created = novo.criado_em ? new Date(novo.criado_em) : null;
                     if (created) {
                         const today = new Date();
                         if (created.getFullYear() === today.getFullYear() && created.getMonth() === today.getMonth() && created.getDate() === today.getDate()) {
                             const dispatched = String(novo.status || '').toLowerCase() !== 'pendente';
                             if (dispatched) setTotalEntregasHoje(t => t + 1);
-                            const isDone = (String(novo.status || '').toLowerCase() === 'concluido' || (novo.assinatura_url != null && novo.assinatura_url !== ''));
+                            const isDone = (String(novo.status || '').toLowerCase() === 'concluido' || (novo.assinatura != null && novo.assinatura !== ''));
                             if (isDone) setAssinaturasConcluidas(s => s + 1);
                         }
                     }
@@ -391,13 +391,13 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     // Remove da lista local de entregas (se existir)
                     setEntregas(prev => prev.filter(p => Number(p.id) !== Number(old.id)));
 
-                    const created = old.created_at ? new Date(old.created_at) : null;
+                    const created = old.criado_em ? new Date(old.criado_em) : null;
                     if (created) {
                         const today = new Date();
                         if (created.getFullYear() === today.getFullYear() && created.getMonth() === today.getMonth() && created.getDate() === today.getDate()) {
                             const wasDispatched = String(old.status || '').toLowerCase() !== 'pendente';
                             if (wasDispatched) setTotalEntregasHoje(t => Math.max(0, t - 1));
-                            const wasDone = (String(old.status || '').toLowerCase() === 'concluido' || (old.assinatura_url != null && old.assinatura_url !== ''));
+                            const wasDone = (String(old.status || '').toLowerCase() === 'concluido' || (old.assinatura != null && old.assinatura !== ''));
                             if (wasDone) setAssinaturasConcluidas(s => Math.max(0, s - 1));
                         }
                     }
@@ -418,9 +418,9 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     // Mantém a lista local de entregas atualizada (caso tenha alterações de dados)
                     setEntregas(prev => prev.map(p => (Number(p.id) === Number(novo.id) ? { ...p, ...novo } : p)));
 
-                    // Atualiza métricas de hoje caso created_at esteja em hoje
-                    const createdOld = old.created_at ? new Date(old.created_at) : null;
-                    const createdNew = novo.created_at ? new Date(novo.created_at) : null;
+                    // Atualiza métricas de hoje caso criado_em esteja em hoje
+                    const createdOld = old.criado_em ? new Date(old.criado_em) : null;
+                    const createdNew = novo.criado_em ? new Date(novo.criado_em) : null;
                     const today = new Date();
                     const oldIsToday = createdOld && createdOld.getFullYear() === today.getFullYear() && createdOld.getMonth() === today.getMonth() && createdOld.getDate() === today.getDate();
                     const newIsToday = createdNew && createdNew.getFullYear() === today.getFullYear() && createdNew.getMonth() === today.getMonth() && createdNew.getDate() === today.getDate();
@@ -441,8 +441,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                         if (wasDispatched && !isDispatchedNow) setTotalEntregasHoje(t => Math.max(0, t - 1));
                     }
 
-                    const wasDone = (String(old.status || '').toLowerCase() === 'concluido' || (old.assinatura_url != null && old.assinatura_url !== ''));
-                    const isNowDone = (String(novo.status || '').toLowerCase() === 'concluido' || (novo.assinatura_url != null && novo.assinatura_url !== ''));
+                    const wasDone = (String(old.status || '').toLowerCase() === 'concluido' || (old.assinatura != null && old.assinatura !== ''));
+                    const isNowDone = (String(novo.status || '').toLowerCase() === 'concluido' || (novo.assinatura != null && novo.assinatura !== ''));
 
                     // Se o registro pertence ao dia de hoje (antigo ou novo), atualiza o contador de assinaturas
                     if (oldIsToday || newIsToday) {
