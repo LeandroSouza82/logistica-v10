@@ -663,14 +663,12 @@ export default function DeliveryApp(props) {
         }
     };
 
-    const movePedido = (index, dir) => {
+    const moverPedido = (fromIndex, toIndex) => {
         setPedidos(prev => {
             const novoRoteiro = [...prev]; // cria novo array para forçar rerender
-            const newIndex = dir === 'up' ? index - 1 : index + 1;
-            if (newIndex < 0 || newIndex >= novoRoteiro.length) return prev;
-            const tmp = novoRoteiro[newIndex];
-            novoRoteiro[newIndex] = novoRoteiro[index];
-            novoRoteiro[index] = tmp;
+            if (toIndex < 0 || toIndex >= novoRoteiro.length) return prev;
+            const [removido] = novoRoteiro.splice(fromIndex, 1);
+            novoRoteiro.splice(toIndex, 0, removido);
 
             // atualiza seleção caso o pedido selecionado seja movido
             if (pedidoSelecionado) {
@@ -700,13 +698,13 @@ export default function DeliveryApp(props) {
 
     const getCardStyle = (item) => {
         const tipo = (item && item.tipo_servico) ? item.tipo_servico.toLowerCase() : '';
-        if (tipo === 'entrega') return { backgroundColor: 'rgba(0,122,255,0.2)' };
-        if (tipo === 'recolha') return { backgroundColor: 'rgba(255,149,0,0.2)' };
-        if (tipo === 'outros') return { backgroundColor: 'rgba(175,82,222,0.2)' };
+        if (tipo === 'entrega') return { backgroundColor: 'rgba(0,150,255,0.3)' };
+        if (tipo === 'recolha') return { backgroundColor: 'rgba(255,120,0,0.3)' };
+        if (tipo === 'outros') return { backgroundColor: 'rgba(150,0,255,0.3)' };
         return { backgroundColor: '#111827' };
     };
 
-    const renderPedidoItem = useCallback((p, idx) => {
+    function renderPedidoItem(p, idx) {
         const item = p;
         return (
             <TouchableOpacity style={[styles.cardGrande, getCardStyle(item), (pedidoSelecionado && pedidoSelecionado.id === item.id) ? styles.cardEmDestaque : null]} key={item.id} onPress={() => {
@@ -724,10 +722,10 @@ export default function DeliveryApp(props) {
             }} activeOpacity={0.9}>
 
                 <View style={styles.cardHeader}>
-                    <View style={styles.badge}><Text style={styles.badgeTextLarge}>{idx + 1}º</Text></View>
+                    <View style={styles.badge}><Text style={styles.badgeTextLarge}>{idx + 1}º Roteiro</Text></View>
                     <View style={styles.cardHeaderRight}>
-                        <TouchableOpacity disabled={idx === 0} onPress={() => movePedido(idx, 'up')} style={styles.arrowBtn}><Text>⬆️</Text></TouchableOpacity>
-                        <TouchableOpacity disabled={idx === pedidos.length - 1} onPress={() => movePedido(idx, 'down')} style={styles.arrowBtn}><Text>⬇️</Text></TouchableOpacity>
+                        <TouchableOpacity disabled={idx === 0} onPress={() => moverPedido(idx, idx - 1)} style={styles.arrowBtn}><Text>⬆️</Text></TouchableOpacity>
+                        <TouchableOpacity disabled={idx === pedidos.length - 1} onPress={() => moverPedido(idx, idx + 1)} style={styles.arrowBtn}><Text>⬇️</Text></TouchableOpacity>
                     </View>
                 </View>
 
@@ -752,7 +750,7 @@ export default function DeliveryApp(props) {
                 </View>
             </TouchableOpacity>
         );
-    }, [mapRef, setModalAssinatura, setPedidoSelecionado, confirmarEntrega, pedidoSelecionado, pedidos]);
+    }
 
 
 
@@ -1048,7 +1046,7 @@ const styles = StyleSheet.create({
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     badge: { backgroundColor: '#111827', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20 },
     badgeText: { color: '#fff', fontWeight: '700' },
-    badgeTextLarge: { color: '#fff', fontWeight: '800', fontSize: 18 },
+    badgeTextLarge: { color: '#fff', fontWeight: '800', fontSize: 22 },
     modalButtonsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
     btnCancel: { flex: 1, backgroundColor: '#444', paddingVertical: 12, borderRadius: 10, marginRight: 8, alignItems: 'center' },
     btnSend: { flex: 1, backgroundColor: '#28a745', paddingVertical: 12, borderRadius: 10, marginLeft: 8, alignItems: 'center' },
