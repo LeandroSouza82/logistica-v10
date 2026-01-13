@@ -486,11 +486,11 @@ export default function DeliveryApp(props) {
         const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
         const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
 
-        // 1º: Remove o card da tela imediatamente (optimistic UI) — usa pedidoSelecionado.id conforme solicitado
+        // 1º: Remove o card da tela imediatamente (optimistic UI) — usa target.id
         try {
-            setPedidos(prevPedidos => prevPedidos.filter(p => p.id !== (pedidoSelecionado && pedidoSelecionado.id)));
+            setPedidos(prevPedidos => prevPedidos.filter(p => Number(p.id) !== Number(target.id)));
             setModalAssinatura(false);
-            console.log('Removido localmente pedido:', pedidoSelecionado?.id);
+            console.log('Removido localmente pedido:', target?.id);
         } catch (e) { /* ignore */ }
 
         // 2º: Tenta atualizar o servidor em segundo plano; se falhar, registra silenciosamente
@@ -958,20 +958,17 @@ export default function DeliveryApp(props) {
                         <Text style={[styles.btnIconText, { color: '#fff' }]}>ROTA</Text>
                     </TouchableOpacity>
 
-                    {/* Camera button */}
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#444' }]} onPress={() => tirarFoto(item)}>
-                        <Text style={[styles.btnIconText, { color: '#fff' }]}>📷</Text>
-                    </TouchableOpacity>
+                    {/* Split row: NÃO ENTREGUE (vermelho) | FINALIZAR (verde) - mesmos tamanhos, ocupando largura restante */}
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                        <View style={styles.btnSplitContainer}>
+                            <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#e74c3c', marginRight: 8 }]} onPress={() => abrirOcorrenciaRapida(item)}>
+                                <Text style={[styles.btnIconText, { color: '#fff' }]}>NÃO ENTREGUE</Text>
+                            </TouchableOpacity>
 
-                    {/* Split row: NÃO ENTREGUE (vermelho) | FINALIZAR (verde) - mesmos tamanhos */}
-                    <View style={styles.btnSplitContainer}>
-                        <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#e74c3c', marginRight: 8 }]} onPress={() => abrirOcorrenciaRapida(item)}>
-                            <Text style={[styles.btnIconText, { color: '#fff' }]}>NÃO ENTREGUE</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#28a745', marginLeft: 8 }]} onPress={() => { setPedidoSelecionado(item); setModalAssinatura(true); }}>
-                            <Text style={[styles.btnIconText, { color: '#fff' }]}>FINALIZAR</Text>
-                        </TouchableOpacity>
+                            <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#28a745', marginLeft: 8 }]} onPress={() => { setPedidoSelecionado(item); setModalAssinatura(true); }}>
+                                <Text style={[styles.btnIconText, { color: '#fff' }]}>FINALIZAR</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
             </TouchableOpacity>
@@ -1066,8 +1063,9 @@ export default function DeliveryApp(props) {
                         <View style={styles.sheetContentGlass}>
                             {/* Resumo do dia */}
                             <View style={styles.resumoRow}>
-                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon, {color: '#0077CC'}]}>✅</Text><Text style={styles.resumoText}>Entregas Pendentes: {totalEntregas}</Text></View>
-                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon, {color: '#FF9500'}]}>📦</Text><Text style={styles.resumoText}>Recolhas Pendentes: {totalRecolhas}</Text></View>
+                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon]}>👤</Text><Text style={styles.resumoText}>{totalEntregas}</Text></View>
+                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon]}>📦</Text><Text style={styles.resumoText}>{totalRecolhas}</Text></View>
+                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon]}>✨</Text><Text style={styles.resumoText}>{pedidos.filter(p => { const t = String(p.tipo_servico || p.tipo || '').toLowerCase(); return !t.includes('entreg') && !t.includes('recolh'); }).length}</Text></View>
                             </View>
 
                             <FlatList
@@ -1156,7 +1154,43 @@ export default function DeliveryApp(props) {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalAssinaturaFull}>
-                        <Text style={styles.modalTitle}>ASSINATURA DO CLIENTE</Text>
+                        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
+                            <Text style={styles.modalTitle}>ASSINATURA DO CLIENTE</Text>
+                            {/* Camera icon: tira foto e confirma entrega */}
+                            <TouchableOpacity style={{ padding: 8 }} onPress={async () => {
+                                // captura foto e confirma entrega (usa pedidoSelecionado)
+                                try {
+                                    if (!pedidoSelecionado) { Alert.alert('Erro', 'Nenhum pedido selecionado para foto.'); return; }
+                                    // Abre camera
+                                    if (!ImagePicker) { Alert.alert('Erro', 'Camera não disponível.'); return; }
+                                    const perm = await ImagePicker.requestCameraPermissionsAsync();
+                                    if (perm.status !== 'granted') { Alert.alert('Permissão', 'Permissão de câmera negada.'); return; }
+                                    const res = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+                                    if (res.cancelled || res.canceled) return;
+                                    const uri = res.uri || (res.assets && res.assets[0] && res.assets[0].uri);
+                                    if (!uri) { Alert.alert('Erro', 'Não foi possível capturar a foto.'); return; }
+
+                                    if (!FileSystem) {
+                                        Alert.alert('Erro', 'FileSystem não disponível para leitura de imagem.');
+                                        return;
+                                    }
+                                    const b64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+                                    const dataUrl = `data:image/jpeg;base64,${b64}`;
+
+                                    // Atualiza localmente (assinatura_url + foto)
+                                    setPedidos(prev => prev.map(p => (Number(p.id) === Number(pedidoSelecionado.id) ? { ...p, foto_entrega: dataUrl, assinatura_url: dataUrl } : p)));
+
+                                    // Chama confirmarEntrega com o item atualizado para remover e atualizar servidor
+                                    await confirmarEntrega({ ...pedidoSelecionado, assinatura_url: dataUrl, foto_entrega: dataUrl });
+
+                                } catch (err) {
+                                    console.error('Erro ao capturar foto no modal de assinatura:', err);
+                                    Alert.alert('Erro', 'Não foi possível capturar a foto.');
+                                }
+                            }}>
+                                <Text style={{ fontSize: 22 }}>📸</Text>
+                            </TouchableOpacity>
+                        </View>
 
                         {/* ✍️ ÁREA DE DESENHO (90% DA CAIXA) */}
                         <View style={styles.containerAssinatura}>
