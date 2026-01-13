@@ -26,6 +26,8 @@ const STATUSBAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ||
 export default function DeliveryApp(props) {
     // Número padrão do motorista (use seu número real em produção ou carregue via config)
     const MOTORISTA_PHONE = '+5511999999999';
+    // Telefone do gestor para receber ocorrências (pode ser passado via props)
+    const GESTOR_PHONE = props?.gestorPhone || '+5511999999999';
 
     const [pedidos, setPedidos] = useState([
         { id: 1, cliente: 'Leandro (Coleta)', status: 'pendente', lat: -27.596, lng: -48.546, driverPhone: '+5511987654321' },
@@ -387,16 +389,21 @@ export default function DeliveryApp(props) {
             const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
 
             const assinaturaToSend = target && target.assinatura ? target.assinatura : null;
+            if (!assinaturaToSend) {
+                Alert.alert('Assinatura ausente', 'Finalize a entrega assinando antes de confirmar.');
+                return;
+            }
+
             const { data, error } = await supabase.from('entregas').update({
                 status: 'concluido',
                 assinatura: assinaturaToSend,
-                lat: lat,
-                lng: lng,
-                motorista_id: 1
+                lat_entrega: lat,
+                lng_entrega: lng
             }).eq('id', target.id);
             if (error) throw error;
 
-            setPedidos(pedidos.map(it => it.id === target.id ? { ...it, status: 'concluido', assinatura: assinaturaToSend, lat: lat, lng: lng, motorista_id: 1 } : it));
+            // Remove pedido da lista local
+            setPedidos(prev => prev.filter(it => it.id !== target.id));
             Alert.alert('Sucesso', 'Entrega confirmada.');
         } catch (err) {
             console.error('Erro ao confirmar entrega:', err?.message || err);
@@ -420,20 +427,19 @@ export default function DeliveryApp(props) {
             const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
 
             // assinatura em base64/dataURL para salvar no DB
-            const assinaturaBase64 = imgDataUrl; // gravamos a assinatura (dataURL/base64) diretamente na coluna `assinatura` e as coordenadas em `lat`/`lng`
+            const assinaturaBase64 = imgDataUrl;
 
-            // Atualiza a entrega no banco: gravamos apenas `assinatura`, `lat` e `lng` como requerido
+            // Atualiza a entrega no banco: gravamos status e colunas de entrega conforme solicitado
             const { data, error } = await supabase.from('entregas').update({
                 status: 'concluido',
                 assinatura: assinaturaBase64,
-                lat: lat,
-                lng: lng,
-                motorista_id: 1
+                lat_entrega: lat,
+                lng_entrega: lng
             }).eq('id', pedidoSelecionado.id);
             if (error) throw error;
 
-            // Atualiza UI local (mostramos o pedido como concluído localmente)
-            setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'concluido', assinatura: assinaturaBase64, lat: lat, lng: lng, motorista_id: 1 } : it));
+            // Atualiza UI local (remove o pedido da lista)
+            setPedidos(prev => prev.filter(it => it.id !== pedidoSelecionado.id));
 
             Alert.alert('Sucesso', 'Assinatura registrada e entrega confirmada.');
         } catch (err) {
@@ -572,19 +578,56 @@ export default function DeliveryApp(props) {
         }
     })).current;
 
-    const openExternalNavigation = (item) => {
+    const abrirWhatsApp = async (motivo) => {
+        // envia mensagem ao gestor com o motivo e dados do pedido selecionado
+        if (!pedidoSelecionado) {
+            Alert.alert('Erro', 'Nenhum pedido selecionado para reportar.');
+            return;
+        }
+        const phone = (GESTOR_PHONE || '').replace(/[^0-9]/g, '');
+        const text = `Ocorrência no pedido #${pedidoSelecionado.id} - ${pedidoSelecionado.cliente}\nMotivo: ${motivo}\nObservações: ${textoOcorrencia || ''}\nEndereço: ${pedidoSelecionado.endereco || ''}`;
+        const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+        try {
+            await Linking.openURL(url);
+            setModalOcorrencia(false);
+            setTextoOcorrencia('');
+            setPedidoSelecionado(null);
+        } catch (err) {
+            console.warn('Erro ao abrir WhatsApp:', err);
+            Alert.alert('Erro', 'Não foi possível abrir o WhatsApp.');
+        }
+    };
+
+    const openExternalNavigation = async (item) => {
         const lat = item?.lat;
         const lng = item?.lng;
         if (!lat || !lng) {
             Alert.alert('Localização indisponível', 'Este pedido não tem coordenadas.');
             return;
         }
-        const q = `${Number(lat)},${Number(lng)}`;
-        const url = (Platform.OS === 'ios') ? `http://maps.apple.com/?daddr=${q}` : `google.navigation:q=${q}`;
-        Linking.openURL(url).catch(err => {
+        const latNum = Number(lat);
+        const lngNum = Number(lng);
+        // Try Waze first, then Google Navigation / Apple Maps, then fallback to web
+        const wazeUrl = `waze://?ll=${latNum},${lngNum}&navigate=yes`;
+        const googleUrl = `google.navigation:q=${latNum},${lngNum}`;
+        const appleUrl = `http://maps.apple.com/?daddr=${latNum},${lngNum}`;
+        const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latNum},${lngNum}`;
+        try {
+            if (Platform.OS === 'android') {
+                const canWaze = await Linking.canOpenURL(wazeUrl);
+                if (canWaze) return Linking.openURL(wazeUrl);
+                const canGoogle = await Linking.canOpenURL(googleUrl);
+                if (canGoogle) return Linking.openURL(googleUrl);
+                return Linking.openURL(webUrl);
+            } else {
+                const canApple = await Linking.canOpenURL(appleUrl);
+                if (canApple) return Linking.openURL(appleUrl);
+                return Linking.openURL(webUrl);
+            }
+        } catch (err) {
             console.warn('Erro ao abrir navegação externa:', err);
             Alert.alert('Erro', 'Não foi possível abrir o app de navegação.');
-        });
+        }
     };
 
     const renderPedidoItem = useCallback((p) => {
@@ -610,36 +653,16 @@ export default function DeliveryApp(props) {
                 <View style={{ height: 12 }} />
 
                 <View style={styles.btnRowThree}>
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#fff' }]} onPress={async () => {
-                        if (item.lat && item.lng) {
-                            const lat = Number(item.lat);
-                            const lng = Number(item.lng);
-                            // animação interna
-                            mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500);
-                            // tenta abrir app de navegação externo
-                            const googleUrl = `google.navigation:q=${lat},${lng}`;
-                            const appleUrl = `http://maps.apple.com/?daddr=${lat},${lng}`;
-                            const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-                            try {
-                                const url = Platform.OS === 'ios' ? appleUrl : googleUrl;
-                                const can = await Linking.canOpenURL(url);
-                                if (can) await Linking.openURL(url);
-                                else await Linking.openURL(webUrl);
-                            } catch (e) {
-                                // fallback para web maps
-                                try { await Linking.openURL(webUrl); } catch (err) { console.warn('Não foi possível abrir a navegação:', err); }
-                            }
-                        }
-                    }}>
-                        <Text style={styles.btnIconText}>Rota</Text>
+                            <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#3498db' }]} onPress={() => openExternalNavigation(item)}>
+                        <Text style={[styles.btnIconText, { color: '#fff' }]}>Rota</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#fff' }]} onPress={() => { setPedidoSelecionado(item); setModalAssinatura(true); }}>
-                        <Text style={styles.btnIconText}>Assinar</Text>
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#e74c3c' }]} onPress={() => { setPedidoSelecionado(item); setModalOcorrencia(true); }}>
+                        <Text style={[styles.btnIconText, { color: '#fff' }]}>Não Entregue</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#fff' }]} onPress={() => { setPedidoSelecionado(item); confirmarEntrega(); }}>
-                        <Text style={styles.btnIconText}>OK</Text>
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#28a745' }]} onPress={() => { setPedidoSelecionado(item); setModalAssinatura(true); }}>
+                        <Text style={[styles.btnIconText, { color: '#fff' }]}>Finalizar</Text>
                     </TouchableOpacity>
                 </View>
             </TouchableOpacity>
@@ -741,18 +764,27 @@ export default function DeliveryApp(props) {
                 <View style={styles.modalOverlayLight}>
                     <View style={styles.modalOcorrenciaContent}>
                         <Text style={styles.modalTitle}>Motivo da Ocorrência</Text>
-                        {['Cliente Ausente', 'Endereço não existe', 'Recusou entrega', 'Veículo quebrado', 'Local Fechado'].map(motivo => (
-                            <TouchableOpacity key={motivo} style={styles.btnMotivo} onPress={() => abrirWhatsApp(motivo)}>
+                        {['Cliente Ausente', 'Endereço não encontrado', 'Estabelecimento Fechado', 'Recusado'].map(motivo => (
+                            <TouchableOpacity key={motivo} style={styles.btnMotivo} onPress={() => setTextoOcorrencia(motivo)}>
                                 <Text style={styles.txtMotivo}>{motivo}</Text>
                             </TouchableOpacity>
                         ))}
                         <TextInput
                             style={styles.inputOcorrencia}
                             placeholder="Outro motivo... digite aqui"
+                            value={textoOcorrencia}
                             onChangeText={setTextoOcorrencia}
                         />
                         <TouchableOpacity style={styles.btnFechar} onPress={() => setModalOcorrencia(false)}>
                             <Text style={{ color: '#fff' }}>CANCELAR</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={[styles.btnConfirmarFull, { marginTop: 10 }]} onPress={() => {
+                            // Envia para o gestor via WhatsApp
+                            const motivo = textoOcorrencia || 'Motivo não informado';
+                            abrirWhatsApp(motivo);
+                        }}>
+                            <Text style={styles.btnTextGeral}>ENVIAR AO GESTOR</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
