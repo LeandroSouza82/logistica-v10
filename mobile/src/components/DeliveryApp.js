@@ -86,6 +86,7 @@ export default function DeliveryApp(props) {
     const [textoOcorrencia, setTextoOcorrencia] = useState('');
     const [outroSelected, setOutroSelected] = useState(false);
     const inputOcorrenciaRef = useRef(null);
+    const [modalProcessing, setModalProcessing] = useState(false);
 
 
 
@@ -580,6 +581,83 @@ export default function DeliveryApp(props) {
         } catch (err) {
             console.error('Erro ao tirar foto:', err);
             Alert.alert('Erro', 'Não foi possível tirar a foto.');
+        }
+    };
+
+    // Captura foto na modal de assinatura, faz upload/convert com await, atualiza Supabase e finaliza o pedido (removendo localmente)
+    const capturePhotoAndConfirm = async (item) => {
+        if (!item) { Alert.alert('Erro', 'Nenhum pedido selecionado.'); return; }
+        if (!ImagePicker) { Alert.alert('Erro', 'Camera não disponível.'); return; }
+        setModalProcessing(true);
+        try {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (perm.status !== 'granted') { Alert.alert('Permissão', 'Permissão de câmera negada.'); setModalProcessing(false); return; }
+
+            const res = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: false });
+            const cancelled = res.cancelled || res.canceled;
+            if (cancelled) { setModalProcessing(false); return; }
+
+            const uri = res.uri || (res.assets && res.assets[0] && res.assets[0].uri);
+            const assetBase64 = res.base64 || (res.assets && res.assets[0] && res.assets[0].base64);
+            if (!uri && !assetBase64) { Alert.alert('Erro', 'Não foi possível capturar a foto.'); setModalProcessing(false); return; }
+
+            // Normaliza uri (remove file:// se presente)
+            let normalizedUri = uri;
+            if (normalizedUri && normalizedUri.startsWith('file://')) normalizedUri = normalizedUri.replace('file://', '');
+
+            // Converte para dataURL: prioriza FileSystem leitura por base64 (mais robusto no native)
+            let dataUrl = null;
+            if (FileSystem && uri) {
+                try {
+                    const b64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+                    dataUrl = `data:image/jpeg;base64,${b64}`;
+                } catch (e) {
+                    console.warn('Falha ao ler via FileSystem:', e);
+                }
+            }
+
+            if (!dataUrl && assetBase64) {
+                dataUrl = `data:image/jpeg;base64,${assetBase64}`;
+            }
+
+            if (!dataUrl && uri) {
+                try {
+                    const fetched = await fetch(uri);
+                    const blob = await fetched.blob();
+                    const reader = new FileReader();
+                    const b64FromBlob = await new Promise((resolve, reject) => {
+                        reader.onerror = reject;
+                        reader.onload = () => resolve(reader.result.split(',')[1]);
+                        reader.readAsDataURL(blob);
+                    });
+                    dataUrl = `data:${blob.type};base64,${b64FromBlob}`;
+                } catch (e) {
+                    console.warn('Erro ao converter uri para base64 via fetch/blob:', e);
+                }
+            }
+
+            if (!dataUrl) { Alert.alert('Erro', 'Não foi possível processar a foto.'); setModalProcessing(false); return; }
+
+            // Captura coords no momento do envio
+            let coords = null;
+            try { const l = await Location.getCurrentPositionAsync(); coords = { latitude: l.coords.latitude, longitude: l.coords.longitude }; } catch (e) { /* ignore */ }
+
+            // Tenta atualizar no Supabase (assinatura_url + foto_entrega + status)
+            try {
+                const { data, error } = await supabase.from('entregas').update({ assinatura_url: dataUrl, foto_entrega: dataUrl, status: 'concluido', lat_entrega: coords?.latitude ?? item.lat, lng_entrega: coords?.longitude ?? item.lng }).eq('id', item.id);
+                if (error) console.warn('Erro ao enviar foto para Supabase:', error);
+                else console.log('Foto enviada ao Supabase:', data);
+            } catch (err) { console.warn('Exceção ao enviar foto ao Supabase:', err); }
+
+            // Remove localmente para atualização imediata do resumo
+            setPedidos(prev => prev.filter(p => Number(p.id) !== Number(item.id)));
+            setModalProcessing(false);
+            setModalAssinatura(false);
+            setPedidoSelecionado(null);
+        } catch (err) {
+            console.error('Erro ao capturar/enviar foto:', err);
+            Alert.alert('Erro', 'Não foi possível capturar/enviar a foto.');
+            setModalProcessing(false);
         }
     };
 
@@ -1157,40 +1235,16 @@ export default function DeliveryApp(props) {
                         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
                             <Text style={styles.modalTitle}>ASSINATURA DO CLIENTE</Text>
                             {/* Camera icon: tira foto e confirma entrega */}
-                            <TouchableOpacity style={{ padding: 8 }} onPress={async () => {
-                                // captura foto e confirma entrega (usa pedidoSelecionado)
-                                try {
-                                    if (!pedidoSelecionado) { Alert.alert('Erro', 'Nenhum pedido selecionado para foto.'); return; }
-                                    // Abre camera
-                                    if (!ImagePicker) { Alert.alert('Erro', 'Camera não disponível.'); return; }
-                                    const perm = await ImagePicker.requestCameraPermissionsAsync();
-                                    if (perm.status !== 'granted') { Alert.alert('Permissão', 'Permissão de câmera negada.'); return; }
-                                    const res = await ImagePicker.launchCameraAsync({ quality: 0.7 });
-                                    if (res.cancelled || res.canceled) return;
-                                    const uri = res.uri || (res.assets && res.assets[0] && res.assets[0].uri);
-                                    if (!uri) { Alert.alert('Erro', 'Não foi possível capturar a foto.'); return; }
-
-                                    if (!FileSystem) {
-                                        Alert.alert('Erro', 'FileSystem não disponível para leitura de imagem.');
-                                        return;
-                                    }
-                                    const b64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
-                                    const dataUrl = `data:image/jpeg;base64,${b64}`;
-
-                                    // Atualiza localmente (assinatura_url + foto)
-                                    setPedidos(prev => prev.map(p => (Number(p.id) === Number(pedidoSelecionado.id) ? { ...p, foto_entrega: dataUrl, assinatura_url: dataUrl } : p)));
-
-                                    // Chama confirmarEntrega com o item atualizado para remover e atualizar servidor
-                                    await confirmarEntrega({ ...pedidoSelecionado, assinatura_url: dataUrl, foto_entrega: dataUrl });
-
-                                } catch (err) {
-                                    console.error('Erro ao capturar foto no modal de assinatura:', err);
-                                    Alert.alert('Erro', 'Não foi possível capturar a foto.');
-                                }
-                            }}>
+                            <TouchableOpacity style={{ padding: 8 }} onPress={() => capturePhotoAndConfirm(pedidoSelecionado)}>
                                 <Text style={{ fontSize: 22 }}>📸</Text>
                             </TouchableOpacity>
                         </View>
+
+                        {modalProcessing ? (
+                            <View style={styles.modalProcessing}>
+                                <Text style={styles.modalProcessingText}>Carregando...</Text>
+                            </View>
+                        ) : null}
 
                         {/* ✍️ ÁREA DE DESENHO (90% DA CAIXA) */}
                         <View style={styles.containerAssinatura}>
@@ -1440,6 +1494,24 @@ const styles = StyleSheet.create({
         padding: 15,
         elevation: 30,
         alignItems: 'center',
+    },
+    /* Overlay shown inside the assinatura modal while uploading/processing the photo */
+    modalProcessing: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        borderRadius: 25,
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10001,
+    },
+    modalProcessingText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700'
     },
     containerAssinatura: {
         flex: 1, // Faz a área de assinatura ocupar todo o centro
