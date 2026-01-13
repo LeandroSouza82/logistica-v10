@@ -3,6 +3,13 @@ import {
     StyleSheet, Text, View, TouchableOpacity, Pressable, Animated, Modal, Image,
     Dimensions, Linking, FlatList, TextInput, Alert, StatusBar, Platform, UIManager, LayoutAnimation, PanResponder, Easing, ActionSheetIOS
 } from 'react-native';
+
+// Dynamic imports for optional native modules
+let ImagePicker; try { ImagePicker = require('expo-image-picker'); } catch (e) { ImagePicker = null; console.warn('expo-image-picker não disponível.'); }
+let FileSystem; try { FileSystem = require('expo-file-system'); } catch (e) { FileSystem = null; console.warn('expo-file-system não disponível.'); }
+
+// Número do gestor/patrão (substitua pelo número real)
+const BOSS_PHONE = '+5511999999999';
 import MapView, { Marker } from 'react-native-maps';
 import SignatureScreen from 'react-native-signature-canvas';
 import * as Location from 'expo-location'; // Biblioteca para o GPS
@@ -527,6 +534,50 @@ export default function DeliveryApp(props) {
         }
     };
 
+    // Function to take photo using ImagePicker (expo)
+    const tirarFoto = async (item) => {
+        if (!ImagePicker) {
+            Alert.alert('Erro', 'Camera não disponível. Instale expo-image-picker.');
+            return;
+        }
+        try {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (perm.status !== 'granted') {
+                Alert.alert('Permissão', 'Permissão de câmera negada.');
+                return;
+            }
+            const res = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+            if (res.cancelled) return;
+            const uri = res.uri;
+
+            // try to read file as base64
+            if (!FileSystem) {
+                Alert.alert('Erro', 'FileSystem não disponível para leitura de imagem.');
+                return;
+            }
+            const b64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+            const dataUrl = `data:image/jpeg;base64,${b64}`;
+
+            // update supabase field foto_entrega (and assinatura_url for compatibility)
+            try {
+                const { data, error } = await supabase.from('entregas').update({ foto_entrega: dataUrl, assinatura_url: dataUrl }).eq('id', item.id);
+                if (error) throw error;
+                // update local state
+                setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, foto_entrega: dataUrl } : p));
+                Alert.alert('Sucesso', 'Foto salva.');
+            } catch (e) {
+                console.error('Erro ao enviar foto para Supabase:', e);
+                // still update local state so user sees photo
+                setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, foto_entrega: dataUrl } : p));
+                Alert.alert('Aviso', 'Foto salva localmente, falha ao enviar ao servidor.');
+            }
+        } catch (err) {
+            console.error('Erro ao tirar foto:', err);
+            Alert.alert('Erro', 'Não foi possível tirar a foto.');
+        }
+    };
+
+
     // LOGICA PARA PEGAR A LOCALIZAÇÃO REAL EM TEMPO REAL
     useEffect(() => {
         mountedRef.current = true;
@@ -656,10 +707,10 @@ export default function DeliveryApp(props) {
 
     const abrirOcorrenciaRapida = async (item) => {
         // action sheet with quick options
-        const options = ['Endereço não localizado', 'Cliente ausente', 'Recusado', 'Cancelar'];
+        const options = ['Ausente', 'Endereço Errado', 'Recusado', 'Cancelar'];
         const handlers = [
-            async () => handleOcorrenciaChoice('Endereço não localizado', item),
-            async () => handleOcorrenciaChoice('Cliente ausente', item),
+            async () => handleOcorrenciaChoice('Ausente', item),
+            async () => handleOcorrenciaChoice('Endereço Errado', item),
             async () => handleOcorrenciaChoice('Recusado', item),
             () => null
         ];
@@ -681,17 +732,18 @@ export default function DeliveryApp(props) {
             // pega coords atuais
             let coords = null;
             try { const l = await Location.getCurrentPositionAsync(); coords = { latitude: l.coords.latitude, longitude: l.coords.longitude }; } catch (e) { /* ignore */ }
-            await abrirWhatsApp(motivo, item, coords);
+            // use BOSS_PHONE as requested (replace with real number)
+            await abrirWhatsApp(motivo, item, coords, BOSS_PHONE);
         } catch (e) { console.warn('Erro ao processar ocorrência rápida:', e); }
     };
 
-    const abrirWhatsApp = async (motivo, item = null, coords = null) => {
+    const abrirWhatsApp = async (motivo, item = null, coords = null, phoneOverride = null) => {
         const pedido = item || pedidoSelecionado;
         if (!pedido) {
             Alert.alert('Erro', 'Nenhum pedido selecionado para reportar.');
             return;
         }
-        const phone = (GESTOR_PHONE || '').replace(/[^0-9]/g, '');
+        const phone = (phoneOverride || GESTOR_PHONE || BOSS_PHONE || '').replace(/[^0-9]/g, '');
         const lat = coords?.latitude ?? pedido.lat ?? '';
         const lng = coords?.longitude ?? pedido.lng ?? '';
         const maps = (lat && lng) ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : 'Localização não disponível';
@@ -895,13 +947,9 @@ export default function DeliveryApp(props) {
                         <Text style={[styles.btnIconText, { color: '#fff' }]}>📷</Text>
                     </TouchableOpacity>
 
-                    {/* Não Entregue quick menu */}
+                    {/* Não Entregue quick menu (single button) */}
                     <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#e74c3c' }]} onPress={() => abrirOcorrenciaRapida(item)}>
                         <Text style={[styles.btnIconText, { color: '#fff' }]}>NÃO ENTREGUE</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#e74c3c' }]} onPress={() => { setPedidoSelecionado(item); setModalOcorrencia(true); }}>
-                        <Text style={[styles.btnIconText, { color: '#fff' }]}>Não Entregue</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#28a745' }]} onPress={() => { setPedidoSelecionado(item); setModalAssinatura(true); }}>
@@ -1000,7 +1048,8 @@ export default function DeliveryApp(props) {
                         <View style={styles.sheetContentGlass}>
                             {/* Resumo do dia */}
                             <View style={styles.resumoRow}>
-                                <Text style={styles.resumoText}>✅ Entregas: {pedidos.filter(p => String(p.tipo).toLowerCase().includes('entreg')).length} | 📦 Recolhas: {pedidos.filter(p => String(p.tipo).toLowerCase().includes('recolh') || String(p.tipo).toLowerCase().includes('colet')).length}</Text>
+                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon, {color: '#0077CC'}]}>✅</Text><Text style={styles.resumoText}>Entregas: {pedidos.filter(p => String(p.tipo).toLowerCase().includes('entreg')).length}</Text></View>
+                                <View style={styles.resumoBadge}><Text style={[styles.resumoIcon, {color: '#FF9500'}]}>📦</Text><Text style={styles.resumoText}>Recolhas: {pedidos.filter(p => String(p.tipo).toLowerCase().includes('recolh') || String(p.tipo).toLowerCase().includes('colet')).length}</Text></View>
                             </View>
 
                             <FlatList
@@ -1219,8 +1268,10 @@ const styles = StyleSheet.create({
     badgeText: { color: '#fff', fontWeight: '700' },
     badgeTextLarge: { color: '#fff', fontWeight: '800', fontSize: 22 },
     badgeId: { color: '#fff', fontWeight: '600', fontSize: 12, marginTop: 2 },
-    resumoRow: { backgroundColor: 'rgba(255,255,255,0.06)', padding: 8, borderRadius: 10, marginBottom: 8, alignItems: 'center' },
-    resumoText: { color: '#fff', fontWeight: '700' },
+    resumoRow: { backgroundColor: '#FFFFFF', padding: 10, borderRadius: 10, marginBottom: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+    resumoText: { color: '#000', fontWeight: '800', fontSize: 18 },
+    resumoBadge: { flexDirection: 'row', alignItems: 'center' },
+    resumoIcon: { fontSize: 20, marginRight: 8 },
     modalButtonsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
     btnCancel: { flex: 1, backgroundColor: '#e74c3c', paddingVertical: 12, borderRadius: 10, marginRight: 8, alignItems: 'center' },
     btnSend: { flex: 1, backgroundColor: '#28a745', paddingVertical: 12, borderRadius: 10, marginLeft: 8, alignItems: 'center' },
