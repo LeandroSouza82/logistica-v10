@@ -460,30 +460,50 @@ export default function DeliveryApp(props) {
 
     // Confirma a entrega do pedido atualmente selecionado (sem assinatura)
     // Confirma a entrega (aceita item opcional para permitir chamada imediata)
+    // Helper: timeout wrapper for network calls
+    const callWithTimeout = (promise, ms = 30000) => {
+        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms));
+        return Promise.race([promise, timeout]);
+    };
+
     const confirmarEntrega = async (item = null) => {
         const target = item || pedidoSelecionado;
         if (!target) return;
+
+        const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
+        const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
+
         try {
-            const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
-            const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
+            // 1) Primeiro atualiza o status da entrega (não bloqueia por assinatura)
+            const statusPayload = { status: 'Entregue', lat_entrega: lat, lng_entrega: lng };
+            const statusPromise = supabase.from('entregas').update(statusPayload).eq('id', target.id);
+            const { data: statusData, error: statusError } = await callWithTimeout(statusPromise, 30000);
+            if (statusError) {
+                console.error('Erro ao atualizar status da entrega:', statusError);
+                Alert.alert('Erro', 'Não foi possível confirmar a entrega (status). Tente novamente.');
+                return;
+            }
 
-            // Accept null assinatura (we no longer block confirmation)
-            const assinaturaToSend = target && target.assinatura ? target.assinatura : null;
+            // 2) Se houver assinatura presente, tente enviar em segundo momento (não bloqueante)
+            if (target.assinatura) {
+                try {
+                    const assinPromise = supabase.from('entregas').update({ assinatura: target.assinatura }).eq('id', target.id);
+                    const { data: assinData, error: assinError } = await callWithTimeout(assinPromise, 30000);
+                    if (assinError) {
+                        console.error('Erro ao salvar assinatura (não bloqueante):', assinError);
+                        Alert.alert('Aviso', 'Entrega confirmada, mas não foi possível salvar a assinatura. Você pode tentar novamente mais tarde.');
+                    }
+                } catch (e) {
+                    console.error('Erro de timeout/assinatura (não bloqueante):', e);
+                    // aviso discreto
+                }
+            }
 
-            const { data, error } = await supabase.from('entregas').update({
-                status: 'concluido',
-                assinatura: assinaturaToSend,
-                lat_entrega: lat,
-                lng_entrega: lng
-            }).eq('id', target.id);
-            if (error) throw error;
-
-            // Remove pedido da lista local
+            // 3) Se chegamos aqui, status foi atualizado com sucesso — remove pedido localmente e fecha modal
             setPedidos(prev => prev.filter(it => it.id !== target.id));
-            // Quick feedback
             Alert.alert('Entrega Concluída', 'A entrega foi confirmada com sucesso.');
         } catch (err) {
-            console.error('Erro ao confirmar entrega:', err?.message || err);
+            console.error('Erro ao confirmar entrega (catch):', err);
             Alert.alert('Erro', 'Não foi possível confirmar a entrega. Tente novamente.');
         } finally {
             setModalAssinatura(false);
