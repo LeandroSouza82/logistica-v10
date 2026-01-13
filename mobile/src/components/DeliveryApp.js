@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
     StyleSheet, Text, View, TouchableOpacity, Pressable, Animated, Modal, Image,
-    Dimensions, Linking, ScrollView, TextInput, Alert, StatusBar, Platform, UIManager, LayoutAnimation, PanResponder, Easing
+    Dimensions, Linking, FlatList, TextInput, Alert, StatusBar, Platform, UIManager, LayoutAnimation, PanResponder, Easing
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import SignatureScreen from 'react-native-signature-canvas';
@@ -144,13 +144,14 @@ export default function DeliveryApp(props) {
                 (payload) => {
                     try {
                         const motoristaId = props?.motoristaId ?? 1;
-                        const novo = payload.new || {};
+                                const novo = payload.new || {};
                         if (Number(novo.motorista_id) !== Number(motoristaId)) return;
                         console.log('Realtime INSERT entrega para este motorista:', novo);
+                        const normalized = normalizePedido(novo);
                         setPedidos(prev => {
                             // evita duplicata
-                            if (prev.some(p => Number(p.id) === Number(novo.id))) return prev;
-                            return [novo, ...prev];
+                            if (prev.some(p => Number(p.id) === Number(normalized.id))) return prev;
+                            return [normalized, ...prev];
                         });
                     } catch (e) {
                         console.warn('Erro ao processar INSERT em entregas (mobile):', e?.message || e);
@@ -170,7 +171,8 @@ export default function DeliveryApp(props) {
                         const novo = payload.new || {};
                         if (Number(novo.motorista_id) !== Number(motoristaId)) return;
                         console.log('Realtime UPDATE entrega para este motorista:', novo);
-                        setPedidos(prev => prev.map(p => (Number(p.id) === Number(novo.id) ? { ...p, ...novo } : p)));
+                        const normalized = normalizePedido(novo);
+                        setPedidos(prev => prev.map(p => (Number(p.id) === Number(normalized.id) ? { ...p, ...normalized } : p)));
                     } catch (e) {
                         console.warn('Erro ao processar UPDATE em entregas (mobile):', e?.message || e);
                     }
@@ -185,11 +187,17 @@ export default function DeliveryApp(props) {
                 },
                 (payload) => {
                     try {
-                        const old = payload.old || {};
+                                const old = payload.old || {};
                         const motoristaId = props?.motoristaId ?? 1;
                         if (Number(old.motorista_id) !== Number(motoristaId)) return;
                         console.log('Realtime DELETE entrega para este motorista:', old);
                         setPedidos(prev => prev.filter(p => Number(p.id) !== Number(old.id)));
+                    } catch (e) {
+                        console.warn('Erro ao processar DELETE em entregas (mobile):', e?.message || e);
+                    }
+                }
+            )
+            .subscribe();
                     } catch (e) {
                         console.warn('Erro ao processar DELETE em entregas (mobile):', e?.message || e);
                     }
@@ -208,7 +216,9 @@ export default function DeliveryApp(props) {
                 if (initialErr) {
                     console.warn('Erro ao buscar entregas iniciais (mobile):', initialErr.message || initialErr);
                 } else if (initial) {
-                    setPedidos(initial);
+                    // normalize tipo_servico and ensure strings
+                    const normalized = initial.map(i => normalizePedido(i));
+                    setPedidos(normalized);
                 }
             } catch (err) {
                 console.warn('Erro ao buscar entregas iniciais (mobile):', err?.message || err);
@@ -696,11 +706,32 @@ export default function DeliveryApp(props) {
         }
     }, [pedidos]);
 
+    const normalizePedido = (it) => {
+        const item = { ...(it || {}) };
+        // Normalize tipo_servico: ensure string 'Entrega'|'Recolha'|'Outros'
+        const t = item.tipo_servico;
+        if (typeof t === 'string') {
+            const tr = t.trim().toLowerCase();
+            if (tr === 'entrega') item.tipo_servico = 'Entrega';
+            else if (tr === 'recolha') item.tipo_servico = 'Recolha';
+            else if (tr === 'outros' || tr === 'outro') item.tipo_servico = 'Outros';
+            else item.tipo_servico = t; // keep as-is otherwise
+        } else if (typeof t === 'number') {
+            // common numeric mapping (best-effort)
+            if (t === 1) item.tipo_servico = 'Entrega';
+            else if (t === 2) item.tipo_servico = 'Recolha';
+            else item.tipo_servico = 'Outros';
+        } else {
+            item.tipo_servico = item.tipo_servico || 'Outros';
+        }
+        return item;
+    };
+
     const getCardStyle = (item) => {
-        const tipo = (item && item.tipo_servico) ? item.tipo_servico.toLowerCase() : '';
-        if (tipo === 'entrega') return { backgroundColor: 'rgba(0,150,255,0.3)' };
-        if (tipo === 'recolha') return { backgroundColor: 'rgba(255,120,0,0.3)' };
-        if (tipo === 'outros') return { backgroundColor: 'rgba(150,0,255,0.3)' };
+        const tipo = (item && item.tipo_servico) ? String(item.tipo_servico).toLowerCase() : '';
+        if (tipo === 'entrega') return { backgroundColor: 'rgba(0,122,255,0.3)' };
+        if (tipo === 'recolha') return { backgroundColor: 'rgba(255,149,0,0.3)' };
+        if (tipo === 'outros') return { backgroundColor: 'rgba(175,82,222,0.3)' };
         return { backgroundColor: '#111827' };
     };
 
@@ -838,9 +869,15 @@ export default function DeliveryApp(props) {
                         </TouchableOpacity>
 
                         <View style={styles.sheetContentGlass}>
-                            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 160, paddingTop: 6, paddingHorizontal: 12 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isAtTop}>
-                                {pedidos.map((p, idx) => renderPedidoItem(p, idx))}
-                            </ScrollView>
+                            <FlatList
+                                data={pedidos}
+                                extraData={pedidos}
+                                renderItem={({ item, index }) => renderPedidoItem(item, index)}
+                                keyExtractor={item => String(item.id)}
+                                contentContainerStyle={{ paddingBottom: 160, paddingTop: 6, paddingHorizontal: 12 }}
+                                scrollEnabled={isAtTop}
+                                showsVerticalScrollIndicator={false}
+                            />
                         </View>
                     </View>
                 </View>
