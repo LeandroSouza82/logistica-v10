@@ -473,18 +473,15 @@ export default function DeliveryApp(props) {
         const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
         const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
 
-        // Optimistic UI first: remove card & close modal immediately so motorista não fica travado
+        // 1º: Remove o card da tela imediatamente (optimistic UI)
         try {
-            setPedidos(prev => prev.filter(it => it.id !== target.id));
+            setPedidos(prev => prev.filter(p => p.id !== target.id));
             setModalAssinatura(false);
-            setPedidoSelecionado(null);
         } catch (e) { /* ignore */ }
 
-        // Prepare assinatura_url (use assinatura_url if present, else assinatura)
+        // 2º: Tenta atualizar o servidor em segundo plano; se falhar, registra silenciosamente
         const publicUrl = target.assinatura_url || target.assinatura || null;
-
         try {
-            // 1) Atualiza o status na tabela 'entregas' com o valor exato 'concluido'
             const { data, error } = await callWithTimeout(
                 supabase
                     .from('entregas')
@@ -494,17 +491,13 @@ export default function DeliveryApp(props) {
             );
 
             if (error) {
-                console.error('Erro ao atualizar status na tabela entregas:', error);
-                // Non-blocking: já removemos o card. Aviso discreto ao motorista
-                Alert.alert('Aviso', 'Entrega marcada localmente, mas houve erro ao atualizar no servidor.');
+                console.log('Erro silencioso no servidor (status update):', error);
                 return;
             }
 
-            console.log('Status atualizado com sucesso no Supabase:', data);
+            console.log('Status atualizado no Supabase:', data);
         } catch (err) {
-            console.error('Erro ao confirmar entrega (catch):', err);
-            // Non-blocking: notify and continue
-            Alert.alert('Aviso', 'Entrega marcada localmente, houve problema de rede. Será sincronizada em segundo plano.');
+            console.log('Erro silencioso no servidor (exceção):', err);
         }
     };
 
@@ -858,7 +851,7 @@ export default function DeliveryApp(props) {
                 <View style={{ height: 12 }} />
 
                 <View style={styles.btnRowThree}>
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#0047AB' }]} onPress={() => { const top = pedidos[0] || item; openExternalNavigation(top); }}>
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#002366' }]} onPress={() => { const top = pedidos[0] || item; openExternalNavigation(top); }}>
                         <Text style={[styles.btnIconText, { color: '#fff' }]}>ROTA</Text>
                     </TouchableOpacity>
 
