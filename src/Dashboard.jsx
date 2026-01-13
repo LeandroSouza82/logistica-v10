@@ -250,35 +250,57 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
             .channel('schema-db-changes')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'motoristas' }, (payload) => {
                 try {
-                    const updatedRaw = payload.new;
-                    const updated = normalizeMotorista(updatedRaw);
-                    console.log('Realtime UPDATE motorista:', updated);
+                    const oldRaw = payload.old || {};
+                    const newRaw = payload.new || {};
+                    const updated = normalizeMotorista(newRaw);
+                    console.log('Realtime UPDATE motorista (raw):', newRaw, 'normalized:', updated);
 
-                    // Atualiza array de motoristas com base em status === 'online' para isOnline
+                    // Detecta mudanças relevantes (lat/lng/ultimo_sinal/status)
+                    const latOld = oldRaw.lat != null ? Number(oldRaw.lat) : (oldRaw.latitude != null ? Number(oldRaw.latitude) : null);
+                    const lngOld = oldRaw.lng != null ? Number(oldRaw.lng) : (oldRaw.longitude != null ? Number(oldRaw.longitude) : null);
+                    const latNew = newRaw.lat != null ? Number(newRaw.lat) : (newRaw.latitude != null ? Number(newRaw.latitude) : null);
+                    const lngNew = newRaw.lng != null ? Number(newRaw.lng) : (newRaw.longitude != null ? Number(newRaw.longitude) : null);
+                    const statusOld = String(oldRaw.status || '').toLowerCase();
+                    const statusNew = String(newRaw.status || '').toLowerCase();
+                    const ultimoOld = oldRaw.ultimo_sinal;
+                    const ultimoNew = newRaw.ultimo_sinal;
+
+                    const coordsChanged = (latOld !== latNew) || (lngOld !== lngNew) || (ultimoOld !== ultimoNew);
+                    const statusChanged = statusOld !== statusNew;
+
+                    // Atualiza lista de motoristas com novo registro (isOnline baseado em status === 'online')
                     setMotoristas(prev => {
-                        const updatedWithOnline = { ...updated, isOnline: String(updated.status || '').toLowerCase() === 'online' };
+                        const updatedWithOnline = { ...updated, isOnline: statusNew === 'online' };
                         const found = prev.find(m => String(m.id) === String(updatedWithOnline.id));
                         if (found) return prev.map(m => String(m.id) === String(updatedWithOnline.id) ? { ...m, ...updatedWithOnline } : m);
                         return [updatedWithOnline, ...prev];
                     });
 
-                    // Extrai coordenadas: prefere lat/lng, senão tenta do ultimo_sinal
-                    const lat = (updated.lat != null) ? Number(updated.lat) : (updatedRaw && updatedRaw.ultimo_sinal && (function(){ try{ const s = JSON.parse(String(updatedRaw.ultimo_sinal)); if (s && s.lat!=null && s.lng!=null) return Number(s.lat); }catch(e){} return null; })());
-                    const lng = (updated.lng != null) ? Number(updated.lng) : (updatedRaw && updatedRaw.ultimo_sinal && (function(){ try{ const s = JSON.parse(String(updatedRaw.ultimo_sinal)); if (s && s.lat!=null && s.lng!=null) return Number(s.lng); }catch(e){} return null; })());
-                    const isOnlineNow = String(updated.status || '').toLowerCase() === 'online';
+                    const isOnlineNow = statusNew === 'online';
 
-                    if (lat != null && lng != null && isOnlineNow) {
-                        const numeric = { lat, lng };
-                        setMotoPosition(numeric);
-                        // Atualiza activeMarker se for o motorista selecionado ou se o marker ativo pertence a ele
-                        if (selectedDriver && String(selectedDriver.id) === String(updated.id)) {
-                            setActiveMarker({ id: updated.id, lat, lng, nome: updated.nome });
-                        } else if (activeMarker && String(activeMarker.id) === String(updated.id)) {
-                            setActiveMarker(prev => prev ? { ...prev, lat, lng } : prev);
+                    // Se as coordenadas mudaram e o motorista está online, atualiza posição imediatamente
+                    if (coordsChanged) {
+                        const lat = latNew;
+                        const lng = lngNew;
+                        if (lat != null && lng != null && isOnlineNow) {
+                            const numeric = { lat: Number(lat), lng: Number(lng) };
+                            setMotoPosition(numeric);
+
+                            if (selectedDriver && String(selectedDriver.id) === String(updated.id)) {
+                                setActiveMarker({ id: updated.id, lat: Number(lat), lng: Number(lng), nome: updated.nome });
+                            } else if (activeMarker && String(activeMarker.id) === String(updated.id)) {
+                                setActiveMarker(prev => prev ? { ...prev, lat: Number(lat), lng: Number(lng) } : prev);
+                            }
+
+                            try { mapRef.current?.panTo({ lat: Number(lat), lng: Number(lng) }); } catch (e) { /* ignore */ }
+                        } else {
+                            // se removeu coords ou ficou offline, limpa marker ativo
+                            if (!isOnlineNow && activeMarker && String(activeMarker.id) === String(updated.id)) {
+                                setActiveMarker(null);
+                            }
                         }
-                        try { mapRef.current?.panTo({ lat, lng }); } catch (e) { /* ignore */ }
-                    } else {
-                        // se ficou sem coords ou saiu do ar (offline), remove marker ativo se for o mesmo
+                    } else if (statusChanged) {
+                        // Se só o status mudou, e ficou offline, limpa o marker
                         if (!isOnlineNow && activeMarker && String(activeMarker.id) === String(updated.id)) {
                             setActiveMarker(null);
                         }
