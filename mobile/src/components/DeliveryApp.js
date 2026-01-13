@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 
 // Dynamic imports for optional native modules
-let ImagePicker; try { ImagePicker = require('expo-image-picker'); } catch (e) { ImagePicker = null; console.warn('expo-image-picker não disponível.'); }
+import * as ImagePicker from 'expo-image-picker';
 let FileSystem; try { FileSystem = require('expo-file-system'); } catch (e) { FileSystem = null; console.warn('expo-file-system não disponível.'); }
 
 // Número do gestor/patrão (substitua pelo número real)
