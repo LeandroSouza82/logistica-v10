@@ -599,16 +599,16 @@ export default function DeliveryApp(props) {
                 return;
             }
 
-            // Attempt to upload to Supabase (foto_entrega and assinatura_url)
+            // Attempt to upload to Supabase (save URL to assinatura_url only)
             try {
-                const { data, error } = await supabase.from('entregas').update({ foto_entrega: dataUrl, assinatura_url: dataUrl }).eq('id', item.id);
+                const { data, error } = await supabase.from('entregas').update({ assinatura_url: dataUrl }).eq('id', item.id);
                 if (error) throw error;
-                setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, foto_entrega: dataUrl, assinatura_url: dataUrl } : p));
+                setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, assinatura_url: dataUrl } : p));
                 Alert.alert('Sucesso', 'Foto salva.');
             } catch (e) {
                 console.error('Erro ao enviar foto para Supabase:', e);
                 // keep local copy so user sees the image
-                setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, foto_entrega: dataUrl, assinatura_url: dataUrl } : p));
+                setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, assinatura_url: dataUrl } : p));
                 Alert.alert('Aviso', `Foto salva localmente, falha ao enviar ao servidor: ${e?.message || e}`);
             }
         } catch (err) {
@@ -675,9 +675,9 @@ export default function DeliveryApp(props) {
             let coords = null;
             try { const l = await Location.getCurrentPositionAsync(); coords = { latitude: l.coords.latitude, longitude: l.coords.longitude }; } catch (e) { /* ignore */ }
 
-            // Tenta atualizar no Supabase (assinatura_url + foto_entrega + status)
+            // Tenta atualizar no Supabase (apenas assinatura_url + status)
             try {
-                const { data, error } = await supabase.from('entregas').update({ assinatura_url: dataUrl, foto_entrega: dataUrl, status: 'concluido', lat_entrega: coords?.latitude ?? item.lat, lng_entrega: coords?.longitude ?? item.lng }).eq('id', item.id);
+                const { data, error } = await supabase.from('entregas').update({ assinatura_url: dataUrl, status: 'concluido', lat_entrega: coords?.latitude ?? item.lat, lng_entrega: coords?.longitude ?? item.lng }).eq('id', item.id);
                 if (error) console.warn('Erro ao enviar foto para Supabase:', error);
                 else console.log('Foto enviada ao Supabase:', data);
             } catch (err) { console.warn('Exceção ao enviar foto ao Supabase:', err); }
@@ -865,11 +865,11 @@ export default function DeliveryApp(props) {
         try {
             // Reuse existing tirarFoto implementation
             await tirarFoto(pedidoSelecionado);
-            // Depois do upload, buscar o campo foto_entrega no servidor e atualizar o pedido local
+            // Depois do upload, buscar o campo assinatura_url no servidor e atualizar o pedido local
             try {
-                const { data, error } = await supabase.from('entregas').select('foto_entrega').eq('id', pedidoSelecionado.id).single();
-                if (!error && data) setPedidoSelecionado(prev => ({ ...(prev || {}), foto_entrega: data.foto_entrega }));
-            } catch (e) { console.warn('Erro ao buscar foto atualizada:', e); }
+                const { data, error } = await supabase.from('entregas').select('assinatura_url').eq('id', pedidoSelecionado.id).single();
+                if (!error && data) setPedidoSelecionado(prev => ({ ...(prev || {}), assinatura_url: data.assinatura_url }));
+            } catch (e) { console.warn('Erro ao buscar assinatura_url atualizada:', e); }
         } catch (e) { console.warn('Erro ao tirar foto (ocorrência):', e); Alert.alert('Erro', 'Falha ao tirar a foto.'); }
     };
 
@@ -884,7 +884,7 @@ export default function DeliveryApp(props) {
         const lng = coords?.longitude ?? pedido.lng ?? '';
         const maps = (lat && lng) ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : 'Localização não disponível';
         // Mensagem com emojis conforme pedido (inclui foto se houver)
-        const fotoLine = pedido?.foto_entrega ? `\nFoto: ${pedido.foto_entrega}` : '';
+        const fotoLine = pedido?.assinatura_url ? `\nFoto: ${pedido.assinatura_url}` : '';
         const text = `🚨 Motorista: Leandro\n👤 Cliente: ${pedido.cliente}\n📍 Local: ${maps}\nMotivo: ${motivo}${fotoLine}`;
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
         try {
