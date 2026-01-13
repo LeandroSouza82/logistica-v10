@@ -212,25 +212,25 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 // início do dia em ISO completo para evitar erros 400 na query
                 const hoje = new Date();
                 hoje.setHours(0, 0, 0, 0);
-                const dataISO = hoje.toISOString();
+                const inicioDiaISO = hoje.toISOString();
 
                 // total entregas hoje (>= início do dia)
-                const { count: totalCount, error: totalErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('created_at', dataISO);
+                const { count: totalCount, error: totalErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('created_at', inicioDiaISO);
                 if (totalErr) {
-                    console.warn('Erro ao buscar total de entregas hoje:', totalErr);
+                    console.error('Erro detalhado:', totalErr.message);
                 } else {
                     setTotalEntregasHoje(totalCount || 0);
                 }
 
                 // assinaturas concluídas hoje (status concluido ou assinatura_url não nulo)
-                const { count: doneCount, error: doneErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('created_at', dataISO).or('status.eq.concluido,assinatura_url.not.is.null');
+                const { count: doneCount, error: doneErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('created_at', inicioDiaISO).or('status.eq.concluido,assinatura_url.not.is.null');
                 if (doneErr) {
-                    console.warn('Erro ao buscar assinaturas concluídas hoje:', doneErr);
+                    console.error('Erro detalhado:', doneErr.message);
                 } else {
                     setAssinaturasConcluidas(doneCount || 0);
                 }
             } catch (err) {
-                console.warn('Erro ao buscar métricas de assinaturas hoje:', err);
+                console.error('Erro detalhado:', err.message);
             }
         };
         buscarDados();
@@ -466,6 +466,10 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
     // Contador de Pedidos Pendentes (stateful, obtido do DB sem limits)
     const [pedidosPendentesCount, setPedidosPendentesCount] = useState(0);
 
+    // Percentual de assinaturas concluídas (0-100) - evita NaN e valores fora de faixa
+    const assinaturasPercent = totalEntregasHoje ? Math.round((assinaturasConcluidas / totalEntregasHoje) * 100) : 0;
+    const assinaturasPercentClamped = Math.max(0, Math.min(100, assinaturasPercent));
+
     // Lista de motoristas exibida na aba Equipe aplicada o filtro (se houver)
     const displayMotoristas = teamFilter && teamFilter.online ? motoristas.filter(m => String(m.status || '').toLowerCase() === 'online') : motoristas;
     const sortedMotoristas = displayMotoristas.slice().sort((a, b) => (String(b.status || '').toLowerCase() === 'online' ? 1 : 0) - (String(a.status || '').toLowerCase() === 'online' ? 1 : 0));
@@ -644,7 +648,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                         {/* Barra de progresso */}
                         <div style={{ marginTop: 8 }}>
                             <div style={{ background: '#243244', height: 10, borderRadius: 6, overflow: 'hidden' }}>
-                                <div style={{ width: `${totalEntregasHoje ? Math.min(100, Math.round((assinaturasConcluidas / totalEntregasHoje) * 100)) : 0}%`, height: '100%', background: '#10b981' }} />
+                                <div style={{ width: `${assinaturasPercentClamped}%`, height: '100%', background: '#10b981' }} />
                             </div>
                             <div style={{ fontSize: 12, color: '#9aa4b2', marginTop: 6 }}>Progresso das entregas</div>
                         </div>
