@@ -9,9 +9,7 @@ import * as Location from 'expo-location'; // Biblioteca para o GPS
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { supabase } from '../supabaseClient';
 
-// Optional blur support (expo-blur). Usamos eval('require') em try/catch para não quebrar o bundler quando não instalado
-let BlurView = null;
-try { BlurView = eval('require')('expo-blur').BlurView; } catch (e) { BlurView = null; }
+// Removed optional blur support to improve stability on mobile (use plain translucent background instead)
 
 // Bottom sheet (manual implementation using PanResponder & Animated)
 // removed dependency on @gorhom/bottom-sheet and react-native-reanimated
@@ -194,28 +192,27 @@ export default function DeliveryApp(props) {
         return scalesRef.current[id];
     };
 
-    // Animação de pulso para o radar da bolinha (loop infinito)
-    const scaleAnim = useRef(new Animated.Value(1)).current;
-    const opacityAnim = useRef(new Animated.Value(0.5)).current;
+    // Stability improvements: ensure we center map on first pedido once, and center when selection changes
+    const centeredOnceRef = useRef(false);
+    useEffect(() => {
+        if (!centeredOnceRef.current && pedidos && pedidos.length > 0) {
+            const first = pedidos[0];
+            if (first?.lat && first?.lng) {
+                const lat = Number(first.lat);
+                const lng = Number(first.lng);
+                try { mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 600); } catch (e) { /* ignore */ }
+            }
+            centeredOnceRef.current = true;
+        }
+    }, [pedidos]);
 
     useEffect(() => {
-        // Cria o efeito de pulso infinito
-        Animated.loop(
-            Animated.parallel([
-                Animated.timing(scaleAnim, {
-                    toValue: 2.2,
-                    duration: 2000,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(opacityAnim, {
-                    toValue: 0,
-                    duration: 2000,
-                    useNativeDriver: true,
-                }),
-            ])
-        ).start();
-    }, []);
-
+        if (pedidoSelecionado && pedidoSelecionado.lat && pedidoSelecionado.lng) {
+            const lat = Number(pedidoSelecionado.lat);
+            const lng = Number(pedidoSelecionado.lng);
+            try { mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500); } catch (e) { /* ignore */ }
+        }
+    }, [pedidoSelecionado]);
 
 
 
@@ -613,7 +610,7 @@ export default function DeliveryApp(props) {
                 <View style={{ height: 12 }} />
 
                 <View style={styles.btnRowThree}>
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#3498db' }]} onPress={async () => {
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#fff' }]} onPress={async () => {
                         if (item.lat && item.lng) {
                             const lat = Number(item.lat);
                             const lng = Number(item.lng);
@@ -634,15 +631,15 @@ export default function DeliveryApp(props) {
                             }
                         }
                     }}>
-                        <Text style={styles.btnIconText}>🗺️  Mapa</Text>
+                        <Text style={styles.btnIconText}>Rota</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#6c757d' }]} onPress={() => { setPedidoSelecionado(item); setModalAssinatura(true); }}>
-                        <Text style={styles.btnIconText}>✍️  Assinar</Text>
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#fff' }]} onPress={() => { setPedidoSelecionado(item); setModalAssinatura(true); }}>
+                        <Text style={styles.btnIconText}>Assinar</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#28a745' }]} onPress={() => { setPedidoSelecionado(item); confirmarEntrega(); }}>
-                        <Text style={styles.btnIconText}>✅  Confirmar</Text>
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#fff' }]} onPress={() => { setPedidoSelecionado(item); confirmarEntrega(); }}>
+                        <Text style={styles.btnIconText}>OK</Text>
                     </TouchableOpacity>
                 </View>
             </TouchableOpacity>
@@ -684,16 +681,8 @@ export default function DeliveryApp(props) {
                         anchor={{ x: 0.5, y: 0.5 }}
                     >
                         <View style={styles.containerPulsante}>
-                            {/* Círculo que Pulsa */}
-                            <Animated.View
-                                style={[
-                                    styles.pulsoVermelho,
-                                    {
-                                        transform: [{ scale: scaleAnim }],
-                                        opacity: opacityAnim,
-                                    },
-                                ]}
-                            />
+                            {/* Simples indicador do motorista, sem animação pesada */}
+                            <View style={[styles.pulsoVermelhoStatic]} />
 
                             {/* Bolinha Central Fixa */}
                             <View style={styles.bolinhaVermelhaCentro} />
@@ -722,7 +711,7 @@ export default function DeliveryApp(props) {
                 {...sheetPanResponder.panHandlers}
             >
                 <View style={styles.sheetBackdrop}>
-                    {BlurView ? <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} /> : <View style={styles.fallbackBlur} />}
+                    <View style={styles.sheetGlassFallback} />
 
                     <View style={styles.sheetInner}>
                         <TouchableOpacity style={styles.handleContainer} activeOpacity={0.7} onPress={() => {
@@ -908,26 +897,45 @@ const styles = StyleSheet.create({
     },
     sheetContentGlass: {
         flex: 1,
-        backgroundColor: 'rgba(255,255,255,0.02)',
+        backgroundColor: 'rgba(255,255,255,0.9)', // Simple translucent white for stability
         paddingHorizontal: 8,
         paddingBottom: 40,
     },
+    sheetGlassFallback: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 0,
+        height: 120,
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+    },
+    pulsoVermelhoStatic: {
+        position: 'absolute',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,0,0,0.6)'
+    },
+    fallbackBlur: undefined,
     btnRowThree: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     btnSmall: {
-        width: '32%',
-        paddingVertical: 12,
-        borderRadius: 12,
+        flex: 1,
+        paddingVertical: 10,
+        borderRadius: 10,
         alignItems: 'center',
         justifyContent: 'center',
+        marginHorizontal: 4,
     },
-    btnIconText: { color: '#FFF', fontWeight: 'bold', fontSize: 14, textAlign: 'center' },
+    btnIconText: { color: '#111', fontWeight: '700', fontSize: 14, textAlign: 'center' },
     cardGrande: {
         backgroundColor: '#111827',
-        borderRadius: 18,
-        padding: 18,
-        marginBottom: 12,
-        elevation: 5,          // Sombra normal para os cards parados
-        zIndex: 1,             // Nível normal
+        borderRadius: 12,
+        padding: 14,
+        marginBottom: 10,
+        elevation: 3,
+        zIndex: 1,
     },
     cardName: {
         color: '#FFF',
@@ -1060,15 +1068,15 @@ const styles = StyleSheet.create({
     },
     motoContainer: {
         backgroundColor: '#FFF',
-        width: 65,            // Largura maior para não cortar
-        height: 65,           // Altura maior para não cortar
-        borderRadius: 35,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
         alignItems: 'center',
         justifyContent: 'center',
-        elevation: 12,        // Sombra forte para destacar no mapa
-        borderWidth: 3,
+        elevation: 6,
+        borderWidth: 2,
         borderColor: '#3498db',
-        overflow: 'visible',  // Garante que nada seja cortado
+        overflow: 'visible',
     },
     motoEmoji: {
         fontSize: 38,         // Tamanho da moto
