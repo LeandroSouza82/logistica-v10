@@ -41,8 +41,5 @@
     "babel-preset-expo": "^54.0.9",
     "webpack-dev-server": "^4.15.2"
   },
-  "overrides": {
-    "semver": "7.5.2",
-    "webpack-dev-server": "4.15.2"
-  }
+
 }
