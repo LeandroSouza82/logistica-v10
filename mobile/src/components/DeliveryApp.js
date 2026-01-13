@@ -630,7 +630,42 @@ export default function DeliveryApp(props) {
         }
     };
 
-    const renderPedidoItem = useCallback((p) => {
+    const movePedido = (index, dir) => {
+        setPedidos(prev => {
+            const novoRoteiro = [...prev]; // cria novo array para forçar rerender
+            const newIndex = dir === 'up' ? index - 1 : index + 1;
+            if (newIndex < 0 || newIndex >= novoRoteiro.length) return prev;
+            const tmp = novoRoteiro[newIndex];
+            novoRoteiro[newIndex] = novoRoteiro[index];
+            novoRoteiro[index] = tmp;
+
+            // atualiza seleção caso o pedido selecionado seja movido
+            if (pedidoSelecionado) {
+                const sel = novoRoteiro.find(a => a.id === pedidoSelecionado.id);
+                setPedidoSelecionado(sel || null);
+            }
+
+            return novoRoteiro;
+        });
+    };
+
+    // centralizar automaticamente quando o primeiro pedido mudar (ex.: reorder)
+    const prevFirstRef = useRef(null);
+    useEffect(() => {
+        const first = pedidos && pedidos[0];
+        const id = first?.id;
+        if (!id) return;
+        if (prevFirstRef.current !== id) {
+            prevFirstRef.current = id;
+            if (first.lat && first.lng) {
+                try {
+                    mapRef.current?.animateToRegion({ latitude: Number(first.lat), longitude: Number(first.lng), latitudeDelta: 0.05, longitudeDelta: 0.05 }, 500);
+                } catch (e) { /* ignore */ }
+            }
+        }
+    }, [pedidos]);
+
+    const renderPedidoItem = useCallback((p, idx) => {
         const item = p;
         return (
             <TouchableOpacity style={[styles.cardGrande, (pedidoSelecionado && pedidoSelecionado.id === item.id) ? styles.cardEmDestaque : null]} key={item.id} onPress={() => {
@@ -646,6 +681,15 @@ export default function DeliveryApp(props) {
                     setIsAtTop(true);
                 });
             }} activeOpacity={0.9}>
+
+                <View style={styles.cardHeader}>
+                    <View style={styles.badge}><Text style={styles.badgeTextLarge}>{idx + 1}ª Entrega</Text></View>
+                    <View style={styles.cardHeaderRight}>
+                        <TouchableOpacity disabled={idx === 0} onPress={() => movePedido(idx, 'up')} style={styles.arrowBtn}><Text>⬆️</Text></TouchableOpacity>
+                        <TouchableOpacity disabled={idx === pedidos.length - 1} onPress={() => movePedido(idx, 'down')} style={styles.arrowBtn}><Text>⬇️</Text></TouchableOpacity>
+                    </View>
+                </View>
+
                 <Text style={styles.cardName}>#{item.id} — {item.cliente}</Text>
                 {item.observacoes ? <Text style={styles.observacoesText} numberOfLines={2}>{item.observacoes}</Text> : null}
                 <Text style={styles.addressText} numberOfLines={2}>{item.endereco || (item.rua ? `${item.rua}, ${item.numero || ''} ${item.bairro || ''}` : 'Endereço não disponível')}</Text>
@@ -653,7 +697,7 @@ export default function DeliveryApp(props) {
                 <View style={{ height: 12 }} />
 
                 <View style={styles.btnRowThree}>
-                            <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#3498db' }]} onPress={() => openExternalNavigation(item)}>
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#3498db' }]} onPress={() => { const top = pedidos[0] || item; openExternalNavigation(top); }}>
                         <Text style={[styles.btnIconText, { color: '#fff' }]}>Rota</Text>
                     </TouchableOpacity>
 
@@ -667,7 +711,7 @@ export default function DeliveryApp(props) {
                 </View>
             </TouchableOpacity>
         );
-    }, [mapRef, setModalAssinatura, setPedidoSelecionado, confirmarEntrega, pedidoSelecionado]);
+    }, [mapRef, setModalAssinatura, setPedidoSelecionado, confirmarEntrega, pedidoSelecionado, pedidos]);
 
 
 
@@ -961,6 +1005,7 @@ const styles = StyleSheet.create({
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     badge: { backgroundColor: '#111827', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20 },
     badgeText: { color: '#fff', fontWeight: '700' },
+    badgeTextLarge: { color: '#fff', fontWeight: '800', fontSize: 18 },
     cardHeaderRight: { flexDirection: 'row', alignItems: 'center' },
     arrowBtn: { paddingHorizontal: 8, paddingVertical: 4 },
     selectedMarker: { alignItems: 'center', justifyContent: 'center' },
