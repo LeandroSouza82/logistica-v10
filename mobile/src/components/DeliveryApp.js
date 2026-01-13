@@ -554,34 +554,66 @@ export default function DeliveryApp(props) {
                 Alert.alert('Permissão', 'Permissão de câmera negada.');
                 return;
             }
-            const res = await ImagePicker.launchCameraAsync({ quality: 0.7 });
-            if (res.cancelled) return;
-            const uri = res.uri;
 
-            // try to read file as base64
-            if (!FileSystem) {
-                Alert.alert('Erro', 'FileSystem não disponível para leitura de imagem.');
+            // Launch camera and wait for result
+            const res = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: false });
+            const cancelled = res.cancelled || res.canceled;
+            if (cancelled) return;
+
+            const uri = res.uri || (res.assets && res.assets[0] && res.assets[0].uri);
+            if (!uri) {
+                Alert.alert('Erro', 'Não foi possível capturar a foto.');
                 return;
             }
-            const b64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
-            const dataUrl = `data:image/jpeg;base64,${b64}`;
 
-            // update supabase field foto_entrega (and assinatura_url for compatibility)
+            let dataUrl = null;
+
+            // 1) Prefer fetch -> blob -> FileReader conversion (works on more platforms)
+            try {
+                const fetched = await fetch(uri);
+                const blob = await fetched.blob();
+                const reader = new FileReader();
+                const b64FromBlob = await new Promise((resolve, reject) => {
+                    reader.onerror = reject;
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(blob);
+                });
+                dataUrl = `data:${blob.type};base64,${b64FromBlob}`;
+            } catch (e) {
+                console.warn('fetch/blob conversion failed:', e);
+            }
+
+            // 2) Fallback: FileSystem read as base64 (native)
+            if (!dataUrl && FileSystem) {
+                try {
+                    const normalized = uri.startsWith('file://') ? uri : uri;
+                    const b64 = await FileSystem.readAsStringAsync(normalized, { encoding: 'base64' });
+                    dataUrl = `data:image/jpeg;base64,${b64}`;
+                } catch (e) {
+                    console.warn('FileSystem read failed:', e);
+                }
+            }
+
+            if (!dataUrl) {
+                Alert.alert('Erro', 'Não foi possível processar a foto.');
+                return;
+            }
+
+            // Attempt to upload to Supabase (foto_entrega and assinatura_url)
             try {
                 const { data, error } = await supabase.from('entregas').update({ foto_entrega: dataUrl, assinatura_url: dataUrl }).eq('id', item.id);
                 if (error) throw error;
-                // update local state (salva também em assinatura_url para compatibilidade)
                 setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, foto_entrega: dataUrl, assinatura_url: dataUrl } : p));
                 Alert.alert('Sucesso', 'Foto salva.');
             } catch (e) {
                 console.error('Erro ao enviar foto para Supabase:', e);
-                // still update local state so user sees photo (and save to assinatura_url locally)
+                // keep local copy so user sees the image
                 setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, foto_entrega: dataUrl, assinatura_url: dataUrl } : p));
-                Alert.alert('Aviso', 'Foto salva localmente, falha ao enviar ao servidor.');
+                Alert.alert('Aviso', `Foto salva localmente, falha ao enviar ao servidor: ${e?.message || e}`);
             }
         } catch (err) {
             console.error('Erro ao tirar foto:', err);
-            Alert.alert('Erro', 'Não foi possível tirar a foto.');
+            Alert.alert('Erro', `Não foi possível tirar a foto: ${err?.message || String(err)}`);
         }
     };
 
