@@ -723,6 +723,13 @@ export default function DeliveryApp(props) {
                         />
                     ) : null
                 ))}
+
+                {/* Marker for selected pedido (highlight) */}
+                {pedidoSelecionado && pedidoSelecionado.lat != null && pedidoSelecionado.lng != null && (
+                    <Marker key={'selected'} coordinate={{ latitude: Number(pedidoSelecionado.lat), longitude: Number(pedidoSelecionado.lng) }}>
+                        <View style={styles.selectedMarker}><View style={styles.selectedMarkerDot} /></View>
+                    </Marker>
+                )}
             </MapView>
 
 
@@ -749,7 +756,7 @@ export default function DeliveryApp(props) {
 
                         <View style={styles.sheetContentGlass}>
                             <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 160, paddingTop: 6, paddingHorizontal: 12 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} scrollEnabled={isAtTop}>
-                                {pedidos.map(p => renderPedidoItem(p))}
+                                {pedidos.map((p, idx) => renderPedidoItem(p, idx))}
                             </ScrollView>
                         </View>
                     </View>
@@ -950,7 +957,14 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         backgroundColor: 'rgba(255,0,0,0.6)'
     },
-    fallbackBlur: undefined,
+    /* Route index / badge */
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    badge: { backgroundColor: '#111827', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20 },
+    badgeText: { color: '#fff', fontWeight: '700' },
+    cardHeaderRight: { flexDirection: 'row', alignItems: 'center' },
+    arrowBtn: { paddingHorizontal: 8, paddingVertical: 4 },
+    selectedMarker: { alignItems: 'center', justifyContent: 'center' },
+    selectedMarkerDot: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#3498db', borderWidth: 3, borderColor: '#fff' },
     btnRowThree: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     btnSmall: {
         flex: 1,
