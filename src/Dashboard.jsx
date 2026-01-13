@@ -56,44 +56,19 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
     const openDriverOnMap = (m) => {
         if (!m) return;
         setSelectedDriver(m);
-        // foco no mapa e troca de aba
         setAbaAtiva('visao-geral');
 
-        // Se já temos coordenadas, posiciona imediatamente e garante que o Marker seja renderizado
+        // Pegamos a posição direto do objeto motorista (tabela motoristas)
         if (m.lat != null && m.lng != null) {
             const lat = Number(m.lat);
             const lng = Number(m.lng);
             setMotoPosition({ lat, lng });
-            const newMarker = { id: m.id, lat, lng, nome: m.nome };
-            setActiveMarker(newMarker);
-            try {
-                mapRef.current?.panTo({ lat, lng });
-                mapRef.current?.setZoom(15);
-            } catch (e) { /* ignore */ }
-            return;
-        }
+            setActiveMarker({ id: m.id, lat, lng, nome: m.nome });
 
-        // Caso não tenhamos coordenadas no objeto, buscar a localização mais recente do motorista
-        (async () => {
-            try {
-                const { data } = await supabase.from('localizacoes').select('lat,lng,created_at').eq('motorista_id', m.id).order('created_at', { ascending: false }).limit(1);
-                if (data && data.length > 0) {
-                    const l = data[0];
-                    if (l.lat != null && l.lng != null) {
-                        const lat = Number(l.lat);
-                        const lng = Number(l.lng);
-                        setActiveMarker({ id: m.id, lat, lng, nome: m.nome });
-                        setMotoPosition({ lat, lng });
-                        try {
-                            mapRef.current?.panTo({ lat, lng });
-                            mapRef.current?.setZoom(15);
-                        } catch (e) { /* ignore */ }
-                    }
-                }
-            } catch (err) {
-                console.warn('Erro ao buscar posição do motorista selecionado:', err);
-            }
-        })();
+            // Move o mapa na hora
+            mapRef.current?.panTo({ lat, lng });
+            mapRef.current?.setZoom(15);
+        }
     };
     // Estado inicial da posição da moto para evitar iniciar o mapa no mar
     const [motoPosition, setMotoPosition] = useState({ lat: -27.6608, lng: -48.7087 });
@@ -200,29 +175,10 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
             if (mData) {
                 // Define isOnline com base no campo `status` (somente 'online' exibe a moto)
                 enriched = mData.map(m => ({ ...normalizeMotorista(m), isOnline: String(m.status || '').toLowerCase() === 'online' }));
-                console.log('Motoristas iniciais:', enriched);
                 setMotoristas(enriched);
             }
 
-            // Buscar localizacoes recentes e mesclar posições mais recentes por motorista (garante estado inicial atualizado)
-            try {
-                const { data: locData } = await supabase.from('localizacoes').select('*').order('created_at', { ascending: false }).limit(1000);
-                if (locData && locData.length > 0) {
-                    const latestByMotorista = {};
-                    for (const l of locData) {
-                        const id = String(l.motorista_id);
-                        if (!latestByMotorista[id]) latestByMotorista[id] = l;
-                    }
-                    // aplica lat/lng mais recentes aos motoristas conhecidos
-                    setMotoristas(prev => prev.map(m => {
-                        const l = latestByMotorista[String(m.id)];
-                        if (l && l.lat != null && l.lng != null) return { ...m, lat: Number(l.lat), lng: Number(l.lng), ultimo_sinal: l.created_at || m.ultimo_sinal };
-                        return m;
-                    }));
-                }
-            } catch (err) {
-                console.warn('Erro ao buscar localizacoes iniciais:', err);
-            }
+
 
             const { data: eData } = await supabase.from('entregas').select('*').order('id', { ascending: false }).limit(20);
             if (eData) setEntregas(eData);
@@ -250,10 +206,10 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 try {
                     const oldRaw = payload.old || {};
                     const newRaw = payload.new || {};
-                    const updated = normalizeMotorista(newRaw);
-                    console.log('Realtime UPDATE motorista (raw):', newRaw, 'normalized:', updated);
+                    // Log do payload para monitoramento
+                    console.log('Realtime UPDATE motorista payload:', payload);
 
-                    // Detecta mudanças relevantes (lat/lng/ultimo_sinal/status)
+                    // converte lat/lng para números de forma segura
                     const latOld = oldRaw.lat != null ? Number(oldRaw.lat) : null;
                     const lngOld = oldRaw.lng != null ? Number(oldRaw.lng) : null;
                     const latNew = newRaw.lat != null ? Number(newRaw.lat) : null;
@@ -266,13 +222,12 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     const coordsChanged = (latOld !== latNew) || (lngOld !== lngNew) || (ultimoOld !== ultimoNew);
                     const statusChanged = statusOld !== statusNew;
 
-                    // Atualiza lista de motoristas com novo registro (isOnline baseado em status === 'online')
-                    setMotoristas(prev => {
-                        const updatedWithOnline = { ...updated, isOnline: statusNew === 'online' };
-                        const found = prev.find(m => String(m.id) === String(updatedWithOnline.id));
-                        if (found) return prev.map(m => String(m.id) === String(updatedWithOnline.id) ? { ...m, ...updatedWithOnline } : m);
-                        return [updatedWithOnline, ...prev];
-                    });
+                    // Atualiza lista de motoristas com o payload novo e garante lat/lng numéricos
+                    setMotoristas(prev => prev.map(m =>
+                        String(m.id) === String(payload.new.id)
+                            ? { ...m, ...payload.new, lat: latNew, lng: lngNew, isOnline: statusNew === 'online' }
+                            : m
+                    ));
 
                     const isOnlineNow = statusNew === 'online';
 
@@ -280,26 +235,26 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     if (coordsChanged) {
                         const lat = latNew;
                         const lng = lngNew;
-                        if (lat != null && lng != null && isOnlineNow) {
+                        if (lat != null && lng != null && isOnlineNow && !isNaN(lat) && !isNaN(lng)) {
                             const numeric = { lat: Number(lat), lng: Number(lng) };
                             setMotoPosition(numeric);
 
-                            if (selectedDriver && String(selectedDriver.id) === String(updated.id)) {
-                                setActiveMarker({ id: updated.id, lat: Number(lat), lng: Number(lng), nome: updated.nome });
-                            } else if (activeMarker && String(activeMarker.id) === String(updated.id)) {
+                            if (selectedDriver && String(selectedDriver.id) === String(payload.new.id)) {
+                                setActiveMarker({ id: payload.new.id, lat: Number(lat), lng: Number(lng), nome: payload.new.nome });
+                            } else if (activeMarker && String(activeMarker.id) === String(payload.new.id)) {
                                 setActiveMarker(prev => prev ? { ...prev, lat: Number(lat), lng: Number(lng) } : prev);
                             }
 
                             try { mapRef.current?.panTo({ lat: Number(lat), lng: Number(lng) }); } catch (e) { /* ignore */ }
                         } else {
                             // se removeu coords ou ficou offline, limpa marker ativo
-                            if (!isOnlineNow && activeMarker && String(activeMarker.id) === String(updated.id)) {
+                            if (!isOnlineNow && activeMarker && String(activeMarker.id) === String(payload.new.id)) {
                                 setActiveMarker(null);
                             }
                         }
                     } else if (statusChanged) {
                         // Se só o status mudou, e ficou offline, limpa o marker
-                        if (!isOnlineNow && activeMarker && String(activeMarker.id) === String(updated.id)) {
+                        if (!isOnlineNow && activeMarker && String(activeMarker.id) === String(payload.new.id)) {
                             setActiveMarker(null);
                         }
                     }
@@ -483,7 +438,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
                     <div className="summary-card status">
                         <h3>Motoristas Online</h3>
-                        <p className="value">{motoristas.filter(m => m.isOnline).length}</p>
+                        <p className="value">{motoristas.filter(m => String(m.status || '').toLowerCase() === 'online').length}</p>
                     </div>
 
                     <div className="summary-card indigo">
@@ -501,39 +456,53 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                         <div className="visao-geral-map-card">
                             <div className="visao-geral-map">
                                 <GoogleMap
-                                    key={selectedDriver?.id || 'mapa'}
+                                    // A key baseada no ID e na Lat (numérica) faz o React redesenhar a moto sem F5
+                                    key={`${selectedDriver?.id}-${Number(selectedDriver?.lat)}`}
                                     mapContainerStyle={{ width: '100%', height: '420px' }}
-                                    center={selectedDriver && selectedDriver.lat != null && selectedDriver.lng != null ? { lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) } : (motoPosition || (firstMotoristaComCoords ? { lat: Number(firstMotoristaComCoords.lat), lng: Number(firstMotoristaComCoords.lng) } : centroPadrao))}
+                                    // Centraliza no motorista selecionado ou na posição da moto
+                                    center={selectedDriver?.lat ? { lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) } : motoPosition}
                                     zoom={selectedDriver ? 15 : 13}
                                     onLoad={(mapInstance) => {
                                         mapRef.current = mapInstance;
-                                        if (selectedDriver && selectedDriver.lat != null && selectedDriver.lng != null) {
-                                            try { mapInstance.panTo({ lat: Number(selectedDriver.lat), lng: Number(selectedDriver.lng) }); mapInstance.setZoom(15); } catch (e) { }
-                                        }
                                     }}
                                     onUnmount={() => (mapRef.current = null)}
                                 >
-                                    {motoristas.filter(m => m.lat != null && m.lng != null).map(m => {
-                                        const online = !!m.isOnline;
-                                        const iconColor = online ? '#10b981' : '#3b82f6';
+                                    {motoristas.filter(m => m.lat != null && m.lng != null && !isNaN(Number(m.lat)) && !isNaN(Number(m.lng))).map(m => {
+                                        // interpreta status de forma robusta (ex.: 'Online', 'online', 'ONLINE')
+                                        const isOnline = String(m.status || '').toLowerCase() === 'online';
+                                        const iconColor = isOnline ? '#10b981' : '#3b82f6';
+                                        // Escolhe ícone (fallback para ícone do Google se window.google não estiver pronto)
+                                        const svgIcon = pulsingMotoSvg(iconColor);
+                                        const icon = (typeof window !== 'undefined' && window.google && window.google.maps) ? { url: svgIcon, scaledSize: new window.google.maps.Size(80, 80), anchor: new window.google.maps.Point(40, 40) } : { url: 'http://maps.google.com/mapfiles/ms/icons/motorcycle.png', scaledSize: undefined };
                                         return (
                                             <Marker
                                                 key={m.id}
                                                 position={{ lat: Number(m.lat), lng: Number(m.lng) }}
-                                                icon={{ url: pulsingMotoSvg(iconColor), scaledSize: new window.google.maps.Size(80, 80), anchor: new window.google.maps.Point(40, 40) }}
+                                                icon={icon}
                                                 label={{ text: m.nome || `MOTO ${m.id}`, color: 'white', fontWeight: 'bold', fontSize: '14px' }}
                                             />
                                         );
                                     })}
 
                                     {/* Marker temporário para o motorista selecionado (garante que a motinha apareça sem precisar de F5) */}
-                                    {activeMarker && activeMarker.lat != null && activeMarker.lng != null && (
+                                    {activeMarker && activeMarker.lat != null && activeMarker.lng != null && !isNaN(Number(activeMarker.lat)) && !isNaN(Number(activeMarker.lng)) && (
                                         <Marker
-                                            key={`active-marker-${activeMarker.id}-${activeMarker.lat}-${activeMarker.lng}`}
+                                            key={`active-marker-${activeMarker.id}-${Number(activeMarker.lat)}-${Number(activeMarker.lng)}`}
                                             position={{ lat: Number(activeMarker.lat), lng: Number(activeMarker.lng) }}
                                             optimized={false}
                                             icon={{ url: pulsingMotoSvg('#3b82f6'), scaledSize: new window.google.maps.Size(80, 80), anchor: new window.google.maps.Point(40, 40) }}
                                             label={{ text: activeMarker.nome || 'MOTO', color: 'white', fontWeight: 'bold', fontSize: '14px' }}
+                                        />
+                                    )}
+
+                                    {/* Fallback: se não existir activeMarker, mostra a motoPosition atual (numérica e válida) */}
+                                    {!activeMarker && motoPosition && motoPosition.lat != null && motoPosition.lng != null && !isNaN(Number(motoPosition.lat)) && !isNaN(Number(motoPosition.lng)) && (
+                                        <Marker
+                                            key={`moto-pos-${Number(motoPosition.lat)}-${Number(motoPosition.lng)}`}
+                                            position={{ lat: Number(motoPosition.lat), lng: Number(motoPosition.lng) }}
+                                            optimized={false}
+                                            icon={{ url: pulsingMotoSvg('#3b82f6'), scaledSize: new window.google.maps.Size(80, 80), anchor: new window.google.maps.Point(40, 40) }}
+                                            label={{ text: 'POS', color: 'white', fontWeight: 'bold', fontSize: '12px' }}
                                         />
                                     )}
                                 </GoogleMap>
@@ -546,18 +515,28 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     <div className="motoristas-wrapper">
                         <div className="motoristas-list">
                             {motoristas && motoristas.length > 0 ? (
-                                motoristas.slice().sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0)).map(m => (
-                                    <div key={m.id} className={`motorista-card ${m.isOnline ? 'online' : 'offline'}`} onClick={() => openDriverOnMap(m)} role="button" tabIndex={0}>
-                                        <div className="motorista-row">
-                                            <div className="motorista-avatar">{(m.nome || '').split(' ').map(s => s[0]).slice(0, 2).join('')}</div>
-                                            <div className="motorista-info">
-                                                <div className="motorista-nome">{m.nome || `Motorista ${m.id}`}</div>
-                                                <div className="motorista-meta">{m.email || 'sem-email'} • {m.telefone || m.phone || 'sem-telefone'}</div>
-                                            </div>
+                                motoristas.slice().sort((a, b) => (String(b.status || '').toLowerCase() === 'online' ? 1 : 0) - (String(a.status || '').toLowerCase() === 'online' ? 1 : 0)).map(m => {
+                                    const isOnline = String(m.status || '').toLowerCase() === 'online';
+                                    const initials = (m.nome || '').split(' ').map(s => s[0]).slice(0, 2).join('');
+                                    return (
+                                        <div key={m.id} className={`motorista-card ${isOnline ? 'online' : 'offline'}`} onClick={() => openDriverOnMap(m)} role="button" tabIndex={0}>
+                                            <div className="motorista-row">
+                                                <div className="motorista-avatar">
+                                                    {initials}
+                                                    {isOnline && <span className="dot" aria-hidden="true" style={{ marginLeft: 8 }}></span>}
+                                                </div>
+                                                <div className="motorista-info">
+                                                    <div className="motorista-nome">{m.nome || `Motorista ${m.id}`}</div>
+                                                    <div className="motorista-status">
+                                                        <div className="motorista-meta">{m.email || 'sem-email'} • {m.telefone || m.phone || 'sem-telefone'}</div>
+                                                        <div className="motorista-status-text">{isOnline ? '🟢 Online' : '⚪ Offline'}</div>
+                                                    </div>
+                                                </div>
 
+                                            </div>
                                         </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             ) : (
                                 <div className="text-muted">Nenhum motorista cadastrado.</div>
                             )}

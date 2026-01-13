@@ -1755,6 +1755,12 @@ body .summary-card {
   box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.08) !important;
 }
 
+/* Destaque extra: borda verde no avatar quando online */
+.motorista-card.online .motorista-avatar {
+  border: 2px solid #10b981 !important;
+  box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.04) !important;
+}
+
 /* Modal map */
 .motorista-map-modal {
   position: fixed !important;
