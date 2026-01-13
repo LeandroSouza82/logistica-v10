@@ -209,25 +209,25 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
             // --- MÉTRICAS DE ASSINATURAS HOJE ---
             try {
-                // início do dia em ISO (UTC) para evitar erros 400 na query
+                // início do dia UTC (meia-noite) em ISO para alinhar com timestamps do banco
                 const hoje = new Date();
                 hoje.setUTCHours(0, 0, 0, 0);
-                const filtroData = hoje.toISOString();
+                const dataISO = hoje.toISOString();
 
                 // total entregas hoje (>= início do dia)
-                const { count: totalCount, error: totalErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('criado_em', filtroData);
+                const { count: totalCount, error: totalErr } = await supabase.from('entregas').select('*', { count: 'exact', head: true }).gte('criado_em', dataISO);
                 if (totalErr) {
                     console.error('Erro detalhado:', totalErr.message);
                 } else {
                     setTotalEntregasHoje(totalCount || 0);
                 }
 
-                // assinaturas concluídas hoje (status concluido ou assinatura não nulo)
-                const { count: doneCount, error: doneErr } = await supabase.from('entregas').select('id', { count: 'exact', head: true }).gte('criado_em', filtroData).or('status.eq.concluido,assinatura.not.is.null');
-                if (doneErr) {
-                    console.error('Erro detalhado:', doneErr.message);
+                // assinaturas hoje: apenas registros com assinatura não nula
+                const { count: assinCount, error: assinErr } = await supabase.from('entregas').select('*', { count: 'exact', head: true }).gte('criado_em', dataISO).not('assinatura', 'is', null);
+                if (assinErr) {
+                    console.error('Erro detalhado:', assinErr.message);
                 } else {
-                    setAssinaturasConcluidas(doneCount || 0);
+                    setAssinaturasConcluidas(assinCount || 0);
                 }
             } catch (err) {
                 console.error('Erro detalhado:', err.message);
@@ -247,6 +247,13 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 return true;
             }
             return false;
+        };
+
+        // Helper: compara datas usando componentes UTC (ano/mês/dia)
+        const isSameUTCDate = (d) => {
+            if (!d) return false;
+            const today = new Date();
+            return d.getUTCFullYear() === today.getUTCFullYear() && d.getUTCMonth() === today.getUTCMonth() && d.getUTCDate() === today.getUTCDate();
         };
 
         // Inscreve-se em mudanças de motoristas e localizacoes para atualizar a UI em tempo real
@@ -365,14 +372,12 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
                     // Atualiza métricas de hoje se criado_em cair hoje e status != 'pendente' (disparadas)
                     const created = novo.criado_em ? new Date(novo.criado_em) : null;
-                    if (created) {
-                        const today = new Date();
-                        if (created.getFullYear() === today.getFullYear() && created.getMonth() === today.getMonth() && created.getDate() === today.getDate()) {
-                            const dispatched = String(novo.status || '').toLowerCase() !== 'pendente';
-                            if (dispatched) setTotalEntregasHoje(t => t + 1);
-                            const isDone = (String(novo.status || '').toLowerCase() === 'concluido' || (novo.assinatura != null && novo.assinatura !== ''));
-                            if (isDone) setAssinaturasConcluidas(s => s + 1);
-                        }
+                    if (created && isSameUTCDate(created)) {
+                        const dispatched = String(novo.status || '').toLowerCase() !== 'pendente';
+                        if (dispatched) setTotalEntregasHoje(t => t + 1);
+                        // incremento de assinaturas somente se assinatura não for nula/empty
+                        const hasAssin = (novo.assinatura != null && novo.assinatura !== '');
+                        if (hasAssin) setAssinaturasConcluidas(s => s + 1);
                     }
                 } catch (err) {
                     console.warn('Erro ao processar INSERT em entregas:', err);
@@ -392,14 +397,12 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     setEntregas(prev => prev.filter(p => Number(p.id) !== Number(old.id)));
 
                     const created = old.criado_em ? new Date(old.criado_em) : null;
-                    if (created) {
-                        const today = new Date();
-                        if (created.getFullYear() === today.getFullYear() && created.getMonth() === today.getMonth() && created.getDate() === today.getDate()) {
-                            const wasDispatched = String(old.status || '').toLowerCase() !== 'pendente';
-                            if (wasDispatched) setTotalEntregasHoje(t => Math.max(0, t - 1));
-                            const wasDone = (String(old.status || '').toLowerCase() === 'concluido' || (old.assinatura != null && old.assinatura !== ''));
-                            if (wasDone) setAssinaturasConcluidas(s => Math.max(0, s - 1));
-                        }
+                    if (created && isSameUTCDate(created)) {
+                        const wasDispatched = String(old.status || '').toLowerCase() !== 'pendente';
+                        if (wasDispatched) setTotalEntregasHoje(t => Math.max(0, t - 1));
+                        // decrementa contador de assinaturas somente se assinatura estava presente
+                        const wasAssin = (old.assinatura != null && old.assinatura !== '');
+                        if (wasAssin) setAssinaturasConcluidas(s => Math.max(0, s - 1));
                     }
                 } catch (err) {
                     console.warn('Erro ao processar DELETE em entregas:', err);
@@ -421,9 +424,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     // Atualiza métricas de hoje caso criado_em esteja em hoje
                     const createdOld = old.criado_em ? new Date(old.criado_em) : null;
                     const createdNew = novo.criado_em ? new Date(novo.criado_em) : null;
-                    const today = new Date();
-                    const oldIsToday = createdOld && createdOld.getFullYear() === today.getFullYear() && createdOld.getMonth() === today.getMonth() && createdOld.getDate() === today.getDate();
-                    const newIsToday = createdNew && createdNew.getFullYear() === today.getFullYear() && createdNew.getMonth() === today.getMonth() && createdNew.getDate() === today.getDate();
+                    const oldIsToday = createdOld && isSameUTCDate(createdOld);
+                    const newIsToday = createdNew && isSameUTCDate(createdNew);
 
                     if (!oldIsToday && newIsToday) {
                         // se entrou para hoje, contagem depende de novo status != 'pendente'
@@ -441,13 +443,14 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                         if (wasDispatched && !isDispatchedNow) setTotalEntregasHoje(t => Math.max(0, t - 1));
                     }
 
-                    const wasDone = (String(old.status || '').toLowerCase() === 'concluido' || (old.assinatura != null && old.assinatura !== ''));
-                    const isNowDone = (String(novo.status || '').toLowerCase() === 'concluido' || (novo.assinatura != null && novo.assinatura !== ''));
+                    // Compara apenas presença de assinatura para atualizar contador
+                    const wasAssin = (old.assinatura != null && old.assinatura !== '');
+                    const isNowAssin = (novo.assinatura != null && novo.assinatura !== '');
 
                     // Se o registro pertence ao dia de hoje (antigo ou novo), atualiza o contador de assinaturas
                     if (oldIsToday || newIsToday) {
-                        if (!wasDone && isNowDone) setAssinaturasConcluidas(s => s + 1);
-                        if (wasDone && !isNowDone) setAssinaturasConcluidas(s => Math.max(0, s - 1));
+                        if (!wasAssin && isNowAssin) setAssinaturasConcluidas(s => s + 1);
+                        if (wasAssin && !isNowAssin) setAssinaturasConcluidas(s => Math.max(0, s - 1));
                     }
                 } catch (err) {
                     console.warn('Erro ao processar UPDATE em entregas:', err);
@@ -737,6 +740,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                                                 </div>
                                                 <div className="motorista-info">
                                                     <div className="motorista-nome">{m.nome || `Motorista ${m.id}`}</div>
+                                                    <p className='text-xs text-gray-500'>ID: {m.id}</p>
                                                     <div className="motorista-status">
                                                         <div className="motorista-meta">{m.email || 'sem-email'} • {m.telefone || m.phone || 'sem-telefone'}</div>
                                                         <div className="motorista-status-text">{isOnline ? '🟢 Online' : '⚪ Offline'}</div>

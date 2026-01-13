@@ -1,5 +1,6 @@
 const { chromium } = require('playwright');
-const fetch = require('node-fetch');
+let fetch = global.fetch;
+try { fetch = fetch || require('node-fetch'); } catch (e) { /* use global fetch when available */ }
 
 (async () => {
     const base = process.env.BASE_URL || `http://${process.env.HOST || '127.0.0.1'}:${process.env.PORT || 5173}/?tab=visao-geral`;
@@ -13,6 +14,10 @@ const fetch = require('node-fetch');
 
     const browser = await chromium.launch();
     const page = await browser.newPage();
+    // Debug: forward page console to Node output to inspect realtime logs
+    page.on('console', msg => {
+        try { console.log('PAGELOG:', msg.text()); } catch (e) { /* ignore */ }
+    });
     try {
         await page.goto(base, { waitUntil: 'load', timeout: 30000 });
 

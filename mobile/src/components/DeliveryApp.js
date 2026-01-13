@@ -183,6 +183,24 @@ export default function DeliveryApp(props) {
             )
             .subscribe();
 
+        // Busca inicial de entregas atribuídas ao motorista (por padrão 1) desde o início do dia UTC
+        (async () => {
+            try {
+                const motoristaId = 1;
+                const hoje = new Date();
+                hoje.setUTCHours(0, 0, 0, 0);
+                const dataHoje = hoje.toISOString();
+                const { data: initial, error: initialErr } = await supabase.from('entregas').select('*').eq('motorista_id', motoristaId).gte('criado_em', dataHoje).order('id', { ascending: false }).limit(50);
+                if (initialErr) {
+                    console.warn('Erro ao buscar entregas iniciais (mobile):', initialErr.message || initialErr);
+                } else if (initial) {
+                    setPedidos(initial);
+                }
+            } catch (err) {
+                console.warn('Erro ao buscar entregas iniciais (mobile):', err?.message || err);
+            }
+        })();
+
         return () => {
             try { supabase.removeChannel(channel); } catch (e) { /* ignore */ }
         };
@@ -422,23 +440,19 @@ export default function DeliveryApp(props) {
             const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
             const concluded_at = new Date().toISOString();
 
-            let assinaturaToSave = imgDataUrl; // assinatura em base64/dataURL para salvar no DB
+            // assinatura em base64/dataURL para salvar no DB
+            const assinaturaBase64 = imgDataUrl; // gravamos a assinatura (dataURL/base64) diretamente na coluna `assinatura` e as coordenadas em `lat`/`lng`
 
-            // Não fazemos upload para Storage: gravamos a assinatura (dataURL/base64) diretamente na coluna `assinatura` e as coordenadas em `lat`/`lng`
-            const assinaturaToSave = imgDataUrl;
-
-            // Atualiza a entrega com assinatura (dataURL) e coordenadas (uso de colunas lat/lng)
+            // Atualiza a entrega no banco: gravamos apenas `assinatura`, `lat` e `lng` como requerido
             const { data, error } = await supabase.from('entregas').update({
-                status: 'entregue',
-                assinatura: assinaturaToSave,
+                assinatura: assinaturaBase64,
                 lat: lat,
-                lng: lng,
-                concluded_at
+                lng: lng
             }).eq('id', pedidoSelecionado.id);
             if (error) throw error;
 
-            // Atualiza UI local (usa o valor final gravado)
-            setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'entregue', assinatura: assinaturaToSave, lat: lat, lng: lng, concluded_at } : it));
+            // Atualiza UI local (mostramos o pedido como entregue localmente)
+            setPedidos(pedidos.map(it => it.id === pedidoSelecionado.id ? { ...it, status: 'entregue', assinatura: assinaturaBase64, lat: lat, lng: lng, concluded_at } : it));
 
             Alert.alert('Sucesso', 'Assinatura registrada e entrega confirmada.');
         } catch (err) {
@@ -596,7 +610,12 @@ export default function DeliveryApp(props) {
                 <View style={styles.handleContainer}>
                     <View style={styles.handle} />
                 </View>
-                <ScrollView>
+                {pedidos.length > 3 && (
+                    <View style={styles.dragHint}>
+                        <Text style={styles.dragHintText}>⬇️ Arraste para ver mais</Text>
+                    </View>
+                )}
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100, paddingTop: 6 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                     {pedidos.map((p, index) => {
                         const estaVoando = idVoando === p.id;
 
@@ -1133,6 +1152,14 @@ const styles = StyleSheet.create({
         color: '#444',
         fontSize: 9,
         fontWeight: 'bold',
+    },
+    dragHint: {
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    dragHintText: {
+        color: '#9aa4b2',
+        fontSize: 12,
     },
 });
 

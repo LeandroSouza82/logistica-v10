@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 
-const CentralDespacho = () => {
+const CentralDespacho = ({ filter = null, onClearFilter } = {}) => {
     const [pedidos, setPedidos] = useState([]);
     const [motoristas, setMotoristas] = useState([]); // lista de objetos { id, nome, status }
     const [motoristaSelecionado, setMotoristaSelecionado] = useState(''); // armazena id do motorista
@@ -11,20 +11,38 @@ const CentralDespacho = () => {
     // 1. Busca pedidos em preparação no Supabase
     const fetchPedidos = async () => {
         setCarregando(true);
-        const { data, error } = await supabase
-            .from('entregas')
-            .select('*')
-            .eq('status', 'em_preparacao');
+        try {
+            let query = supabase.from('entregas').select('*');
 
-        if (error) console.error('Erro ao buscar:', error);
-        else setPedidos(data || []);
-        setCarregando(false);
+            // Se vier filtro emPreparacao, buscamos status = 'em_preparacao'
+            if (filter && filter.emPreparacao) {
+                const { data, error } = await query.eq('status', 'em_preparacao');
+                if (error) throw error;
+                setPedidos(data || []);
+            } else if (filter && filter.pendentes) {
+                // compatibilidade antiga: pendentes (pendente/aguardando/sem motorista)
+                const { data, error } = await query.or('status.eq.pendente,status.eq.aguardando,motorista_id.is.null');
+                if (error) throw error;
+                setPedidos(data || []);
+            } else {
+                const { data, error } = await query.eq('status', 'em_preparacao');
+                if (error) throw error;
+                setPedidos(data || []);
+            }
+        } catch (e) {
+            console.error('Erro ao buscar:', e);
+            setPedidos([]);
+        } finally {
+            setCarregando(false);
+        }
     };
 
     useEffect(() => {
         fetchPedidos();
         fetchMotoristas();
-    }, []);
+        // se houver um filtro aplicado via props, permitimos que o pai limpe após aplicá-lo
+        if (filter && onClearFilter) onClearFilter();
+    }, [filter]);
 
     // Busca motoristas no Supabase e marca como online se tiverem sinal recente (5 minutos)
     const fetchMotoristas = async () => {
@@ -51,7 +69,6 @@ const CentralDespacho = () => {
                 return bOnline - aOnline;
             });
 
-            console.log('Motoristas fetched:', ordered);
             setMotoristas(ordered);
         } catch (e) {
             console.error(e);
@@ -134,19 +151,15 @@ const CentralDespacho = () => {
         try {
             const ids = pedidos.map(p => p.id);
             const motorista = motoristas.find(m => String(m.id) === String(motoristaSelecionado));
-            const motoristaNome = motorista ? motorista.nome : motoristaSelecionado;
+            // Atualiza apenas o motorista_id; não gravamos motorista_nome
+            const updateObj = { status: 'em_rota', motorista_id: motorista ? motorista.id : null };
+            let res = await supabase.from('entregas').update(updateObj).in('id', ids);
+            if (res.error) {
+                // checamos se o erro menciona motorista_nome (schema mismatch) e tentamos sem motorista_nome — já estamos sem ela, então só reportamos
+                throw res.error;
+            }
 
-            const { error } = await supabase
-                .from('entregas')
-                .update({
-                    status: 'em_rota',
-                    motorista_nome: motoristaNome,
-                    motorista_id: motorista ? motorista.id : null
-                })
-                .in('id', ids);
-
-            if (error) throw error;
-            alert(`Rota disparada com sucesso para ${motoristaNome}!`);
+            alert(`Rota disparada com sucesso para ${motorista ? motorista.nome : motoristaSelecionado}!`);
             setPedidos([]); // Limpa a tela após o envio
             setMotoristaSelecionado('');
         } catch (e) {
