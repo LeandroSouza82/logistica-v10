@@ -73,21 +73,18 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
             return;
         }
 
-        // Caso não tenhamos coordenadas no objeto, buscar a localização mais recente do motorista
+        // Caso não tenhamos coordenadas no objeto, buscar a última posição no próprio registro do motorista
         (async () => {
             try {
-                const { data } = await supabase.from('localizacoes').select('lat,lng,created_at').eq('motorista_id', m.id).order('created_at', { ascending: false }).limit(1);
-                if (data && data.length > 0) {
-                    const l = data[0];
-                    if (l.lat != null && l.lng != null) {
-                        const lat = Number(l.lat);
-                        const lng = Number(l.lng);
+                const { data: motorista } = await supabase.from('motoristas').select('lat,lng,latitude,longitude,ultimo_sinal').eq('id', m.id).maybeSingle();
+                if (motorista) {
+                    const normalized = normalizeMotorista(motorista);
+                    if (normalized.lat != null && normalized.lng != null) {
+                        const lat = Number(normalized.lat);
+                        const lng = Number(normalized.lng);
                         setActiveMarker({ id: m.id, lat, lng, nome: m.nome });
                         setMotoPosition({ lat, lng });
-                        try {
-                            mapRef.current?.panTo({ lat, lng });
-                            mapRef.current?.setZoom(15);
-                        } catch (e) { /* ignore */ }
+                        try { mapRef.current?.panTo({ lat, lng }); mapRef.current?.setZoom(15); } catch (e) { /* ignore */ }
                     }
                 }
             } catch (err) {
@@ -207,25 +204,9 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 setMotoristas(enriched);
             }
 
-            // Buscar localizacoes recentes e mesclar posições mais recentes por motorista (garante estado inicial atualizado)
-            try {
-                const { data: locData } = await supabase.from('localizacoes').select('*').order('created_at', { ascending: false }).limit(1000);
-                if (locData && locData.length > 0) {
-                    const latestByMotorista = {};
-                    for (const l of locData) {
-                        const id = String(l.motorista_id);
-                        if (!latestByMotorista[id]) latestByMotorista[id] = l;
-                    }
-                    // aplica lat/lng mais recentes aos motoristas conhecidos
-                    setMotoristas(prev => prev.map(m => {
-                        const l = latestByMotorista[String(m.id)];
-                        if (l && l.lat != null && l.lng != null) return { ...m, lat: Number(l.lat), lng: Number(l.lng), ultimo_sinal: l.created_at || m.ultimo_sinal };
-                        return m;
-                    }));
-                }
-            } catch (err) {
-                console.warn('Erro ao buscar localizacoes iniciais:', err);
-            }
+            // Observação: não buscamos mais na tabela `localizacoes` para inicializar posições.
+            // As posições agora são obtidas diretamente das colunas `lat`/`lng` ou `latitude`/`longitude` em `motoristas`.
+            // Se necessário, podemos implementar um fallback para `localizacoes` apenas quando a tabela existir.
 
             const { data: eData } = await supabase.from('entregas').select('*').order('id', { ascending: false }).limit(20);
             if (eData) setEntregas(eData);
@@ -295,23 +276,15 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     if (!handleSchemaCacheError(err)) console.warn('Erro ao processar UPDATE em motoristas:', err);
                 }
             })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'localizacoes' }, (payload) => {
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'motoristas' }, (payload) => {
                 try {
-                    const loc = payload.new;
-                    console.log('Realtime INSERT localizacao:', loc);
-
-                    // Atualiza posição do motorista correspondente em memória sem refetch pesado
-                    setMotoristas(prev => prev.map(m => (String(m.id) === String(loc.motorista_id) ? { ...m, lat: loc.lat, lng: loc.lng, ultimo_sinal: loc.created_at || loc.ultimo_sinal || new Date().toISOString() } : m)));
-
-                    // Se a localização pertence ao selecionado, centraliza o mapa
-                    if (selectedDriver && String(selectedDriver.id) === String(loc.motorista_id)) {
-                        const lat = Number(loc.lat);
-                        const lng = Number(loc.lng);
-                        setMotoPosition({ lat, lng });
-                        try { mapRef.current?.panTo({ lat, lng }); } catch (e) { /* ignore */ }
-                    }
+                    const novo = normalizeMotorista(payload.new);
+                    console.log('Realtime INSERT motorista:', novo);
+                    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+                    const novoWithOnline = { ...novo, isOnline: novo.ultimo_sinal ? (new Date(novo.ultimo_sinal) > fiveMinAgo) : false };
+                    setMotoristas(prev => [novoWithOnline, ...prev]);
                 } catch (err) {
-                    if (!handleSchemaCacheError(err)) console.warn('Erro ao processar INSERT em localizacoes:', err);
+                    if (!handleSchemaCacheError(err)) console.warn('Erro ao processar INSERT em motoristas:', err);
                 }
             })
             .subscribe();
