@@ -9,9 +9,9 @@ import * as Location from 'expo-location'; // Biblioteca para o GPS
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { supabase } from '../supabaseClient';
 
-// Optional blur support (expo-blur). Usamos require em try/catch para não quebrar o bundler quando não instalado
+// Optional blur support (expo-blur). Usamos eval('require') em try/catch para não quebrar o bundler quando não instalado
 let BlurView = null;
-try { BlurView = require('expo-blur').BlurView; } catch (e) { BlurView = null; }
+try { BlurView = eval('require')('expo-blur').BlurView; } catch (e) { BlurView = null; }
 
 // Bottom sheet (manual implementation using PanResponder & Animated)
 // removed dependency on @gorhom/bottom-sheet and react-native-reanimated
@@ -575,15 +575,36 @@ export default function DeliveryApp(props) {
         }
     })).current;
 
+    const openExternalNavigation = (item) => {
+        const lat = item?.lat;
+        const lng = item?.lng;
+        if (!lat || !lng) {
+            Alert.alert('Localização indisponível', 'Este pedido não tem coordenadas.');
+            return;
+        }
+        const q = `${Number(lat)},${Number(lng)}`;
+        const url = (Platform.OS === 'ios') ? `http://maps.apple.com/?daddr=${q}` : `google.navigation:q=${q}`;
+        Linking.openURL(url).catch(err => {
+            console.warn('Erro ao abrir navegação externa:', err);
+            Alert.alert('Erro', 'Não foi possível abrir o app de navegação.');
+        });
+    };
+
     const renderPedidoItem = useCallback((p) => {
         const item = p;
         return (
             <TouchableOpacity style={[styles.cardGrande, (pedidoSelecionado && pedidoSelecionado.id === item.id) ? styles.cardEmDestaque : null]} key={item.id} onPress={() => {
-                // Seleciona o pedido e centraliza o mapa suavemente
+                // Seleciona o pedido, centraliza o mapa suavemente e sobe a aba para TOP
                 setPedidoSelecionado(item);
                 if (item.lat && item.lng) {
-                    mapRef.current?.animateToRegion({ latitude: Number(item.lat), longitude: Number(item.lng), latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500);
+                    const lat = Number(item.lat);
+                    const lng = Number(item.lng);
+                    mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500);
                 }
+                Animated.spring(sheetTranslateY, { toValue: TOP_Y, useNativeDriver: true }).start(() => {
+                    lastSnapY.current = TOP_Y;
+                    setIsAtTop(true);
+                });
             }} activeOpacity={0.9}>
                 <Text style={styles.cardName}>#{item.id} — {item.cliente}</Text>
                 {item.observacoes ? <Text style={styles.observacoesText} numberOfLines={2}>{item.observacoes}</Text> : null}
@@ -620,7 +641,7 @@ export default function DeliveryApp(props) {
                         <Text style={styles.btnIconText}>✍️  Assinar</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#28a745' }]} onPress={() => { confirmarEntrega(item); }}>
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#28a745' }]} onPress={() => { setPedidoSelecionado(item); confirmarEntrega(); }}>
                         <Text style={styles.btnIconText}>✅  Confirmar</Text>
                     </TouchableOpacity>
                 </View>
@@ -701,7 +722,7 @@ export default function DeliveryApp(props) {
                 {...sheetPanResponder.panHandlers}
             >
                 <View style={styles.sheetBackdrop}>
-                    {BlurView ? <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} /> : null}
+                    {BlurView ? <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} /> : <View style={styles.fallbackBlur} />}
 
                     <View style={styles.sheetInner}>
                         <TouchableOpacity style={styles.handleContainer} activeOpacity={0.7} onPress={() => {
@@ -773,12 +794,13 @@ export default function DeliveryApp(props) {
                                 descriptionText="Assine acima para confirmar"
                                 clearText="Apagar"
                                 confirmText="Enviar"
-                                webStyle={`.m-signature-pad--footer {display: none; margin: 0px;}`} // Esconde botões nativos
                                 autoClear={false}
                                 imageType="image/png"
                                 penColor="black" // Risco preto
                                 backgroundColor="white" // Fundo branco
                             />
+
+
                         </View>
 
                         {/* 🔘 BOTÕES DE COMANDO EM BAIXO */}
@@ -870,6 +892,16 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 20,
         overflow: 'hidden',
     },
+    fallbackBlur: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(15,23,32,0.9)',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+    },
     sheetInner: {
         flex: 1,
         paddingTop: 6,
@@ -892,8 +924,8 @@ const styles = StyleSheet.create({
     cardGrande: {
         backgroundColor: '#111827',
         borderRadius: 18,
-        padding: 24,
-        marginBottom: 18,
+        padding: 18,
+        marginBottom: 12,
         elevation: 5,          // Sombra normal para os cards parados
         zIndex: 1,             // Nível normal
     },
