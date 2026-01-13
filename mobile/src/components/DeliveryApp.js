@@ -667,9 +667,9 @@ export default function DeliveryApp(props) {
 
     const getCardStyle = (item) => {
         const tipo = (item && item.tipo_servico) ? item.tipo_servico.toLowerCase() : '';
-        if (tipo === 'entrega') return { backgroundColor: 'rgba(0,122,255,0.12)' };
-        if (tipo === 'recolha') return { backgroundColor: 'rgba(255,149,0,0.12)' };
-        if (tipo === 'outros') return { backgroundColor: 'rgba(175,82,222,0.12)' };
+        if (tipo === 'entrega') return { backgroundColor: 'rgba(0,122,255,0.2)' };
+        if (tipo === 'recolha') return { backgroundColor: 'rgba(255,149,0,0.2)' };
+        if (tipo === 'outros') return { backgroundColor: 'rgba(175,82,222,0.2)' };
         return { backgroundColor: '#111827' };
     };
 
