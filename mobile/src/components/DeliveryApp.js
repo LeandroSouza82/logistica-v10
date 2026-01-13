@@ -826,6 +826,20 @@ export default function DeliveryApp(props) {
         } catch (e) { console.warn('Erro ao processar ocorrência rápida:', e); }
     };
 
+    // Helper: tira foto a partir do menu de ocorrência e atualiza o pedido selecionado
+    const tirarFotoOcorrencia = async () => {
+        if (!pedidoSelecionado) { Alert.alert('Erro', 'Nenhum pedido selecionado.'); return; }
+        try {
+            // Reuse existing tirarFoto implementation
+            await tirarFoto(pedidoSelecionado);
+            // Depois do upload, buscar o campo foto_entrega no servidor e atualizar o pedido local
+            try {
+                const { data, error } = await supabase.from('entregas').select('foto_entrega').eq('id', pedidoSelecionado.id).single();
+                if (!error && data) setPedidoSelecionado(prev => ({ ...(prev || {}), foto_entrega: data.foto_entrega }));
+            } catch (e) { console.warn('Erro ao buscar foto atualizada:', e); }
+        } catch (e) { console.warn('Erro ao tirar foto (ocorrência):', e); Alert.alert('Erro', 'Falha ao tirar a foto.'); }
+    };
+
     const abrirWhatsApp = async (motivo, item = null, coords = null, phoneOverride = null) => {
         const pedido = item || pedidoSelecionado;
         if (!pedido) {
@@ -836,8 +850,9 @@ export default function DeliveryApp(props) {
         const lat = coords?.latitude ?? pedido.lat ?? '';
         const lng = coords?.longitude ?? pedido.lng ?? '';
         const maps = (lat && lng) ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : 'Localização não disponível';
-        // Mensagem com emojis conforme pedido
-        const text = `🚨 Motorista: Leandro\n👤 Cliente: ${pedido.cliente}\n📍 Local: ${maps}\nMotivo: ${motivo}`;
+        // Mensagem com emojis conforme pedido (inclui foto se houver)
+        const fotoLine = pedido?.foto_entrega ? `\nFoto: ${pedido.foto_entrega}` : '';
+        const text = `🚨 Motorista: Leandro\n👤 Cliente: ${pedido.cliente}\n📍 Local: ${maps}\nMotivo: ${motivo}${fotoLine}`;
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
         try {
             await Linking.openURL(url);
@@ -1168,6 +1183,11 @@ export default function DeliveryApp(props) {
                 <View style={styles.modalOverlayLight}>
                     <View style={styles.modalOcorrenciaContent}>
                         <Text style={styles.modalTitle}>Motivo da Ocorrência</Text>
+
+                        {/* Botão de câmera no topo do menu de ocorrências */}
+                        <TouchableOpacity style={{ alignSelf: 'center', marginVertical: 8, backgroundColor: '#444', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 }} onPress={tirarFotoOcorrencia}>
+                            <Text style={[styles.btnIconText, { color: '#fff' }]}>📷</Text>
+                        </TouchableOpacity>
                         {['CLIENTE AUSENTE', 'ENDEREÇO NÃO LOCALIZADO', 'RECUSADO PELO CLIENTE', 'ESTABELECIMENTO FECHADO', 'OUTRO (DIGITAR)'].map(motivo => (
                             <TouchableOpacity
                                 key={motivo}
