@@ -473,9 +473,16 @@ export default function DeliveryApp(props) {
         const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
         const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
 
+        // REMOVED BLOCKING: optimistic UI — remove card immediately so motorista não fica travado
         try {
-            // 1) Primeiro atualiza o status da entrega (não bloqueia por assinatura)
-            const statusPayload = { status: 'Entregue', lat_entrega: lat, lng_entrega: lng };
+            setPedidos(prev => prev.filter(it => it.id !== target.id));
+            setModalAssinatura(false);
+            setPedidoSelecionado(null);
+        } catch (e) { /* ignore */ }
+
+        try {
+            // 1) Atualiza o status primeiro com o valor exato 'concluido'
+            const statusPayload = { status: 'concluido', lat_entrega: lat, lng_entrega: lng };
             const statusPromise = supabase.from('entregas').update(statusPayload).eq('id', target.id);
             const { data: statusData, error: statusError } = await callWithTimeout(statusPromise, 30000);
             if (statusError) {
@@ -484,13 +491,14 @@ export default function DeliveryApp(props) {
                 return;
             }
 
-            // 2) Se houver assinatura presente, tente enviar em segundo momento (não bloqueante)
-            if (target.assinatura) {
+            // 2) Se houver assinatura (ou assinatura_url), tente salvar nos campos apropriados (assinatura_url e assinatura)
+            const assinaturaToSend = target.assinatura || target.assinatura_url || null;
+            if (assinaturaToSend) {
                 try {
-                    const assinPromise = supabase.from('entregas').update({ assinatura: target.assinatura }).eq('id', target.id);
+                    const assinPromise = supabase.from('entregas').update({ assinatura_url: assinaturaToSend, assinatura: assinaturaToSend }).eq('id', target.id);
                     const { data: assinData, error: assinError } = await callWithTimeout(assinPromise, 30000);
                     if (assinError) {
-                        console.error('Erro ao salvar assinatura (não bloqueante):', assinError);
+                        console.error('Erro ao salvar assinatura_url (não bloqueante):', assinError);
                         Alert.alert('Aviso', 'Entrega confirmada, mas não foi possível salvar a assinatura. Você pode tentar novamente mais tarde.');
                     }
                 } catch (e) {
@@ -499,15 +507,11 @@ export default function DeliveryApp(props) {
                 }
             }
 
-            // 3) Se chegamos aqui, status foi atualizado com sucesso — remove pedido localmente e fecha modal
-            setPedidos(prev => prev.filter(it => it.id !== target.id));
+            // Feedback imediato (status já atualizado)
             Alert.alert('Entrega Concluída', 'A entrega foi confirmada com sucesso.');
         } catch (err) {
             console.error('Erro ao confirmar entrega (catch):', err);
             Alert.alert('Erro', 'Não foi possível confirmar a entrega. Tente novamente.');
-        } finally {
-            setModalAssinatura(false);
-            setPedidoSelecionado(null);
         }
     };
 
@@ -519,16 +523,14 @@ export default function DeliveryApp(props) {
         }
 
         try {
-            // atribui assinatura ao pedido selecionado em memória
+            // atribui assinatura ao pedido selecionado em memória (salva também em assinatura_url para compatibilidade)
             const assinaturaBase64 = imgDataUrl;
-            // atualiza o item localmente para que confirmarEntrega o veja
-            setPedidos(prev => prev.map(p => (p.id === pedidoSelecionado.id ? { ...p, assinatura: assinaturaBase64 } : p)));
+            setPedidos(prev => prev.map(p => (p.id === pedidoSelecionado.id ? { ...p, assinatura: assinaturaBase64, assinatura_url: assinaturaBase64 } : p)));
 
             // chama confirmarEntrega imediatamente com o item atualizado
-            await confirmarEntrega({ ...pedidoSelecionado, assinatura: assinaturaBase64 });
+            await confirmarEntrega({ ...pedidoSelecionado, assinatura: assinaturaBase64, assinatura_url: assinaturaBase64 });
 
             // feedback adicional (confirmarEntrega já mostra alert)
-            // limpa qualquer estado local se necessário
         } catch (err) {
             console.error('Erro ao salvar assinatura e confirmar:', err?.message || err);
             Alert.alert('Erro', 'Não foi possível salvar a assinatura. Tente novamente.');
