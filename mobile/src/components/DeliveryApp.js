@@ -467,11 +467,8 @@ export default function DeliveryApp(props) {
             const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
             const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
 
+            // Accept null assinatura (we no longer block confirmation)
             const assinaturaToSend = target && target.assinatura ? target.assinatura : null;
-            if (!assinaturaToSend) {
-                Alert.alert('Assinatura ausente', 'Finalize a entrega assinando antes de confirmar.');
-                return;
-            }
 
             const { data, error } = await supabase.from('entregas').update({
                 status: 'concluido',
@@ -483,7 +480,8 @@ export default function DeliveryApp(props) {
 
             // Remove pedido da lista local
             setPedidos(prev => prev.filter(it => it.id !== target.id));
-            Alert.alert('Sucesso', 'Entrega confirmada.');
+            // Quick feedback
+            Alert.alert('Entrega Concluída', 'A entrega foi confirmada com sucesso.');
         } catch (err) {
             console.error('Erro ao confirmar entrega:', err?.message || err);
             Alert.alert('Erro', 'Não foi possível confirmar a entrega. Tente novamente.');
@@ -501,28 +499,18 @@ export default function DeliveryApp(props) {
         }
 
         try {
-            // pega coordenadas atuais do motorista (capturadas pelo Location watcher)
-            const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
-            const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
-
-            // assinatura em base64/dataURL para salvar no DB
+            // atribui assinatura ao pedido selecionado em memória
             const assinaturaBase64 = imgDataUrl;
+            // atualiza o item localmente para que confirmarEntrega o veja
+            setPedidos(prev => prev.map(p => (p.id === pedidoSelecionado.id ? { ...p, assinatura: assinaturaBase64 } : p)));
 
-            // Atualiza a entrega no banco: gravamos status e colunas de entrega conforme solicitado
-            const { data, error } = await supabase.from('entregas').update({
-                status: 'concluido',
-                assinatura: assinaturaBase64,
-                lat_entrega: lat,
-                lng_entrega: lng
-            }).eq('id', pedidoSelecionado.id);
-            if (error) throw error;
+            // chama confirmarEntrega imediatamente com o item atualizado
+            await confirmarEntrega({ ...pedidoSelecionado, assinatura: assinaturaBase64 });
 
-            // Atualiza UI local (remove o pedido da lista)
-            setPedidos(prev => prev.filter(it => it.id !== pedidoSelecionado.id));
-
-            Alert.alert('Sucesso', 'Assinatura registrada e entrega confirmada.');
+            // feedback adicional (confirmarEntrega já mostra alert)
+            // limpa qualquer estado local se necessário
         } catch (err) {
-            console.error('Erro ao salvar assinatura:', err?.message || err);
+            console.error('Erro ao salvar assinatura e confirmar:', err?.message || err);
             Alert.alert('Erro', 'Não foi possível salvar a assinatura. Tente novamente.');
         } finally {
             setModalAssinatura(false);
