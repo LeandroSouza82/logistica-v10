@@ -1,0 +1,36 @@
+{
+    "expo": {
+        "name": "App Motorista",
+        "slug": "app-motorista",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "icon": "./assets/icon.png",
+        "userInterfaceStyle": "light",
+        "splash": {
+            "image": "./assets/splash.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#ffffff"
+        },
+        "extra": {
+            "VITE_SUPABASE_URL": "https://xdsoctyzmsxbhtjehsqd.supabase.co",
+            "VITE_SUPABASE_ANON_KEY": "sb_publishable_h1241fMOb-5_FOoChqERQw_B0VLvAt2",
+            "VITE_GOOGLE_MAPS_API_KEY": "AIzaSyBeec8r4DWBdNIEFSEZg1CgRxIHjYMV9dM"
+        },
+        "android": {
+            "package": "com.seuusuario.logistica",
+            "config": {
+                "googleMaps": {
+                    "apiKey": "AIzaSyBeec8r4DWBdNIEFSEZg1CgRxIHjYMV9dM"
+                }
+            }
+        },
+        "plugins": [
+            "expo-av"
+        ],
+        "ios": {
+            "infoPlist": {
+                "NSLocationWhenInUseUsageDescription": "Usamos sua localização para mostrar rotas de entrega."
+            }
+        }
+    }
+}

@@ -21,9 +21,6 @@ const containerStyle = {
 
 const centroPadrao = { lat: -27.6608, lng: -48.7087 };
 
-// Valor padrão caso a tabela `configuracoes` não exista ou ocorra erro no fetch
-const DEFAULT_GESTOR_PHONE = '+5511999999999';
-
 // Ícone SVG Pulsante
 const pulsingMotoSvg = (color = '#3b82f6') => {
     const svg = `
@@ -53,62 +50,6 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
 
     const [motoristas, setMotoristas] = useState([]);
     const [entregas, setEntregas] = useState([]);
-
-    // GESTOR config (editable via gear in header)
-    const [gearModalOpen, setGearModalOpen] = useState(false);
-    const [gestorPhone, setGestorPhone] = useState('');
-
-    useEffect(() => {
-        (async () => {
-            try {
-                const { data, error } = await supabase.from('configuracoes').select('*').eq('chave', 'gestor_phone').limit(1);
-
-                // Se o Supabase devolveu erro (ex.: tabela não existe), definimos valor padrão e não travamos a UI
-                if (error) {
-                    console.warn('Erro ao buscar configuração gestor_phone (usando padrão):', error?.message || error);
-                    setGestorPhone(DEFAULT_GESTOR_PHONE);
-                    return;
-                }
-
-                if (data && data[0] && data[0].valor) {
-                    setGestorPhone(String(data[0].valor));
-                } else {
-                    // garante que sempre haverá um valor utilizável
-                    setGestorPhone(DEFAULT_GESTOR_PHONE);
-                }
-            } catch (e) {
-                console.warn('Exceção ao buscar configuração gestor_phone (usando padrão):', e);
-                setGestorPhone(DEFAULT_GESTOR_PHONE);
-            }
-        })();
-    }, []);
-
-    const saveGestorPhone = async () => {
-        try {
-            const apenasNumeros = String(gestorPhone || '').replace(/\D/g, '');
-            const numeroFinal = apenasNumeros.startsWith('55') ? apenasNumeros : `55${apenasNumeros}`;
-
-            // proteção: se supabase estiver indefinido, não travamos o app
-            if (!supabase || typeof supabase.from !== 'function') {
-                console.warn('Supabase não disponível; não foi possível salvar gestor_phone.');
-                if (typeof window !== 'undefined' && window.alert) window.alert('Não foi possível salvar (serviço indisponível).');
-                return;
-            }
-
-            const { error } = await supabase.from('configuracoes').upsert([{ chave: 'gestor_phone', valor: numeroFinal }], { onConflict: 'chave' });
-            if (error) {
-                console.warn('Erro ao salvar gestor_phone:', error);
-                if (typeof window !== 'undefined' && window.alert) window.alert('Erro ao salvar número do gestor.');
-                return;
-            }
-
-            if (typeof window !== 'undefined' && window.alert) window.alert('✅ WhatsApp do Gestor atualizado! Motoristas já estão sincronizados');
-            setGearModalOpen(false);
-        } catch (e) {
-            console.warn('Exceção ao salvar gestor_phone:', e);
-            if (typeof window !== 'undefined' && window.alert) window.alert('Erro ao salvar número do gestor.');
-        }
-    };
 
     // Métricas de Comprovantes / Assinaturas para hoje
     const [totalEntregasHoje, setTotalEntregasHoje] = useState(0);
@@ -292,10 +233,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 console.error('Erro detalhado:', err.message);
             }
         };
-        (async () => {
-            try { await buscarDados(); }
-            catch (err) { console.warn('Erro ao executar buscarDados:', err); /* fallback: não travar a UI */ }
-        })();
+        buscarDados();
 
         // Helper to handle specific schema cache error and try a recovery (reload client)
         const handleSchemaCacheError = (err) => {
@@ -631,48 +569,43 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
     return (
         <main className="content-grid" ref={containerRef}>
             <div className="motoristas-wrapper" style={{ flexBasis: leftWidth ? `${leftWidth}px` : undefined }}>
-                <header className="dashboard-header" role="banner" style={{ height: '60px' }}>
-                    <div className="dashboard-logo" aria-hidden="true">🛣️✅</div>
+                {/* Menu superior - visual apenas (não altera lógicas existentes) */}
+                <nav className="top-nav" role="navigation" aria-label="Menu principal">
+                    <button
+                        className={`nav-button ${abaAtiva === 'visao-geral' ? 'active' : 'inactive'}`}
+                        onClick={() => setAbaAtiva('visao-geral')}
+                        aria-pressed={abaAtiva === 'visao-geral'}
+                    >
+                        VISÃO GERAL
+                    </button>
 
-                    <nav className="dashboard-nav" role="navigation" aria-label="Menu principal">
-                        <button
-                            className={`nav-button ${abaAtiva === 'visao-geral' ? 'active' : 'inactive'}`}
-                            onClick={() => setAbaAtiva('visao-geral')}
-                            aria-pressed={abaAtiva === 'visao-geral'}
-                        >
-                            VISÃO GERAL
-                        </button>
+                    <button
+                        className={`nav-button ${abaAtiva === 'nova-carga' ? 'active' : 'inactive'}`}
+                        onClick={() => setAbaAtiva('nova-carga')}
+                        aria-pressed={abaAtiva === 'nova-carga'}
+                    >
+                        NOVA CARGA
+                    </button>
 
-                        <button
-                            className={`nav-button ${abaAtiva === 'nova-carga' ? 'active' : 'inactive'}`}
-                            onClick={() => setAbaAtiva('nova-carga')}
-                            aria-pressed={abaAtiva === 'nova-carga'}
-                        >
-                            NOVA CARGA
-                        </button>
+                    <button
+                        className={`nav-button ${abaAtiva === 'central-despacho' ? 'active' : 'inactive'}`}
+                        onClick={() => setAbaAtiva('central-despacho')}
+                        aria-pressed={abaAtiva === 'central-despacho'}
+                    >
+                        CENTRAL DE DESPACHO
+                    </button>
 
-                        <button
-                            className={`nav-button ${abaAtiva === 'central-despacho' ? 'active' : 'inactive'}`}
-                            onClick={() => setAbaAtiva('central-despacho')}
-                            aria-pressed={abaAtiva === 'central-despacho'}
-                        >
-                            CENTRAL DE DESPACHO
-                        </button>
+                    <button
+                        className={`nav-button ${abaAtiva === 'equipe' ? 'active' : 'inactive'}`}
+                        onClick={() => setAbaAtiva('equipe')}
+                        aria-pressed={abaAtiva === 'equipe'}
+                    >
+                        EQUIPE
+                    </button>
+                </nav>
 
-                        <button
-                            className={`nav-button ${abaAtiva === 'equipe' ? 'active' : 'inactive'}`}
-                            onClick={() => setAbaAtiva('equipe')}
-                            aria-pressed={abaAtiva === 'equipe'}
-                        >
-                            EQUIPE
-                        </button>
-                    </nav>
-
-                    <div className="dashboard-actions">
-                        <button className="btn-logout" onClick={handleLogout} aria-label="Sair da sessão">Sair</button>
-                        <button className="btn-gear" onClick={() => setGearModalOpen(true)} aria-label="Abrir configurações">⚙️</button>
-                    </div>
-                </header>
+                {/* Botão de logout no topo direito */}
+                <button className="logout-button" onClick={handleLogout} aria-label="Sair da sessão">Sair</button>
 
                 {/* Cards de Resumo (Topo) */}
                 <div className="summary-grid" aria-hidden={false}>
@@ -913,21 +846,6 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     </>
                 )}
             </aside>
-
-            {gearModalOpen && (
-                <div className="gear-modal-overlay" role="dialog" aria-modal="true" aria-label="Configurações do Gestor">
-                    <div className="gear-modal-card">
-                        <h3 style={{ marginTop: 0, marginBottom: 8 }}>Configurações do Gestor</h3>
-                        <label style={{ display: 'block', marginBottom: 6, color: '#9aa4b2' }}>Número do gestor (formato internacional)</label>
-                        <input className="form-input" value={gestorPhone} onChange={(e) => setGestorPhone(e.target.value)} placeholder="+5511999999999" />
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-                            <button className="btn-secondary" onClick={() => setGearModalOpen(false)}>Cancelar</button>
-                            <button className="btn-primary" onClick={saveGestorPhone}>Salvar</button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             <ClientesHistorico open={historicoOpen} onClose={() => setHistoricoOpen(false)} onSelect={(it) => handleSelectCliente(it)} />
         </main>

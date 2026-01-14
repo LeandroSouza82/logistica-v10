@@ -122,6 +122,96 @@ button:focus-visible {
   /* garante uma linha única */
 }
 
+/* Dashboard header (compact, glass-like) */
+.dashboard-header {
+  width: 100%;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  gap: 12px;
+}
+
+.dashboard-logo {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.dashboard-nav {
+  display: flex;
+  gap: 10px;
+  justify-content: space-around;
+  flex: 1;
+}
+
+.dashboard-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-logout {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.btn-gear {
+  background: transparent;
+  color: #fff;
+  border: none;
+  font-size: 18px;
+  padding: 6px;
+}
+
+/* Gear modal overlay */
+.gear-modal-overlay {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.gear-modal-card {
+  background: #0b1222;
+  padding: 18px;
+  border-radius: 12px;
+  width: 420px;
+  max-width: calc(100% - 32px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.gear-modal-card input.form-input {
+  width: 60%;
+  max-width: 300px;
+  display: block;
+  margin: 0 auto;
+  padding: 10px 12px;
+  /* confortável para números */
+  border: 1px solid #ef4444;
+  /* mantém o risco/borda vermelha */
+  border-radius: 8px;
+  background: #0b1222;
+  /* manter contraste do modal */
+  color: #fff;
+}
+
+
 .nav-button {
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
@@ -860,6 +950,13 @@ button:focus-visible {
 }
 
 /* Custom scrollbar (suave) */
+.custom-scrollbar {
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  /* Firefox */
+  scrollbar-width: thin;
+  /* Firefox */
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;
 }
@@ -869,8 +966,14 @@ button:focus-visible {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  transition: background 0.15s ease-in-out;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .status-panel {

@@ -1,4 +1,3 @@
-import 'react-native-gesture-handler';
 import 'react-native-url-polyfill/auto';
 import React, { useState, useEffect, useRef } from 'react';
 import DeliveryApp from './src/components/DeliveryApp';

@@ -47,7 +47,7 @@ export default function Comprovantes() {
             // Cliente e data
             ctx.font = '16px Arial';
             ctx.fillText(`Cliente: ${item.cliente || '—'}`, 20, 80);
-            const dt = item.concluded_at ? new Date(item.concluded_at) : (item.updated_at ? new Date(item.updated_at) : new Date());
+            const dt = item.criado_em ? new Date(item.criado_em) : (item.updated_at ? new Date(item.updated_at) : new Date());
             ctx.fillText(`Data/hora: ${dt.toLocaleString()}`, 20, 110);
 
             // Coordenadas / link
@@ -134,7 +134,7 @@ export default function Comprovantes() {
         const lat = item.lat != null ? item.lat : '';
         const lng = item.lng != null ? item.lng : '';
         const mapsLink = (lat && lng) ? `https://maps.google.com/?q=${Number(lat)},${Number(lng)}` : 'Localização não disponível';
-        const dt = item.concluded_at ? new Date(item.concluded_at) : (item.updated_at ? new Date(item.updated_at) : new Date());
+        const dt = item.criado_em ? new Date(item.criado_em) : (item.updated_at ? new Date(item.updated_at) : new Date());
         const msg = `Olá, segue comprovante de entrega para ${item.cliente || ''}. Assinado em ${dt.toLocaleString()}. Localização confirmada via GPS: ${mapsLink}`;
         const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
         window.open(url, '_blank');
@@ -145,21 +145,23 @@ export default function Comprovantes() {
             <h2>Comprovantes de Entrega</h2>
             {loading && <p>Carregando...</p>}
             {!loading && comprovantes.length === 0 && <p>Nenhum comprovante registrado.</p>}
-            <div style={{ display: 'grid', gap: 12 }}>
-                {comprovantes.map(c => (
-                    <div key={c.id} style={{ background: 'var(--card-dark)', padding: 12, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div>
-                            <div style={{ fontWeight: '700' }}>{c.cliente}</div>
-                            <div style={{ color: '#9aa4b2', fontSize: 13 }}>{(c.concluded_at || c.updated_at) ? new Date(c.concluded_at || c.updated_at).toLocaleString() : '—'}</div>
-                            <div style={{ fontSize: 13, color: '#9aa4b2' }}>{c.lat != null ? `${Number(c.lat).toFixed(6)}, ${Number(c.lng).toFixed(6)}` : 'Localização: —'}</div>
-                        </div>
+            <div className="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                <div style={{ display: 'grid', gap: 12 }}>
+                    {comprovantes.map(c => (
+                        <div key={c.id} style={{ background: 'var(--card-dark)', padding: 12, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div>
+                                <div style={{ fontWeight: '700' }}>{c.cliente}</div>
+                                <div style={{ color: '#9aa4b2', fontSize: 13 }}>{(c.criado_em || c.updated_at) ? new Date(c.criado_em || c.updated_at).toLocaleString() : '—'}</div>
+                                <div style={{ fontSize: 13, color: '#9aa4b2' }}>{c.lat != null ? `${Number(c.lat).toFixed(6)}, ${Number(c.lng).toFixed(6)}` : 'Localização: —'}</div>
+                            </div>
 
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <button onClick={() => downloadComprovanteAsImage(c)} className="btn-primary">Baixar Comprovante</button>
-                            <button onClick={() => shareViaWhatsApp(c)} className="btn-secondary">WhatsApp</button>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button onClick={() => downloadComprovanteAsImage(c)} className="btn-primary">Baixar Comprovante</button>
+                                <button onClick={() => shareViaWhatsApp(c)} className="btn-secondary">WhatsApp</button>
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
         </div>
     );

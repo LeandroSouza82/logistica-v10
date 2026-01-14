@@ -1,0 +1,2045 @@
+/* === GLOBAL STYLES === */
+html,
+body,
+#root {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100vw;
+  height: 100vh;
+  overflow: auto;
+  /* Permite rolagem da página inteira */
+  /* Impede que a tela "balance" */
+  background-color: #0b0e14;
+}
+
+/* Estilos para o Container Principal */
+.container-motorista {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  /* Ocupa a tela toda */
+  width: 100vw;
+  overflow: auto;
+}
+
+/* Metade de cima: MAPA */
+.secao-mapa {
+  flex: 1;
+  /* Pega 50% da altura */
+  background-color: #000;
+  /* Mapa preto como pedido */
+  position: relative;
+}
+
+/* Metade de baixo: INFO */
+.secao-info {
+  flex: 1;
+  /* Pega os outros 50% */
+  background-color: #fff;
+  overflow-y: auto;
+  /* Se a lista for grande, rola só aqui */
+  padding: 15px;
+}
+
+/* Topo Flutuante (Header) */
+.header-logistica {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 8px 15px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+.contagem-badge {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.contagem-badge::before {
+  display: none !important;
+}
+
+/* === LAYOUT GESTOR === */
+
+/* Container Principal */
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  background-color: #0b0e14;
+  overflow: auto;
+  position: relative;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* 1. BARRA SUPERIOR (WhatsApp, Equipe, Logística Ativa) */
+.topo-ferramentas {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  background-color: #151a22;
+  border-bottom: 1px solid #2d3748;
+  height: 60px;
+}
+
+/* 2. CONTEÚDO DO MEIO (Lateral Esquerda + Espaço do Mapa) */
+.conteudo-principal {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Painel de Digitação (Encostado na Esquerda) */
+.painel-lateral {
+  width: 400px;
+  background-color: #151a22;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  border-right: 1px solid #2d3748;
+  z-index: 10;
+  overflow-y: auto;
+}
+
+/* 3. MAPA (Encostado embaixo e reto com o botão de enviar) */
+.area-mapa-inferior {
+  flex: 1;
+  background-color: #000;
+  height: 100%;
+}
+
+/* === CLASSES COMPLEMENTARES === */
+
+/* Abas de Navegação */
+.abas-navegacao {
+  display: flex;
+  gap: 10px;
+  border-bottom: 2px solid #2d3748;
+  margin-bottom: 15px;
+}
+
+.aba-item {
+  flex: 1;
+  padding: 10px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-weight: bold;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.aba-item.ativa {
+  color: #38bdf8;
+  border-bottom-color: #38bdf8;
+}
+
+.aba-item:hover {
+  color: #cbd5e1;
+}
+
+/* Formulário de Entrada */
+.formulario-entrada {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.input-dark {
+  padding: 10px;
+  background-color: #0b0e14;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-dark:focus {
+  border-color: #38bdf8;
+}
+
+.input-dark::placeholder {
+  color: #64748b;
+}
+
+/* Botões */
+.btn-topo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 15px;
+  background-color: #1e293b;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  color: #cbd5e1;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.btn-topo:hover {
+  background-color: #334155;
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.btn-azul-largo {
+  width: 100%;
+  padding: 12px;
+  background-color: #3b82f6;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-azul-largo:hover {
+  background-color: #2563eb;
+}
+
+.btn-verde-enviar {
+  width: 100%;
+  padding: 12px;
+  background-color: #22c55e;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+}
+
+.btn-verde-enviar:hover {
+  background-color: #16a34a;
+}
+
+/* === NovaCarga: estilos específicos (como imagem 2) === */
+.form-panel {
+  background: linear-gradient(180deg, #081427 0%, #071427 100%);
+  box-shadow: 0 30px 80px rgba(2, 6, 23, 0.7);
+  border-radius: 18px;
+  max-width: 720px;
+  margin: 56px auto 24px auto;
+  padding: 36px 40px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.form-panel h2 {
+  color: #66b0ff;
+  /* azul do título */
+  font-size: 28px;
+  line-height: 1.1;
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+/* select em estilo claro como na imagem 2 */
+.form-panel select {
+  background-color: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  color: #071427;
+  padding: 8px 12px;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.12);
+}
+
+.input-light {
+  background-color: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  color: #061126;
+  font-size: 14px;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.18);
+  outline: none;
+  transition: box-shadow .12s, transform .06s;
+  margin-bottom: 12px;
+}
+
+.input-light::placeholder,
+.textarea-light::placeholder {
+  color: #94a3b8;
+}
+
+.input-light:focus,
+.textarea-light:focus,
+.form-panel select:focus {
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.12);
+  transform: translateY(-1px);
+}
+
+.textarea-light {
+  background-color: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  color: #061126;
+  font-size: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  min-height: 110px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.18);
+  outline: none;
+  margin-bottom: 12px;
+}
+
+.form-button {
+  display: block;
+  width: 100%;
+  height: 48px;
+  background: linear-gradient(180deg, #7fb6ff 0%, #60a5fa 100%);
+  color: #071427;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 12px 36px rgba(37, 99, 235, 0.18);
+  transition: background-color .12s, transform .06s;
+}
+
+.form-button:hover {
+  background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+  transform: translateY(-2px);
+}
+
+.form-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* === SUMMARY GRID (cards brancos com barras coloridas) === */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  padding: 2rem;
+  align-items: stretch !important;
+}
+
+.summary-card {
+  position: relative !important;
+  background: #ffffff;
+  /* Fundo branco conforme a foto */
+  padding: 1.5rem 1.5rem 1.5rem 1.5rem !important;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  min-height: 110px !important;
+  /* garante altura uniforme */
+  overflow: hidden !important;
+  /* essencial para o efeito 'voltinha' */
+  padding-left: 30px !important;
+}
+
+/* pseudo-elemento da 'voltinha' apenas para summary-card (topo) */
+.summary-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  /* espessura da voltinha */
+  border-top-left-radius: 15px;
+  border-bottom-left-radius: 15px;
+  background: transparent;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06) inset;
+}
+
+.summary-card h3 {
+  color: #64748b;
+  /* Texto cinza pequeno */
+  font-size: 0.75rem;
+  margin: 0 0 8px 0;
+  text-transform: uppercase;
+}
+
+.summary-card p.value {
+  color: #0f172a;
+  /* Número em preto/azul escuro */
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+/* Aplicar cor à barra lateral via pseudo-elemento */
+.summary-card.blue::before {
+  background: #f1c40f !important;
+  /* amarela / atenção */
+}
+
+.summary-card.status::before {
+  background: #2ecc71 !important;
+  /* verde */
+}
+
+.summary-card.indigo::before {
+  background: #3498db !important;
+  /* azul - rota ativa (ajustado para #3498db) */
+}
+
+/* Caso haja alguma borda antiga, escondemos para evitar duplicidade */
+.summary-card[style] {
+  border-left-color: transparent !important;
+}
+
+/* ----------------------------
+   Status da Operação (Rotas Recentes)
+   Apply 'voltinha' only in this section
+   ---------------------------- */
+.status-panel .rotas-list .rota-card {
+  border-radius: 15px !important;
+  overflow: hidden !important;
+  /* essential for rounded accent */
+  border-left-width: 12px !important;
+  /* base width increased to 12px for better visibility */
+  border-left-style: solid !important;
+  /* ensure solid border */
+  border-left-color: transparent !important;
+  /* default transparent, colored by svc-* classes */
+  padding-left: 20px !important;
+  /* spacing from accent */
+  background: var(--card-dark) !important;
+  /* keep card dark for good contrast */
+  min-height: 120px !important;
+  /* aumentar altura para melhor leitura/click target */
+  border-top-left-radius: 15px !important;
+  /* ensure the left border follows rounding */
+  border-bottom-left-radius: 15px !important;
+}
+
+/* Estilo base para o contorno (badge) */
+.status-panel .rotas-list .status-badge {
+  padding: 4px 12px !important;
+  border-radius: 20px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  font-size: 0.8rem !important;
+  display: inline-block !important;
+}
+
+/* Cores específicas conforme solicitado */
+.status-panel .rotas-list .badge-entrega {
+  background-color: rgba(52, 152, 219, 0.2) !important;
+  border: 1px solid #3498db !important;
+  color: #3498db !important;
+}
+
+.status-panel .rotas-list .badge-recolha {
+  background-color: rgba(230, 126, 34, 0.2) !important;
+  border: 1px solid #e67e22 !important;
+  color: #e67e22 !important;
+}
+
+.status-panel .rotas-list .badge-outros {
+  background-color: rgba(155, 89, 182, 0.2) !important;
+  border: 1px solid #9b59b6 !important;
+  color: #9b59b6 !important;
+}
+
+.status-panel .rotas-list .rota-card.svc-entrega {
+  border-left-color: #3498db !important;
+}
+
+.status-panel .rotas-list .rota-card.svc-recolha {
+  border-left-color: #e67e22 !important;
+}
+
+.status-panel .rotas-list .rota-card.svc-outros {
+  border-left-color: #9b59b6 !important;
+}
+
+/* sync status-label color */
+.status-panel .rotas-list .status-label.entrega {
+  color: #3498db !important;
+  font-weight: 700;
+}
+
+.status-panel .rotas-list .status-label.recolha {
+  color: #e67e22 !important;
+  font-weight: 700;
+}
+
+.status-panel .rotas-list .status-label.outros {
+  color: #9b59b6 !important;
+  font-weight: 700;
+}
+
+/* ensure label text contrasts on dark background */
+.status-panel .rotas-list .status-label {
+  font-size: 12px;
+}
+
+/* Texto azul para status 'ENTREGA' (aplicado via classe dinâmica no JSX) */
+.status-panel .rotas-list .texto-azul {
+  color: #3498db !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+}
+
+/* === Badges: estilo base e variações globais para serem usadas tanto em Status da Operação quanto na Fila de Preparação === */
+.status-badge {
+  padding: 4px 12px !important;
+  border-radius: 20px !important;
+  /* arredondado */
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  font-size: 0.8rem !important;
+  display: inline-block !important;
+}
+
+.badge-entrega {
+  background-color: rgba(52, 152, 219, 0.12) !important;
+  border: 1px solid #3498db !important;
+  color: #3498db !important;
+}
+
+.badge-recolha {
+  background-color: rgba(230, 126, 34, 0.12) !important;
+  border: 1px solid #e67e22 !important;
+  color: #e67e22 !important;
+}
+
+.badge-outros {
+  background-color: rgba(155, 89, 182, 0.12) !important;
+  border: 1px solid #9b59b6 !important;
+  color: #9b59b6 !important;
+}
+
+/* Aumentar a espessura da 'voltinha' para todos os svc-* (12px) */
+.svc-entrega {
+  border-left-width: 12px !important;
+  border-left-style: solid !important;
+  border-left-color: #3498db !important;
+}
+
+.svc-recolha {
+  border-left-width: 12px !important;
+  border-left-style: solid !important;
+  border-left-color: #e67e22 !important;
+}
+
+.svc-outros {
+  border-left-width: 12px !important;
+  border-left-style: solid !important;
+  border-left-color: #9b59b6 !important;
+}
+
+/* Estilos aplicados às cd-cards (Fila de Preparação) para manter a mesma aparência das rota-card */
+.cd-card {
+  border-radius: 15px !important;
+  overflow: hidden !important;
+  border-left-style: solid !important;
+  padding-left: 20px !important;
+  background: var(--card-dark) !important;
+  min-height: 120px !important;
+  border-top-left-radius: 15px !important;
+  border-bottom-left-radius: 15px !important;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.2) !important;
+  margin-bottom: 12px !important;
+}
+
+.cd-card .cd-card-header {
+  padding: 14px 16px 0 16px !important;
+}
+
+.cd-card .cd-card-body {
+  padding: 8px 16px 16px 16px !important;
+}
+
+/* Garantir alinhamento/sem margens extras */
+.summary-grid>* {
+  margin: 0 !important;
+}
+
+/* Pequeno ajuste responsivo */
+@media (max-width: 900px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 1rem;
+  }
+}
+
+
+/* === Nova Carga: classes alternativas (de acordo com seu CSS) === */
+.nova-carga-container {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  /* Área rolável no centro (escrolar somente conteúdo do card) */
+  max-height: calc(100vh - 160px) !important;
+  /* ajustável conforme header */
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding-right: 12px !important;
+  /* espaço para a scrollbar */
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(99, 102, 241, 0.35) transparent !important;
+}
+
+/* Webkit scrollbar styling para visual consistente */
+.nova-carga-container::-webkit-scrollbar {
+  width: 10px;
+}
+
+.nova-carga-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nova-carga-container::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.28), rgba(99, 102, 241, 0.18));
+  border-radius: 10px;
+  border: 2px solid rgba(11, 17, 30, 0.0);
+}
+
+/* Garantir espaço interno para o conteúdo não colar na scrollbar */
+.nova-carga-container>* {
+  box-sizing: border-box;
+}
+
+.nova-carga-card {
+  background: var(--card-dark) !important;
+  width: 100% !important;
+  max-width: 600px !important;
+  margin: 0 auto !important;
+  /* centralizado */
+  padding: 40px !important;
+  border-radius: 20px !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+
+.nova-carga-card h2 {
+  color: var(--accent-blue, #66b0ff);
+  text-align: center;
+  font-weight: 800;
+  margin-bottom: 30px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+/* Forçar layout flex-column para o formulário de nova carga */
+.nova-carga-card form,
+.nova-carga-form {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  align-items: stretch !important;
+}
+
+/* Remover grid-column / grid-row de elementos que eventualmente vinham do layout anterior */
+.nome-cliente,
+.endereco,
+.observacoes,
+.form-actions,
+.action-row-bottom {
+  grid-column: unset !important;
+  grid-row: unset !important;
+}
+
+..form-input,
+.type-select,
+.select-input,
+select.form-input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  height: 48px !important;
+  /* padrão de altura para inputs simples */
+  background: #1f2937 !important;
+  /* dark background */
+  color: #ffffff !important;
+  /* texto branco puro */
+  border: 1px solid #374151 !important;
+  /* borda sutil */
+  padding: 12px 15px !important;
+  /* espaçamento interno */
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  margin-bottom: 14px !important;
+  /* espaçamento consistente */
+  outline: none !important;
+}
+
+/* Textarea com altura maior */
+textarea.form-input {
+  height: 120px !important;
+  padding-top: 12px !important;
+  margin-bottom: 18px !important;
+  resize: vertical !important;
+}
+
+/* foco com borda azul e brilho */
+.form-input:focus,
+.select-input:focus,
+select.form-input:focus,
+textarea.form-input:focus {
+  border-color: #3498db !important;
+  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.16) !important;
+}
+
+/* Busca no histórico: ícone + padding */
+.historico-search-input {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23cbd5e1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: 12px center !important;
+  background-size: 18px 18px !important;
+  padding-left: 40px !important;
+  height: 48px !important;
+}
+
+/* Forçar altura dos selects/botões na barra superior */
+.barra-acoes .select-motorista-despacho,
+.barra-acoes button,
+.barra-comandos-principal .select-motorista-despacho,
+.barra-comandos-principal button {
+  height: 48px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 14px !important;
+}
+
+/* remover outlines nativos */
+.form-input:focus-visible,
+select.form-input:focus-visible,
+.historico-search-input:focus-visible {
+  outline: none !important;
+}
+
+/* caret legível */
+.form-input {
+  caret-color: #ffffff !important;
+}
+
+/* Botão Azul Sólido (full-width no card) */
+.nova-carga-card .btn-add-lista {
+  width: 100% !important;
+  max-width: none !important;
+  height: 55px !important;
+  background: var(--btn-light-blue) !important;
+  color: var(--card-white) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  display: block !important;
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.12) !important;
+  padding: 0 18px !important;
+  margin-top: 18px !important;
+}
+
+.nova-carga-card .btn-add-lista:hover {
+  filter: brightness(1.05) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Wrapper para alinhar botão à direita quando Tailwind não está disponível */
+.btn-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.btn-add-lista:hover {
+  filter: brightness(1.05);
+  transform: translateY(-2px);
+}
+
+/* botão secundário/arranjos anteriores (mantidos se usados em outros componentes) */
+.btn-group {
+  display: none;
+}
+
+.btn-primary-pill {
+  display: none;
+}
+
+.btn-secondary-pill {
+  display: none;
+}
+
+.btn-arrow-circle {
+  display: none;
+}
+
+/* === Forçar inputs do card Nova Carga a serem brancos === */
+.nova-carga-card .form-input,
+.nova-carga-card .type-select,
+.nova-carga-card textarea.form-input {
+  background: var(--card-white) !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.06) !important;
+  height: 50px !important;
+  min-height: 50px !important;
+  padding: 12px 14px !important;
+  border-radius: 8px !important;
+  outline: none !important;
+}
+
+.nova-carga-card textarea.form-input {
+  min-height: 120px !important;
+  height: auto !important;
+  padding-top: 12px !important;
+  resize: vertical !important;
+}
+
+.nova-carga-card .form-input::placeholder,
+.nova-carga-card textarea.form-input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Lista de Rascunho */
+.lista-rascunho {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Dashboard custom styles do usuário */
+.containerPrincipal {
+  display: flex;
+  height: 100vh;
+  background-color: #000c1d;
+  color: white;
+}
+
+/* ==========================================================
+   Authoritative overrides (high specificity, !important)
+   Ensures the visual matches the Dashboard Logicontrol reference
+   ========================================================== */
+
+/* Force body background color */
+body {
+  background-color: #050a18 !important;
+}
+
+/* Summary cards: force white background and dark text */
+body .summary-card {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-left-width: 8px !important;
+  border-left-style: solid !important;
+  box-shadow: 0 6px 20px rgba(2, 6, 23, 0.12) !important;
+}
+
+body .summary-card h3 {
+  color: #64748b !important;
+}
+
+body .summary-card p.value {
+  color: #0f172a !important;
+}
+
+/* Form layout: force flex column and remove grid conflicts */
+body .nova-carga-form {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  align-items: stretch !important;
+}
+
+/* Inputs in the Nova Carga card: white background, dark text */
+body .nova-carga-card .form-input,
+body .nova-carga-card .type-select,
+body .nova-carga-card textarea.form-input {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  height: 50px !important;
+  min-height: 50px !important;
+  padding: 12px 14px !important;
+  border-radius: 8px !important;
+  outline: none !important;
+}
+
+body .nova-carga-card textarea.form-input {
+  min-height: 120px !important;
+  height: auto !important;
+  padding-top: 12px !important;
+  resize: vertical !important;
+}
+
+/* Button force */
+body .nova-carga-card .btn-add-lista {
+  background-color: #5fa5f9 !important;
+  width: 100% !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  border-radius: 8px !important;
+  height: 55px !important;
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.12) !important;
+}
+
+/* Remove any lingering grid layouts that could cause conflicts */
+body .nome-cliente,
+body .endereco,
+body .observacoes,
+body .form-actions,
+body .action-row-bottom {
+  grid-column: unset !important;
+}
+
+/* High-specificity placeholder color */
+body .nova-carga-card .form-input::placeholder,
+body .nova-carga-card textarea.form-input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* =========================
+   Compact mode for NovaCarga
+   Reduz tamanhos, paddings e gaps
+   ========================= */
+body .nova-carga-card {
+  padding: 16px !important;
+  /* reduce overall card padding */
+}
+
+body .nova-carga-card h2 {
+  font-size: 20px !important;
+  /* smaller title */
+  line-height: 1.1 !important;
+  margin-bottom: 10px !important;
+}
+
+body .nova-carga-card label,
+body .nova-carga-card .nova-carga-form .label {
+  font-size: 12px !important;
+  /* smaller labels */
+  line-height: 1 !important;
+}
+
+/* Compact inputs and selects */
+body .nova-carga-card .form-input,
+body .nova-carga-card .type-select {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 8px 10px !important;
+  font-size: 13px !important;
+  border-radius: 6px !important;
+}
+
+/* Compact textarea */
+body .nova-carga-card textarea.form-input {
+  min-height: 90px !important;
+  padding: 10px 12px !important;
+  font-size: 13px !important;
+}
+
+/* Smaller button */
+body .nova-carga-card .btn-add-lista {
+  height: 44px !important;
+  font-size: 14px !important;
+  padding: 0 12px !important;
+  border-radius: 6px !important;
+}
+
+/* Reduce vertical spacing */
+body .nova-carga-form {
+  gap: 8px !important;
+}
+
+body .nova-carga-card .form-group,
+body .nova-carga-card .form-input,
+body .nova-carga-card textarea.form-input {
+  margin-bottom: 6px !important;
+}
+
+/* Slightly tighter summary card spacing if needed */
+body .summary-card {
+  padding: 1rem !important;
+}
+
+/* ========================
+   Central de Despacho styles (cd- prefix)
+   ======================== */
+.cd-title {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+  font-size: 20px !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+.central-despacho-container {
+  padding-bottom: 250px !important;
+}
+
+/* Header de ações: Seletor (esq) + Botão (dir) */
+.central-despacho-container .cd-controls-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 15px !important;
+  width: 100% !important;
+  margin-bottom: 1rem !important;
+}
+
+.central-despacho-container .cd-controls-left {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.central-despacho-container .cd-controls-right {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.central-despacho-container .select-motorista-despacho {
+  background: #ffffff !important;
+  color: #0b1222 !important;
+  border-radius: 8px !important;
+  padding: 0 12px !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  width: 250px !important;
+  height: 48px !important;
+  /* altura padronizada */
+  display: inline-flex !important;
+  align-items: center !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  font-weight: 600 !important;
+  margin-left: 0 !important;
+  /* usa gap do header agora */
+  background-image: linear-gradient(45deg, transparent 50%, #0b1222 50%), linear-gradient(135deg, #0b1222 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(1em + 2px), calc(100% - 13px) calc(1em + 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.central-despacho-container .select-motorista-despacho option {
+  color: #0b1222 !important;
+}
+
+.central-despacho-container .select-motorista-despacho option[disabled] {
+  color: #6b7280 !important;
+}
+
+.central-despacho-container .select-motorista-despacho::-ms-expand {
+  display: none !important;
+}
+
+/* Botão disparar posicionado à direita com margem */
+.central-despacho-container .cd-controls-right .cd-btn-disparar {
+  background-color: var(--btn-success, #2ecc71) !important;
+  color: #062018 !important;
+  font-weight: 800 !important;
+  height: 48px !important;
+  /* padronizado */
+  padding: 0 18px !important;
+  border-radius: 10px !important;
+  margin-right: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.central-despacho-container .cd-controls-center .cd-btn-otimizar {
+  background-color: var(--accent-purple, #a855f7) !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  height: 48px !important;
+  /* padronizado */
+  padding: 0 16px !important;
+  border-radius: 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.central-despacho-container .cd-controls-center {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Drag & Drop visuals */
+.cd-card {
+  transition: transform 150ms ease, box-shadow 200ms ease !important;
+  cursor: grab !important;
+}
+
+.cd-card:active {
+  cursor: grabbing !important;
+}
+
+.cd-card.dragging {
+  opacity: 0.6 !important;
+  transform: scale(0.995) !important;
+}
+
+.cd-card.moved {
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.12) !important;
+  border-left-color: var(--accent-purple) !important;
+}
+
+/* Barra de ações (Seletor + Otimizar + Disparar) */
+.barra-comando-unica {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 24px !important;
+  width: 100% !important;
+  margin-bottom: 20px !important;
+  flex-wrap: nowrap !important;
+  padding-right: 16px !important;
+}
+
+/* Barra de ações (GRID) - Selector | Otimizar | Disparar */
+.barra-acoes {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 20px !important;
+  align-items: center !important;
+  width: 100% !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1000 !important;
+  background: #050a18 !important;
+  /* corresponde ao background do app */
+  padding: 12px 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
+}
+
+/* Neutralizar floats/posições conflitantes dentro da barra */
+.barra-acoes>* {
+  float: none !important;
+  position: static !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.barra-acoes .bcp-left {
+  flex: 0 0 250px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.barra-acoes .bcp-center {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.barra-acoes {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 1.5rem !important;
+  align-items: center !important;
+  width: 100% !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1000 !important;
+  background: var(--bg-main) !important;
+  padding: 12px 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
+}
+
+.barra-acoes>* {
+  float: none !important;
+  position: static !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.barra-acoes .bcp-left {
+  justify-self: start !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.barra-acoes .bcp-center {
+  justify-self: center !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.barra-acoes .bcp-right {
+  justify-self: end !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: auto !important;
+}
+
+.barra-acoes .select-motorista-despacho {
+  width: 250px !important;
+  height: 48px !important;
+}
+
+.barra-acoes button {
+  height: 48px !important;
+}
+
+/* garantir espaçamento inferior quando sticky for ativada (evita sobreposição) */
+.central-despacho-container {
+  padding-top: 8px !important;
+}
+
+.barra-comando-unica>* {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  float: none !important;
+  position: static !important;
+}
+
+/* Padronização de altura e largura */
+.barra-comando-unica .select-motorista-despacho,
+.barra-comando-unica .cd-btn-otimizar,
+.barra-comando-unica .cd-btn-disparar-inline {
+  width: auto !important;
+  height: 48px !important;
+  line-height: 48px !important;
+  padding: 0 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Forçar largura do seletor */
+.barra-comando-unica .select-motorista-despacho {
+  width: 250px !important;
+}
+
+/* Remover comportamento de empurrar botão Disparar para direita */
+.barra-comando-unica .cd-btn-disparar-inline {
+  margin-left: 0 !important;
+}
+
+/* garantir que o botão DISPARAR não tenha margin inferior */
+.barra-comando-unica .cd-btn-disparar {
+  margin: 0 !important;
+}
+
+/* Remover floats/posições conflitantes em quaisquer barras antigas */
+.barra-comando-unica>* {
+  float: none !important;
+  position: static !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.barra-comandos-principal>* {
+  float: none !important;
+  position: static !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Barra de comandos principal: esquerda/centro/direita e fixa como header da seção */
+.barra-comandos-principal {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 24px !important;
+  width: 100% !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 40 !important;
+  background: inherit !important;
+  padding: 10px 8px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+
+.barra-comandos-principal .bcp-left,
+.barra-comandos-principal .bcp-right {
+  width: 250px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.barra-comandos-principal .bcp-left {
+  justify-content: flex-start !important;
+}
+
+.barra-comandos-principal .bcp-right {
+  justify-content: flex-end !important;
+}
+
+.barra-comandos-principal .bcp-center {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+/* Padronizar altura dos controles na barra principal */
+.barra-comandos-principal .select-motorista-despacho,
+
+/* --- Forçar layout 'na marra' para resolver conflitos de especificidade --- */
+/* Força a barra de ações a ser flex e alinha os elementos nas extremidades */
+.barra-acoes {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  width: 100% !important;
+  gap: 12px !important;
+  padding: 12px !important;
+}
+
+/* Torna os contêineres intermediários transparentes na árvore (filhos respondem diretamente) */
+.barra-acoes .bcp-left,
+.barra-acoes .bcp-center,
+.barra-acoes .bcp-right {
+  display: contents !important;
+}
+
+/* Garantir altura e remoção de margins que empurram botões */
+.barra-acoes button,
+.barra-acoes .select-motorista-despacho {
+  height: 48px !important;
+  margin-top: 0 !important;
+}
+
+.barra-acoes>* {
+  float: none !important;
+  position: static !important;
+}
+
+/* Cards de Rotas (Status de Operação) - manter sem 'voltinha' integrada */
+.rota-card {
+  padding-left: 30px !important;
+  /* respiração para o conteúdo */
+  border-radius: 8px !important;
+  border-left: none !important;
+  /* garantir que não haja voltinha aqui */
+}
+
+/* Se houver classes antigas que atribuem cor, neutralizamos aqui para evitar artefatos */
+.rota-card.svc-entrega,
+.rota-card.svc-recolha,
+.rota-card.svc-outros,
+.rota-card.svc-default {
+  border-left: none !important;
+}
+
+/* Forçar hierarquia do texto */
+.rota-cliente {
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  font-size: 1.1rem !important;
+}
+
+.rota-endereco {
+  color: #cbd5e1 !important;
+  font-weight: 500 !important;
+}
+
+.rota-observacoes strong {
+  font-weight: 800 !important;
+}
+
+.rota-observacoes em {
+  font-style: italic !important;
+  color: #94a3b8 !important;
+}
+
+/* Garanta alinhamento à esquerda e espaçamento vertical */
+.rota-info {
+  align-items: flex-start !important;
+}
+
+.rota-cliente,
+.rota-endereco,
+.rota-observacoes {
+  margin-bottom: 8px !important;
+}
+
+/* Botões na barra -- impedir que margens internas quebrem o alinhamento */
+.barra-acoes .cd-btn-disparar,
+.barra-acoes .cd-btn-otimizar,
+.barra-acoes .select-motorista-despacho {
+  height: 48px !important;
+}
+
+/* Fallback: se existir .bcp-right em outra estrutura, torne-o contents também */
+.bcp-right,
+.bcp-left,
+.bcp-center {
+  display: contents !important;
+}
+
+/* --- FIM das regras de forçamento agressivo --- */
+.barra-comandos-principal button {
+  height: 48px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+
+.cd-btn-disparar {
+  background-color: #2ecc71 !important;
+  /* verde brilhante */
+  color: #062018 !important;
+  font-weight: 800 !important;
+  height: 40px !important;
+  padding: 0 16px !important;
+  border-radius: 10px !important;
+  border: none !important;
+  cursor: pointer !important;
+  box-shadow: 0 8px 24px rgba(46, 204, 113, 0.12) !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+/* Grid moderno e limpo para a Fila de Preparação */
+.central-despacho-container .cd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.5rem;
+  /* 24px */
+  align-items: stretch;
+  grid-auto-rows: 1fr;
+  /* garante que cada linha tenha a mesma altura entre colunas */
+}
+
+/* Cada card toma a altura da célula do grid e organiza seu conteúdo com grid para manter o footer no fim */
+.central-despacho-container .cd-card {
+  box-sizing: border-box;
+  background: var(--card-dark, #0b1222);
+  border-radius: 12px;
+  padding: 12px;
+  width: 100%;
+  height: 100%;
+  display: grid !important;
+  grid-template-rows: auto 1fr auto !important;
+  gap: 12px !important;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.03) !important;
+  position: relative !important;
+}
+
+/* Força o footer do card a ficar na base, garantindo alinhamento vertical consistente */
+.central-despacho-container .cd-card-footer {
+  align-self: end !important;
+  margin-top: 0 !important;
+}
+
+.cd-card {
+  /* Espaço interno à esquerda para a barra de destaque (fallback) */
+  padding-left: 18px !important;
+}
+
+/* Accent bar as pseudo-element for cd-cards (fila de preparação) */
+.central-despacho-container .cd-card {
+  border-radius: 15px !important;
+  overflow: hidden !important;
+  padding-left: 30px !important;
+}
+
+.central-despacho-container .cd-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  /* espessura da voltinha */
+  border-top-left-radius: 15px;
+  border-bottom-left-radius: 15px;
+  background: transparent;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06) inset;
+}
+
+.central-despacho-container .cd-card.svc-entrega::before {
+  background: #3498db !important;
+}
+
+.central-despacho-container .cd-card.svc-recolha::before {
+  background: #e67e22 !important;
+}
+
+.central-despacho-container .cd-card.svc-outros::before {
+  background: #9b59b6 !important;
+}
+
+.central-despacho-container .cd-card.svc-default::before {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.cd-card.svc-outros .cd-badge {
+  background: #a855f7 !important;
+  color: #fff !important;
+}
+
+.cd-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.central-despacho-container .cd-card-title {
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.central-despacho-container .cd-badge {
+  background: #fff;
+  color: #0b1222;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Badges por status */
+.badge-entrega {
+  background-color: #3498db !important;
+  color: #fff !important;
+}
+
+.badge-recolha {
+  background-color: #e67e22 !important;
+  color: #fff !important;
+}
+
+.badge-outros {
+  background-color: #9b59b6 !important;
+  color: #fff !important;
+}
+
+.badge-default {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: #fff !important;
+}
+
+/* Padding e border-radius consistentes */
+.central-despacho-container .cd-badge,
+.central-despacho-container .cd-badge[class*="badge-"] {
+  padding: 6px 10px !important;
+  border-radius: 999px !important;
+  font-size: 12px !important;
+}
+
+
+.central-despacho-container .cd-card-body {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.central-despacho-container .cd-address {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.central-despacho-container .cd-obs {
+  color: #94a3b8;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.cd-card-footer {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.cd-remove {
+  color: #ff4d4f !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 6px 8px !important;
+  cursor: pointer !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+}
+
+@media (max-width: 900px) {
+  .cd-grid {
+    gap: 10px !important;
+  }
+
+  .cd-card {
+    min-width: 200px !important;
+    flex: 1 1 48% !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .cd-card {
+    flex: 1 1 100% !important;
+  }
+
+  .cd-btn-disparar {
+    width: auto !important;
+  }
+}
+
+/* Scroll area para Fila de Preparação (container pai) */
+.central-despacho-container .cd-grid-container {
+  /* altura responsiva que considera o header/topo e outros elementos */
+  height: auto;
+  /* allow the container to expand naturally */
+  max-height: 78vh;
+  overflow-y: auto;
+  padding-right: 12px;
+  /* evita colar cards na scrollbar */
+  padding-bottom: 200px !important;
+  /* espaço extra para últimos cards e botões (200px) */
+  display: block;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+  scroll-padding-bottom: 200px;
+}
+
+.central-despacho-container .cd-grid-container .cd-grid {
+  align-content: start;
+  row-gap: 1.5rem;
+}
+
+/* WebKit scrollbar */
+.central-despacho-container .cd-grid-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.central-despacho-container .cd-grid-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.central-despacho-container .cd-grid-container::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 999px;
+}
+
+/* Motoristas list (substitui o antigo map-wrapper) */
+.motoristas-wrapper {
+  padding: 1rem !important;
+}
+
+.motoristas-list {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.motorista-card {
+  background: var(--card-dark) !important;
+  border-radius: 12px !important;
+  padding: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  cursor: pointer !important;
+  border: 1px solid rgba(255, 255, 255, 0.02) !important;
+}
+
+.motorista-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+  transform: translateY(-2px) !important;
+}
+
+.motorista-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)) !important;
+  color: #fff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 700 !important;
+}
+
+.motorista-info {
+  flex: 1 1 auto !important;
+}
+
+.motorista-nome {
+  font-weight: 700 !important;
+}
+
+.motorista-meta {
+  font-size: 12px !important;
+  color: #9aa4b2 !important;
+}
+
+.motorista-status {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.motorista-status .dot {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 999px !important;
+  background: #d1d5db !important;
+}
+
+.motorista-card.online .dot {
+  background: #10b981 !important;
+  box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.08) !important;
+}
+
+/* Destaque extra: borda verde no avatar quando online */
+.motorista-card.online .motorista-avatar {
+  border: 2px solid #10b981 !important;
+  box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.04) !important;
+}
+
+/* Modal map */
+.motorista-map-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(2, 6, 23, 0.6) !important;
+  z-index: 9999 !important;
+}
+
+.motorista-map-modal .modal-inner {
+  width: 720px !important;
+  max-width: calc(100% - 32px) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  background: var(--card-dark) !important;
+  padding: 12px !important;
+}
+
+/* Visão Geral - mapa dentro de card centralizado */
+.visao-geral-map-card {
+  background: var(--card-dark) !important;
+  border-radius: 12px !important;
+  padding: 14px !important;
+  box-shadow: 0 12px 32px rgba(2, 6, 23, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.03) !important;
+  max-width: 980px !important;
+  margin: 0 auto 24px auto !important;
+}
+
+/* Status header actions (botões) */
+.status-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+
+.status-header-left {
+  display: block;
+}
+
+.status-header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, #0ea5e9, #0369a1);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(3, 105, 161, 0.12);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.04);
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Clientes Histórico modal (lateral, dark) */
+.clientes-historico-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  background: rgba(2, 6, 23, 0.48);
+}
+
+.historico-panel {
+  width: 420px;
+  max-width: calc(100% - 40px);
+  background: var(--card-dark);
+  border-left: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.historico-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.historico-header h3 {
+  margin: 0;
+  color: #e6eef8;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.historico-search {
+  padding: 8px 0 6px 0;
+}
+
+.historico-search-input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+  color: #e6eef8;
+}
+
+.historico-list {
+  margin-top: 8px;
+  overflow: auto;
+  padding-bottom: 12px;
+}
+
+.historico-item {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  color: #e6eef8;
+  cursor: pointer;
+}
+
+.historico-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.historico-item-title {
+  font-size: 15px;
+}
+
+.historico-item-sub {
+  font-size: 13px;
+  color: #9aa4b2;
+}
+
+.historico-item-actions {
+  min-width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.historico-item .check {
+  color: #4ade80;
+  font-weight: 700;
+}
+
+.historico-item .chevron {
+  color: #94a3b8;
+  font-size: 20px;
+}
+
+/* Copied feedback in NovaCarga */
+.copied-feedback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.08);
+  padding: 8px 12px;
+  border-radius: 10px;
+  color: #bbf7d0;
+  margin-bottom: 12px;
+}
+
+.copied-feedback .check {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.copied-text {
+  color: #e6f6ea;
+  font-size: 13px;
+}
+
+.visao-geral-map {
+  width: 100% !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  background: #090b0f !important;
+}
+
+.motorista-map-modal .modal-close {
+  background: transparent !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  float: right !important;
+}
+
+.motorista-map-modal .modal-footer {
+  padding: 8px 6px 4px !important;
+  color: #9aa4b2 !important;
+  font-size: 13px !important;
+}
+
+.sidebar {
+  width: 350px;
+  background-color: #0a1a33;
+  padding: 20px;
+  border-left: 1px solid #1e3a5f;
+  overflow-y: auto;
+}
+
+.cardEntrega {
+  background-color: #162a47;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  border-left: 4px solid #00ff00;
+}
+
+.mapaContainer {
+  flex: 1;
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0f0f0f;
+}
+
+/* Card de Ponto (Entrega) */
+.card-ponto {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background-color: #1e293b;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  color: #cbd5e1;
+  cursor: grab;
+  transition: all 0.2s;
+}
+
+.card-ponto:hover {
+  border-color: #38bdf8;
+  background-color: #0f172a;
+}
+
+.card-ponto span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background-color: #3b82f6;
+  color: #fff;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 12px;
+}
