@@ -119,7 +119,7 @@ function DeliveryApp(props) {
     const lastSelectedRef = useRef(null);
 
     // Razões rápidas para não-entrega
-    const motivosRapidos = ['Cliente Ausente', 'Endereço Não Encontrado', 'Recusado', 'Outros'];
+    const [motivosRapidos, setMotivosRapidos] = useState(['Cliente Ausente', 'Endereço Não Encontrado', 'Recusado', 'Outros']);
 
     // Modal refresh key para forçar re-mounts/parcial refresh
     const [modalRefreshKey, setModalRefreshKey] = useState(0);
@@ -278,11 +278,11 @@ function DeliveryApp(props) {
 
     const carregarEntregas = useCallback(async () => {
         // throttle concurrent fetches to avoid loops/alternância de tela
-        if (fetchInProgressRef.current) {
+        if (fetchInProgressRef?.current) {
             return;
         }
-        fetchInProgressRef.current = true;
-        setLoading(true);
+        if (fetchInProgressRef) fetchInProgressRef.current = true;
+        if (setLoading) try { setLoading(true); } catch (e) { console.error('carregarEntregas: falha ao setLoading(true):', e); }
 
         try {
             const motoristaId = props?.motoristaId ?? 1;
@@ -339,8 +339,8 @@ function DeliveryApp(props) {
             console.warn('Erro ao buscar entregas iniciais (mobile):', err?.message || err);
         } finally {
             // garante que loading sempre seja liberado e desmarca fetch em andamento
-            try { setLoading(false); } catch (e) { console.error('Erro ao setLoading(false) em carregarEntregas:', e); }
-            try { fetchInProgressRef.current = false; } catch (e) { console.error('Erro ao liberar fetchInProgressRef:', e); }
+            try { if (setLoading) setLoading(false); } catch (e) { console.error('Erro ao setLoading(false) em carregarEntregas:', e); }
+            try { if (fetchInProgressRef) fetchInProgressRef.current = false; } catch (e) { console.error('Erro ao liberar fetchInProgressRef:', e); }
         }
 
 
