@@ -4,7 +4,7 @@ import MapView, { Marker } from 'react-native-maps';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import MaterialIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { Audio } from 'expo-av';
+import { playAlertSound } from './src/utils/audio';
 
 export default function DriverApp() {
     // 1. Estados da Rota
@@ -25,14 +25,7 @@ export default function DriverApp() {
         try {
             // Small embedded WAV (1 short silent/beep) as data URI so the demo works
             const dataUri = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=';
-            const { sound } = await Audio.Sound.createAsync({ uri: dataUri });
-            await sound.playAsync();
-            // Unload após terminar
-            sound.setOnPlaybackStatusUpdate(status => {
-                if (status.didJustFinish) {
-                    sound.unloadAsync();
-                }
-            });
+            await playAlertSound(dataUri);
         } catch (err) {
             console.warn('playJingle failed (playback issue):', err);
         }

@@ -37,12 +37,11 @@ import MapView, { Marker } from 'react-native-maps';
 
 import * as Location from 'expo-location'; // Biblioteca para o GPS
 import Constants from 'expo-constants';
-import { Audio } from 'expo-av';
+import { playAlertSound, stopSound } from '../utils/audio';
 
 import * as ScreenOrientation from 'expo-screen-orientation';
 
-let AsyncStorage;
-try { AsyncStorage = eval('require')('@react-native-async-storage/async-storage').default; } catch (e) { AsyncStorage = null; console.warn('AsyncStorage não disponível; persitência local desabilitada.'); }
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabaseClient';
 
 // Removed optional blur support to improve stability on mobile (use plain translucent background instead)
@@ -53,8 +52,8 @@ import { supabase } from '../supabaseClient';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Permite usar LayoutAnimation no Android (experimental)
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
+if (Platform.OS === 'android' && UIManager?.setLayoutAnimationEnabledExperimental) {
+    try { UIManager.setLayoutAnimationEnabledExperimental(true); } catch (e) { console.warn('setLayoutAnimationEnabledExperimental falhou:', e); }
 }
 
 // Altura da status bar para ajustar modals translúcidos no Android
@@ -115,6 +114,15 @@ function DeliveryApp(props) {
     const [recebedor, setRecebedor] = useState('');
     const [recebedorLocal, setRecebedorLocal] = useState('');
     const [ultimosRecebedores, setUltimosRecebedores] = useState([]);
+
+    // Último pedido selecionado (cache para fallback)
+    const lastSelectedRef = useRef(null);
+
+    // Razões rápidas para não-entrega
+    const motivosRapidos = ['Cliente Ausente', 'Endereço Não Encontrado', 'Recusado', 'Outros'];
+
+    // Modal refresh key para forçar re-mounts/parcial refresh
+    const [modalRefreshKey, setModalRefreshKey] = useState(0);
 
     // Refs para inputs de modal
     const recebedorInputRef = useRef(null);
@@ -699,8 +707,8 @@ function DeliveryApp(props) {
         const target = pedidoSelecionado || lastSelectedRef.current;
         if (!target || !target.id) {
             console.warn('handleConfirmNaoEntregue: nenhum pedido selecionado');
-            try { setModalAssinatura(false); } catch (e) { /* ignore */ }
-            try { setPedidoSelecionado(null); } catch (e) { /* ignore */ }
+            try { setModalAssinatura(false); } catch (error) { /* ignore */ }
+            try { setPedidoSelecionado(null); } catch (error) { /* ignore */ }
             return;
         }
 
@@ -711,9 +719,19 @@ function DeliveryApp(props) {
             // Atualiza status no backend para indicar problema/cancelamento
             try {
                 const payload = { status: 'cancelado', motivo_nao_entrega: motivoTrim };
-                if (error) console.warn('handleConfirmNaoEntregue: erro ao atualizar supabase', error);
-            } catch (e) {
-                console.warn('handleConfirmNaoEntregue: exception ao atualizar supabase', e);
+                console.log('handleConfirmNaoEntregue: atualizando supabase para pedido', target.id, 'payload:', payload);
+                const { data: updated, error: supabaseError } = await supabase
+                    .from('entregas')
+                    .update(payload)
+                    .eq('id', target.id);
+
+                if (supabaseError) {
+                    console.warn('handleConfirmNaoEntregue: erro ao atualizar supabase', supabaseError);
+                } else {
+                    console.log('handleConfirmNaoEntregue: supabase atualizado com sucesso', updated);
+                }
+            } catch (error) {
+                console.warn('handleConfirmNaoEntregue: exception ao atualizar supabase', error);
             }
 
             // Prepara e envia WhatsApp
@@ -727,11 +745,11 @@ function DeliveryApp(props) {
                     const idToRemove = target.id;
                     setTimeout(() => {
                         Linking.openURL(url)
-                            .catch(e => console.warn('handleConfirmNaoEntregue: erro ao abrir WhatsApp (delayed)', e))
+                            .catch(error => console.warn('handleConfirmNaoEntregue: erro ao abrir WhatsApp (delayed)', error))
                             .finally(() => {
-                                try { setModalAssinatura(false); } catch (e) { /* ignore */ }
-                                try { setPedidoSelecionado(null); } catch (e) { /* ignore */ }
-                                try { setEntregas(prev => prev.filter(item => item.id !== idToRemove)); } catch (e) { /* ignore */ }
+                                try { setModalAssinatura(false); } catch (error) { /* ignore */ }
+                                try { setPedidoSelecionado(null); } catch (error) { /* ignore */ }
+                                try { setEntregas(prev => prev.filter(item => item.id !== idToRemove)); } catch (error) { /* ignore */ }
                                 setIsNaoEntregue(false);
                                 setMotivoLocal('');
                                 setMostrarInputOutro(false);
@@ -740,10 +758,10 @@ function DeliveryApp(props) {
                 } else {
                     console.warn('handleConfirmNaoEntregue: número do gestor não encontrado, pulando abertura do WhatsApp');
                 }
-            } catch (e) { console.warn('handleConfirmNaoEntregue: erro preparando WhatsApp', e); }
+            } catch (error) { console.warn('handleConfirmNaoEntregue: erro preparando WhatsApp', error); }
 
-        } catch (err) {
-            console.error('handleConfirmNaoEntregue: erro inesperado', err);
+        } catch (error) {
+            console.error('handleConfirmNaoEntregue: erro inesperado', error);
         }
     };
 
@@ -1002,7 +1020,8 @@ function DeliveryApp(props) {
                     const payload = { status: 'nao_entregue', ocorrencia: motivo, lat_entrega: coords?.latitude ?? item.lat, lng_entrega: coords?.longitude ?? item.lng };
                     const photoUrl = item?.assinatura_url || pedidoSelecionado?.assinatura_url || null;
                     if (photoUrl) payload.assinatura_url = photoUrl;
-                    await supabase.from('entregas').update(payload).eq('id', item.id);
+                    const { data: updateData, error: updateError } = await supabase.from('entregas').update(payload).eq('id', item.id);
+                    if (updateError) console.warn('Erro ao atualizar entrega (ocorrencia) no supabase:', updateError);
                 }
             } catch (err) {
                 console.warn('Erro ao reportar ocorrência ao servidor:', err?.message || err);
@@ -1147,21 +1166,7 @@ function DeliveryApp(props) {
     // Tocar alerta sonoro alto (usado quando chega nova entrega via Realtime)
     const tocarAlertaSonoro = useCallback(async () => {
         try {
-            // ensure audio will play even in silent mode on iOS
-            try { await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: false, allowsRecordingIOS: false }); } catch (e) { /* ignore */ }
-
-            const { sound } = await Audio.Sound.createAsync(
-                { uri: 'https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg' },
-                { shouldPlay: true, volume: 1.0 }
-            );
-            if (sound) {
-                await sound.playAsync();
-                sound.setOnPlaybackStatusUpdate((status) => {
-                    if (status.didJustFinish) {
-                        try { sound.unloadAsync(); } catch (e) { /* ignore */ }
-                    }
-                });
-            }
+            await playAlertSound('https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg');
         } catch (e) {
             console.warn('Erro ao tocar alerta sonoro:', e);
         }
@@ -1627,7 +1632,7 @@ function DeliveryApp(props) {
                                                 key={m + '_' + i}
                                                 style={[styles.quickReasonBtn, m === 'Outro (Digitar Motivo)' ? { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ccc' } : {}]}
                                                 onPress={() => {
-                                                    if (m === 'Outro (Digitar Motivo)') {
+                                                    if (String(m || '').toLowerCase().includes('outro')) {
                                                         // habilita input para digitar, sem fechar o modal
                                                         setMotivoLocal('');
                                                         setMostrarInputOutro(true);
