@@ -183,8 +183,10 @@ function DeliveryApp(props) {
                             const motoristaId = props?.motoristaId ?? 1;
                             if (Number(novo.motorista_id) !== Number(motoristaId)) return; // ignore others
 
-                            console.log('Realtime INSERT entrega para este motorista:', novo);
                             const normalized = (typeof normalizePedido === 'function') ? normalizePedido(novo) : novo;
+                            if ((normalized.status || 'pendente') === 'entregue') return; // ignore already delivered
+
+                            console.log('Realtime INSERT entrega pendente para este motorista:', normalized);
 
                             setEntregas(prev => {
                                 if (prev && prev.some(p => Number(p.id) === Number(normalized.id))) return prev; // evita duplicata
@@ -201,7 +203,12 @@ function DeliveryApp(props) {
                             if (Number(novo.motorista_id) !== Number(motoristaId)) return;
                             console.log('Realtime UPDATE entrega para este motorista:', novo);
                             const normalized = (typeof normalizePedido === 'function') ? normalizePedido(novo) : novo;
-                            setEntregas(prev => (prev || []).map(p => (Number(p.id) === Number(normalized.id) ? { ...p, ...normalized } : p)));
+                            if ((normalized.status || 'pendente') === 'entregue') {
+                                // if updated to delivered, remove from local list
+                                setEntregas(prev => (prev || []).filter(p => Number(p.id) !== Number(normalized.id)));
+                            } else {
+                                setEntregas(prev => (prev || []).map(p => (Number(p.id) === Number(normalized.id) ? { ...p, ...normalized } : p)));
+                            }
                         } catch (e) {
                             console.warn('Erro ao processar UPDATE em entregas (mobile):', e);
                         }
@@ -277,6 +284,7 @@ function DeliveryApp(props) {
     }, []);
 
     const carregarEntregas = useCallback(async () => {
+        console.log('Iniciando busca de entregas');
         // throttle concurrent fetches to avoid loops/alternância de tela
         if (fetchInProgressRef?.current) {
             return;
@@ -289,19 +297,17 @@ function DeliveryApp(props) {
             const hoje = new Date();
             hoje.setUTCHours(0, 0, 0, 0);
             const dataHoje = hoje.toISOString();
-            // QUERY PARA TESTE: comentamos filtros temporariamente para verificar dados
-            // Obs: .eq('motorista_id', motoristaId) foi comentado para buscar todas as rotas
-            // Obs: .eq('status', 'pendente') foi comentado para testar se há qualquer linha na tabela
-            // const { data: initial, error: initialErr } = await supabase.from('entregas').select('*').eq('status', 'pendente').order('id', { ascending: false }).limit(1000);
-            const { data: initial, error: initialErr } = await supabase.from('entregas').select('*').order('id', { ascending: false }).limit(1000);
+
+            // Busca APENAS pedidos pendentes (exclui 'entregue') e ordena por created_at desc
+            const { data: initial, error: initialErr } = await supabase.from('entregas').select('*').neq('status', 'entregue').order('created_at', { ascending: false }).limit(1000);
 
             if (initialErr) {
-                console.warn('Erro ao buscar entregas iniciais (mobile):', initialErr.message || initialErr);
+                console.warn('Erro ao buscar entregas pendentes (mobile):', initialErr.message || initialErr);
             } else {
                 // normalize tipo_servico and ensure strings
                 let normalized = (initial || []).map(i => normalizePedido(i));
-                // Filtra apenas entregas pendentes - entregas finalizadas não devem aparecer
-
+                // Filtra apenas entregas pendentes - entregas finalizadas não devem aparecer (defesa extra)
+                normalized = normalized.filter(x => (x.status || 'pendente') !== 'entregue');
 
                 // Se a busca inicial retornar vazia, alertamos 'Lista Vazia' (apenas na primeira vez)
                 if (!fetchedOnceRef.current && (!normalized || normalized.length === 0)) {
@@ -317,8 +323,7 @@ function DeliveryApp(props) {
                             const fetchedById = new Map(normalized.map(f => [String(f.id), f]));
                             const merged = prev.map(p => {
                                 const f = fetchedById.get(String(p.id));
-                                if (f) {
-                                    fetchedById.delete(String(p.id));
+                                if (f) {                                    fetchedById.delete(String(p.id));
                                     return { ...p, ...f }; // mantém ordem local, atualiza com dados do banco
                                 }
                                 return p;
@@ -624,15 +629,20 @@ function DeliveryApp(props) {
         try {
             // 1) Atualiza o backend e aguarda (status: 'entregue')
             try {
-                const payload = { status: 'finalizado', recebedor: nomeRecebedorTrim };
+                const payload = { status: 'entregue', recebedor: nomeRecebedorTrim };
                 const { data, error } = await supabase.from('entregas').update(payload).eq('id', target.id).select('*');
                 if (error) {
                     console.warn('handleFinalizar: erro ao atualizar supabase', error);
+                    Alert.alert('Erro', 'Não foi possível finalizar a entrega. Tente novamente.');
+                    return; // leave the pedido in the list
                 } else {
-                    // update ok
+                    // update ok — remove imediatamente da lista local
+                    try { setEntregas(prev => prev.filter(item => item.id !== target.id)); } catch (err) { console.warn('handleFinalizar: falha ao remover pedido localmente:', err); }
                 }
-            } catch (e) {
-                console.warn('handleFinalizar: exception ao atualizar supabase', e);
+            } catch (error) {
+                console.warn('handleFinalizar: exception ao atualizar supabase', error);
+                Alert.alert('Erro', 'Não foi possível finalizar a entrega. Verifique a conexão e tente novamente.');
+                return;
             }
 
 
@@ -1401,6 +1411,8 @@ function DeliveryApp(props) {
             // Do not inject 'Outros' by default; prefer to keep DB value or empty to reflect authoritative data
             item.tipo_servico = item.tipo_servico || item.tipo || '';
         }
+        // Garantir que pedidos sem status no banco sejam tratados como 'pendente' no app
+        item.status = item.status || 'pendente';
         return item;
     };
 
