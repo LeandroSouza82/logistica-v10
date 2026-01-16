@@ -37,6 +37,7 @@ import MapView, { Marker } from 'react-native-maps';
 
 import * as Location from 'expo-location'; // Biblioteca para o GPS
 import Constants from 'expo-constants';
+import { Audio } from 'expo-av';
 
 import * as ScreenOrientation from 'expo-screen-orientation';
 
@@ -87,8 +88,54 @@ function DeliveryApp(props) {
 
     const [entregas, setEntregas] = useState([]);
 
+    // Pedido selecionado pelo usuário (null quando nenhum)
+    const [pedidoSelecionado, setPedidoSelecionado] = useState(null);
+
+    // Estado que guarda link do WhatsApp pendente para abrir a partir da tela principal
+    const [linkWhatsAppPendente, setLinkWhatsAppPendente] = useState(null);
+
+    // Modals: assinatura (finalizar) e ocorrência (relatar problema)
+    const [modalAssinatura, setModalAssinatura] = useState(false);
+    const [modalOcorrencia, setModalOcorrencia] = useState(false);
+
+    // Modal processing spinner
+    const [modalProcessing, setModalProcessing] = useState(false);
+
+    // Estados relacionados ao fluxo de finalizar / não entregue
+    const [isNaoEntregue, setIsNaoEntregue] = useState(false);
+    const [motivoLocal, setMotivoLocal] = useState('');
+    const [mostrarInputOutro, setMostrarInputOutro] = useState(false);
+    const [outroSelected, setOutroSelected] = useState(false);
+
+    // Texto e foto para ocorrências (modal)
+    const [textoOcorrencia, setTextoOcorrencia] = useState('');
+    const [ocorrenciaPhotoUrl, setOcorrenciaPhotoUrl] = useState(null);
+
+    // Recebedor / histórico de recebedores
+    const [recebedor, setRecebedor] = useState('');
+    const [recebedorLocal, setRecebedorLocal] = useState('');
+    const [ultimosRecebedores, setUltimosRecebedores] = useState([]);
+
+    // Refs para inputs de modal
+    const recebedorInputRef = useRef(null);
+    const motivoInputRef = useRef(null);
+    const inputOcorrenciaRef = useRef(null);
+
+    // Controle de uploads/concorrência para ocorrências
+    const [ocorrenciaUploading, setOcorrenciaUploading] = useState(false);
+    const [ocorrenciaProcessing, setOcorrenciaProcessing] = useState(false);
+    const uploadingRef = useRef(false);
+
+    // Controle para evitar fetchs concorrentes
+    const fetchInProgressRef = useRef(false);
+    // flag para evitar alertas duplicados na busca inicial
+    const fetchedOnceRef = useRef(false);
+
     // Debug wrapper to trace where setEntregas is called (temporary for debugging render loop)
     const debugSetEntregas = setEntregas;
+
+    // Loading geral (usado para indicar fetch inicial)
+    const [loading, setLoading] = useState(true);
 
     // Contadores dinâmicos do resumo (entregas / recolhas / outros) conforme solicitado
     const totalEntregas = entregas.filter(p => p.tipo?.toLowerCase().includes('entrega')).length;
@@ -106,304 +153,118 @@ function DeliveryApp(props) {
         }
     };
 
-    // Auto-fetch on mount DISABLED for isolation / debugging of render loop
-    // useEffect(() => {
-    //     fetchEntregas();
-    // }, []);
-
-
-    // Persiste a ordem/estado sempre que 'entregas' mudar
+    // Auto-fetch + Realtime + GPS automático (centralizado, sem duplicação de listeners)
     useEffect(() => {
-        (async () => {
-            if (!AsyncStorage) return; // sem persistência se não instalado
+        let channel = null;
+
+        const start = async () => {
             try {
-                await AsyncStorage.setItem('@rota_pedidos', JSON.stringify(entregas));
-            } catch (e) { console.warn('Erro ao salvar entregas no AsyncStorage:', e); }
-        })();
-    }, [entregas]);
-
-    const mapRef = useRef(null); // Referência para controlar a câmera do mapa
-
-    const [modalAssinatura, setModalAssinatura] = useState(false);
-    const [modalOcorrencia, setModalOcorrencia] = useState(false);
-    const [pedidoSelecionado, setPedidoSelecionado] = useState(null);
-    const [textoOcorrencia, setTextoOcorrencia] = useState('');
-    const [outroSelected, setOutroSelected] = useState(false);
-    const inputOcorrenciaRef = useRef(null);
-    const [modalProcessing, setModalProcessing] = useState(false);
-    // Loading geral (usado para indicar fetch inicial)
-    const [loading, setLoading] = useState(true);
-    // flag para não repetir o alerta 'Lista Vazia'
-    const fetchedOnceRef = useRef(false);
-    // previne fetchs concorrentes que causam loop e piscadas na UI
-    const fetchInProgressRef = useRef(false);
-
-    // Noutras antigas relacionadas à assinatura removidas: signatureRef, viewShotRef, signatureContainerRef, assinaturaResetKey
-
-    // Novo campo: nome do recebedor e histórico
-    const [recebedor, setRecebedor] = useState('');
-    // Local state para o input do modal (evita efeitos colaterais ao digitar)
-    const [recebedorLocal, setRecebedorLocal] = useState('');
-    const [ultimosRecebedores, setUltimosRecebedores] = useState([]);
-    const recebedorInputRef = useRef(null);
-
-    // Não Entregue flow: flag e motivo local (isolado para evitar re-renders)
-    const [isNaoEntregue, setIsNaoEntregue] = useState(false);
-    const [motivoLocal, setMotivoLocal] = useState('');
-    const motivoInputRef = useRef(null);
-    // Flag para mostrar o input ao escolher 'Outro'
-    const [mostrarInputOutro, setMostrarInputOutro] = useState(false);
-
-    // Motivos rápidos para Não Entregue (botões)
-    const motivosRapidos = useMemo(() => [
-        'Destinatário Ausente',
-        'Endereço não Localizado',
-        'Recusado pelo Cliente',
-        'Local Fechado/Sem Acesso',
-        'Outro (Digitar Motivo)'
-    ], []);
-    // Last selected pedido cache to recover if state is lost
-    const lastSelectedRef = useRef(null);
-
-    // Logging control: set to true for categories you want verbose logs (default off to avoid flooding)
-    const LOG_LEVEL = { signature: false, realtime: false, buttons: false };
-    const debugLog = () => { };
-
-    // keep a ref in sync with pedidoSelecionado
-    useEffect(() => {
-        if (pedidoSelecionado) lastSelectedRef.current = pedidoSelecionado;
-    }, [pedidoSelecionado]);
-    // Indica upload em andamento no modal de ocorrência
-    const [ocorrenciaUploading, setOcorrenciaUploading] = useState(false);
-    // Ref para prevenir concorrência rápida (controle sincrono)
-    const uploadingRef = useRef(false);
-    // Motivo enfileirado para enviar quando upload terminar (ocorrência)
-    const [queuedOcorrenciaMotivo, setQueuedOcorrenciaMotivo] = useState(null);
-
-    // Quando o modal de confirmação (antes era assinatura) abrir, carregamos histórico de recebedores
-    useEffect(() => {
-        if (!modalAssinatura) return;
-        (async () => {
-            try {
-                if (!AsyncStorage) return;
-                let raw = null;
-                try { raw = await AsyncStorage.getItem('ultimos_recebedores'); } catch (e) { console.warn('AsyncStorage.getItem falhou ao ler ultimos_recebedores:', e); raw = null; }
-                if (raw) {
-                    try { const parsed = JSON.parse(raw); setUltimosRecebedores(Array.isArray(parsed) ? parsed : []); } catch (e) { setUltimosRecebedores([]); }
-                } else {
-                    setUltimosRecebedores([]);
-                }
-                // If we have a last selected pedido, prefill recebedor to empty
-                if (lastSelectedRef.current && !pedidoSelecionado) {
-                    const recovered = (entregas || []).find(p => p.id === lastSelectedRef.current.id);
-                    if (recovered) setPedidoSelecionado(recovered);
-                }
-
-                // Clear local inputs when modal opens (avoid side effects while typing)
-                try { setRecebedorLocal(''); } catch (e) { /* ignore */ }
-                try { setMotivoLocal(''); } catch (e) { /* ignore */ }
-
-                // Focus the appropriate input when modal opens (helpful in Android/iOS)
-                try {
-                    if (isNaoEntregue) {
-                        motivoInputRef.current && motivoInputRef.current.focus && motivoInputRef.current.focus();
-                    } else {
-                        recebedorInputRef.current && recebedorInputRef.current.focus && recebedorInputRef.current.focus();
-                    }
-                } catch (e) { /* ignore */ }
-            } catch (e) { console.warn('Erro ao carregar ultimos_recebedores:', e); }
-        })();
-    }, [modalAssinatura, isNaoEntregue]);
-    // Pequeno contador para forçar refresh do modal (re-mount parcial) e dar foco no Android
-    const [modalRefreshKey, setModalRefreshKey] = useState(0);
-    // Estado que indica processamento final (enviar ocorrência / abrir WhatsApp)
-    const [ocorrenciaProcessing, setOcorrenciaProcessing] = useState(false);
-    // Estado que guarda link do WhatsApp pendente para abrir a partir da tela principal
-    const [linkWhatsAppPendente, setLinkWhatsAppPendente] = useState(null);
-
-    // LISTENER REALTIME: temporariamente DESABILITADO — atualiza a posição quando o Supabase enviar updates (desligado para debug)
-    useEffect(() => {
-        return; /* realtime disabled for debug */
-        (async () => {
-            try {
-                await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+                console.log('Iniciando busca de entregas...');
+                await carregarEntregas();
             } catch (e) {
-                console.warn('Falha ao travar orientação:', e);
+                console.warn('Erro em carregarEntregas (init):', e);
             }
-        })();
-        const channel = supabase
-            .channel('schema-db-changes')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE', // Quando o GPS do celular mudar
-                    schema: 'public',
-                    table: 'motoristas',
-                },
-                (payload) => {
-                    try {
-                        const motoristaId = props?.motoristaId ?? 1;
-                        if (Number(payload.new?.id) !== Number(motoristaId)) return; // Ignore updates for outros motoristas
 
-                        console.log('Posição nova chegando do celular!', payload.new);
-                        const latSrc = payload.new?.latitude ?? payload.new?.lat;
-                        const lngSrc = payload.new?.longitude ?? payload.new?.lng;
-                        const lat = Number(latSrc);
-                        const lng = Number(lngSrc);
-                        // Ignora posições inválidas ou (0,0)
-                        if (!isNaN(lat) && !isNaN(lng) && !(lat === 0 && lng === 0)) {
-                            const newPos = { latitude: lat, longitude: lng };
-                            if (payload.new.heading != null) {
-                                const h = Number(payload.new.heading);
-                                if (!isNaN(h)) {
-                                    newPos.heading = h;
-                                    setHeading(h);
-                                }
-                            }
-                            setPosicaoMotorista(newPos);
+            try {
+                console.log('Conectando Realtime (entregas)...');
+                channel = supabase
+                    .channel('realtime-entregas')
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entregas' }, (payload) => {
+                        try {
+                            const novo = payload.new || {};
+                            const motoristaId = props?.motoristaId ?? 1;
+                            if (Number(novo.motorista_id) !== Number(motoristaId)) return; // ignore others
 
-                            // centraliza a câmera no motorista quando chegar o novo sinal
-                            try {
-                                mapRef.current?.animateToRegion({
-                                    latitude: lat,
-                                    longitude: lng,
-                                    latitudeDelta: 0.01,
-                                    longitudeDelta: 0.01,
-                                }, 500);
-                            } catch (e) { /* silent */ }
-                        } else {
-                            console.warn('Supabase enviou dados de posição inválidos ou (0,0):', payload.new);
+                            console.log('Realtime INSERT entrega para este motorista:', novo);
+                            const normalized = (typeof normalizePedido === 'function') ? normalizePedido(novo) : novo;
+
+                            setEntregas(prev => {
+                                if (prev && prev.some(p => Number(p.id) === Number(normalized.id))) return prev; // evita duplicata
+                                return [normalized, ...(prev || [])];
+                            });
+                        } catch (e) {
+                            console.warn('Erro ao processar INSERT em entregas (mobile):', e);
                         }
-                    } catch (e) {
-                        console.warn('Erro no listener realtime:', e?.message || e);
-                    }
-                }
-            )
-            // Realtime para entregas referentes a este motorista — evita receber todo o tráfego do DB
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'entregas',
-                },
-                (payload) => {
-                    try {
-                        const motoristaId = props?.motoristaId ?? 1;
-                        const novo = payload.new || {};
-                        if (Number(novo.motorista_id) !== Number(motoristaId)) return;
-                        console.log('Realtime INSERT entrega para este motorista:', novo);
-                        const normalized = normalizePedido(novo);
-                        // evita duplicata
-                        debugSetEntregas(prev => {
-                            if (prev && prev.some(p => Number(p.id) === Number(normalized.id))) return prev;
-                            return [normalized, ...prev];
+                    })
+                    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'entregas' }, (payload) => {
+                        try {
+                            const novo = payload.new || {};
+                            const motoristaId = props?.motoristaId ?? 1;
+                            if (Number(novo.motorista_id) !== Number(motoristaId)) return;
+                            console.log('Realtime UPDATE entrega para este motorista:', novo);
+                            const normalized = (typeof normalizePedido === 'function') ? normalizePedido(novo) : novo;
+                            setEntregas(prev => (prev || []).map(p => (Number(p.id) === Number(normalized.id) ? { ...p, ...normalized } : p)));
+                        } catch (e) {
+                            console.warn('Erro ao processar UPDATE em entregas (mobile):', e);
+                        }
+                    })
+                    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'entregas' }, (payload) => {
+                        try {
+                            const old = payload.old || {};
+                            const motoristaId = props?.motoristaId ?? 1;
+                            if (Number(old.motorista_id) !== Number(motoristaId)) return;
+                            setEntregas(prev => (prev || []).filter(p => Number(p.id) !== Number(old.id)));
+                        } catch (e) {
+                            console.warn('Erro ao processar DELETE em entregas (mobile):', e);
+                        }
+                    })
+                    .subscribe(status => console.log('Realtime (entregas) status:', status));
+
+                console.log('Realtime conectado (entregas)');
+            } catch (e) {
+                console.warn('Erro ao conectar realtime (entregas):', e);
+            }
+
+            // GPS: solicitar permissão e iniciar watch (somente uma vez)
+            try {
+                console.log('Solicitando permissão de localização...');
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status === 'granted') {
+                    console.log('GPS ativo (permissão concedida)');
+                    if (!locationStartedRef.current) {
+                        locationStartedRef.current = true;
+                        locationSubscriptionRef.current = await Location.watchPositionAsync({
+                            accuracy: Location.Accuracy.Balanced,
+                            timeInterval: 5000,
+                            distanceInterval: 5,
+                        }, async (loc) => {
+                            try {
+                                const coords = loc?.coords || {};
+                                const { latitude, longitude, heading: hd } = coords;
+                                if (isNaN(latitude) || isNaN(longitude)) return;
+
+                                const newPos = { latitude, longitude };
+                                if (hd != null && !isNaN(hd)) {
+                                    newPos.heading = Number(hd);
+                                    setHeading(Number(hd));
+                                }
+
+                                if (mountedRef.current) setPosicaoMotorista(newPos);
+
+                                const now = Date.now();
+                                // throttle uploads (10s)
+                                if (now - lastUploadRef.current > 10000) {
+                                    lastUploadRef.current = now;
+                                    try {
+                                        await enviarPosicao({ latitude, longitude });
+                                    } catch (e) { console.warn('Erro ao enviarPosicao (watch):', e); }
+                                }
+                            } catch (e) { console.warn('Erro no callback do watchPosition:', e); }
                         });
-                    } catch (e) {
-                        console.warn('Erro ao processar INSERT em entregas (mobile):', e?.message || e);
                     }
+                } else {
+                    console.warn('Permissão de localização negada:', status);
                 }
-            )
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'entregas',
-                },
-                (payload) => {
-                    try {
-                        const motoristaId = props?.motoristaId ?? 1;
-                        const novo = payload.new || {};
-                        if (Number(novo.motorista_id) !== Number(motoristaId)) return;
-                        console.log('Realtime UPDATE entrega para este motorista:', novo);
-                        const normalized = normalizePedido(novo);
-                        debugSetEntregas(prev => prev.map(p => (Number(p.id) === Number(normalized.id) ? { ...p, ...normalized } : p)));
-                    } catch (e) {
-                        console.warn('Erro ao processar UPDATE em entregas (mobile):', e?.message || e);
-                    }
-                }
-            )
-            .on(
-                'postgres_changes',
-                {
-                    event: 'DELETE',
-                    schema: 'public',
-                    table: 'entregas',
-                },
-                (payload) => {
-                    try {
-                        const old = payload.old || {};
-                        const motoristaId = props?.motoristaId ?? 1;
-                        if (Number(old.motorista_id) !== Number(motoristaId)) return;
-                        debugSetEntregas(prev => prev.filter(p => Number(p.id) !== Number(old.id)));
-                    } catch (e) {
-                        console.warn('Erro ao processar DELETE em entregas (mobile):', e?.message || e);
-                    }
-                }
-            )
-            // log da inscrição
-            .subscribe(() => { /* subscribed to realtime events */ });
-
-        return () => {
-            try { supabase.removeChannel(channel); } catch (e) { /* ignore */ }
+            } catch (e) {
+                console.warn('Erro ao iniciar GPS:', e);
+            }
         };
-    }, []);
 
-
-    // Realtime: novos pedidos (INSERT) — atualiza lista em tempo real e notifica usuário
-    useEffect(() => {
-        let channel = null;
-        (async () => {
-            try {
-                channel = supabase
-                    .channel('realtime-pedidos')
-                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pedidos' }, (payload) => {
-                        try {
-                            const novoPedido = payload.new;
-                            if (!novoPedido || !novoPedido.id) return;
-                            const normalized = (typeof normalizePedido === 'function') ? normalizePedido(novoPedido) : novoPedido;
-                            setEntregas(prev => {
-                                if (prev && prev.some(p => Number(p.id) === Number(normalized.id))) return prev;
-                                return [normalized, ...prev];
-                            });
-                            try { Alert.alert('Novo pedido recebido!', 'Um novo pedido acabou de chegar.'); } catch (e) { /* ignore */ }
-                        } catch (e) { console.warn('Realtime (pedidos) handler error:', e); }
-                    })
-                    .subscribe();
-            } catch (e) { console.warn('Erro ao iniciar canal realtime (pedidos):', e); }
-        })();
+        start();
 
         return () => {
             try { if (channel) supabase.removeChannel(channel); } catch (e) { /* ignore */ }
-        };
-    }, []);
-
-    // Realtime: novos pedidos (INSERT) — atualiza lista em tempo real e notifica usuário
-    useEffect(() => {
-        let channel = null;
-        (async () => {
-            try {
-                channel = supabase
-                    .channel('realtime-pedidos')
-                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pedidos' }, (payload) => {
-                        try {
-                            const novoPedido = payload.new;
-                            if (!novoPedido || !novoPedido.id) return;
-                            const normalized = (typeof normalizePedido === 'function') ? normalizePedido(novoPedido) : novoPedido;
-                            setEntregas(prev => {
-                                if (prev && prev.some(p => Number(p.id) === Number(normalized.id))) return prev;
-                                return [normalized, ...prev];
-                            });
-                            try { Alert.alert('Novo pedido recebido!', 'Um novo pedido acabou de chegar.'); } catch (e) { /* ignore */ }
-                        } catch (e) { console.warn('Realtime (pedidos) handler error:', e); }
-                    })
-                    .subscribe();
-            } catch (e) { console.warn('Erro ao iniciar canal realtime (pedidos):', e); }
-        })();
-
-        return () => {
-            try { if (channel) supabase.removeChannel(channel); } catch (e) { /* ignore */ }
+            try { locationSubscriptionRef.current?.remove?.(); locationSubscriptionRef.current = null; } catch (e) { /* ignore */ }
         };
     }, []);
 
@@ -491,6 +352,8 @@ function DeliveryApp(props) {
         return scalesRef.current[id];
     };
 
+    // Referência para o MapView — garante que exista antes de usarmos seus métodos
+    const mapRef = useRef(null);
 
 
     // Stability improvements: ensure we center map on first pedido once, and center when selection changes
@@ -511,9 +374,9 @@ function DeliveryApp(props) {
     const userReorderedRef = useRef(false);
 
     useEffect(() => {
-        if (pedidoSelecionado && pedidoSelecionado.lat && pedidoSelecionado.lng) {
-            const lat = Number(pedidoSelecionado.lat);
-            const lng = Number(pedidoSelecionado.lng);
+        if (pedidoSelecionado?.lat && pedidoSelecionado?.lng) {
+            const lat = Number(pedidoSelecionado?.lat);
+            const lng = Number(pedidoSelecionado?.lng);
             try { mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500); } catch (e) { /* ignore */ }
         }
     }, [pedidoSelecionado]);
@@ -1031,7 +894,7 @@ function DeliveryApp(props) {
 
     const abrirOcorrenciaRapida = async (item) => {
         // Abre modal de ocorrência com opções detalhadas
-        setPedidoSelecionado(item);
+        selectPedido(item);
         setTextoOcorrencia('');
         setOutroSelected(false);
         // Delay pequeno pra garantir que o estado foi aplicado antes de focar
@@ -1041,11 +904,9 @@ function DeliveryApp(props) {
     // Handler leve para abrir a finalização (abre modal de assinatura e marca pedido)
     const handleAbrirFinalizacao = (item) => {
         try {
-            lastSelectedRef.current = item;
-            setPedidoSelecionado(item);
+            // Usa selectPedido para centralizar comportamento
+            selectPedido(item, { openModal: true });
             setIsNaoEntregue(false);
-            setModalAssinatura(true);
-            setModalRefreshKey(k => k + 1);
         } catch (e) {
             console.warn('handleAbrirFinalizacao: erro', e);
         }
@@ -1054,17 +915,49 @@ function DeliveryApp(props) {
     // Abre modal de NÃO ENTREGA com modo apropriado
     const handleNaoEntregue = (item) => {
         try {
-            lastSelectedRef.current = item;
-            setPedidoSelecionado(item);
+            // Usa a função centralizada de seleção para manter comportamento consistente
+            selectPedido(item, { openModal: true });
             setIsNaoEntregue(true);
             setMotivoLocal('');
-            setModalAssinatura(true);
             setModalRefreshKey(k => k + 1);
             // focus will be attempted in the modal useEffect through motivoInputRef
         } catch (e) {
             console.warn('handleNaoEntregue: erro ao abrir modal de não entrega', e);
         }
     };
+
+    // Função auxiliar: seleciona um pedido, centraliza mapa, abre sheet/modal conforme opções
+    const selectPedido = useCallback((item, opts = { openModal: false, openTop: true }) => {
+        try {
+            lastSelectedRef.current = item;
+            setPedidoSelecionado(item);
+
+            // centraliza no mapa se houver coordenadas
+            if (item?.lat && item?.lng) {
+                const lat = Number(item.lat);
+                const lng = Number(item.lng);
+                try { mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500); } catch (e) { /* ignore */ }
+            }
+
+            // sobe a aba/sheet para o topo, se desejado
+            if (opts.openTop) {
+                try {
+                    Animated.spring(sheetTranslateY, { toValue: TOP_Y, useNativeDriver: true }).start(() => {
+                        lastSnapY.current = TOP_Y;
+                        setIsAtTop(true);
+                    });
+                } catch (e) { /* ignore */ }
+            }
+
+            // abre modal de assinatura se solicitado
+            if (opts.openModal) {
+                setModalAssinatura(true);
+                setModalRefreshKey(k => k + 1);
+            }
+        } catch (e) {
+            console.warn('selectPedido: erro ao selecionar pedido:', e);
+        }
+    }, []);
 
     // Centraliza o mapa na posição atual conhecida do motorista (usa driverLocationRef sem provocar re-render)
     const handleCentralizarMapa = () => {
@@ -1543,19 +1436,9 @@ function DeliveryApp(props) {
 
         const cardStyle = { backgroundColor: corCard };
         return (
-            <TouchableOpacity style={[styles.cardGrande, cardStyle, (pedidoSelecionado && pedidoSelecionado.id === item.id) ? styles.cardEmDestaque : null]} key={item.id} onPress={() => {
+            <TouchableOpacity style={[styles.cardGrande, cardStyle, (pedidoSelecionado?.id === item.id) ? styles.cardEmDestaque : null]} key={item.id} onPress={() => {
                 // Seleciona o pedido, centraliza o mapa suavemente e sobe a aba para TOP
-                setPedidoSelecionado(item);
-                lastSelectedRef.current = item;
-                if (item.lat && item.lng) {
-                    const lat = Number(item.lat);
-                    const lng = Number(item.lng);
-                    mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500);
-                }
-                Animated.spring(sheetTranslateY, { toValue: TOP_Y, useNativeDriver: true }).start(() => {
-                    lastSnapY.current = TOP_Y;
-                    setIsAtTop(true);
-                });
+                selectPedido(item);
             }} activeOpacity={0.9}>
 
                 <View style={styles.cardHeader}>
@@ -1569,7 +1452,7 @@ function DeliveryApp(props) {
 
                 <Text style={styles.cardName}>#{item.id} — {item.cliente}</Text>
                 {item.observacoes ? <Text style={styles.observacoesText} numberOfLines={2}>{item.observacoes}</Text> : null}
-                <TouchableOpacity onPress={() => { setPedidoSelecionado(item); lastSelectedRef.current = item; setModalAssinatura(true); setModalRefreshKey(k => k + 1); }} activeOpacity={0.7}>
+                <TouchableOpacity onPress={() => { selectPedido(item, { openModal: true }); }} activeOpacity={0.7}>
                     <Text style={styles.addressText} numberOfLines={2}>{item.endereco || (item.rua ? `${item.rua}, ${item.numero || ''} ${item.bairro || ''}` : 'Endereço não disponível')}</Text>
                 </TouchableOpacity>
 
@@ -1663,8 +1546,8 @@ function DeliveryApp(props) {
                 ))}
 
                 {/* Selected pedido marker */}
-                {pedidoSelecionado && pedidoSelecionado.lat != null && pedidoSelecionado.lng != null ? (
-                    <Marker key={'selected'} coordinate={{ latitude: Number(pedidoSelecionado.lat), longitude: Number(pedidoSelecionado.lng) }}>
+                {pedidoSelecionado?.lat != null && pedidoSelecionado?.lng != null ? (
+                    <Marker key={'selected'} coordinate={{ latitude: Number(pedidoSelecionado?.lat), longitude: Number(pedidoSelecionado?.lng) }}>
                         <View style={styles.selectedMarker}><View style={styles.selectedMarkerDot} /></View>
                     </Marker>
                 ) : null}
