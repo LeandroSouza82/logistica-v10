@@ -183,10 +183,12 @@ button:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 60;
+  z-index: 9999;
 }
 
 .gear-modal-card {
+  position: relative;
+  z-index: 10000;
   background: #0b1222;
   padding: 18px;
   border-radius: 12px;
@@ -974,6 +976,223 @@ button:focus-visible {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.18);
+}
+
+/* Estilo branco de scrollbar para a seção de comprovantes (Dashboard) */
+.comprovantes-scrollbar {
+  display: block !important;
+  overflow-y: scroll !important;
+  /* Garantir que a trilha da barra exista permanentemente */
+  padding-right: 10px;
+  /* Espaço para a barra de rolagem sem sobreposição */
+  scrollbar-width: thin !important;
+  /* Firefox */
+  scrollbar-color: #ffffff #222 !important;
+  /* thumb, track (Firefox) */
+  -ms-overflow-style: auto !important;
+  /* IE/Edge */
+  pointer-events: auto !important;
+  /* permitir interação de pointer */
+  touch-action: pan-y !important;
+  /* permitir scroll vertical por touch */
+  position: relative !important;
+  /* garantir que fique acima */
+  z-index: 10 !important;
+}
+
+/* Webkit scrollbar styling for Chrome/Safari */
+.comprovantes-scrollbar::-webkit-scrollbar {
+  width: 10px !important;
+}
+
+.comprovantes-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.comprovantes-scrollbar::-webkit-scrollbar-thumb {
+  background: #ffffff !important;
+  border-radius: 10px !important;
+}
+
+.comprovantes-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Inner list explicit block and extra padding */
+.comprovantes-list {
+  display: block;
+  padding-right: 10px;
+  pointer-events: auto !important;
+  touch-action: pan-y !important;
+}
+
+/* Card sizing to ensure overflow (faz o 5º item forçar scroll) */
+.comprovantes-card {
+  min-height: 72px;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+  padding-right: 10px;
+}
+
+/* Forçar a barra a aparecer sempre neste container (regras pedidas) */
+.container-lista-comprovantes {
+  overflow-y: scroll !important;
+  pointer-events: auto !important;
+  touch-action: pan-y !important;
+  user-select: none !important;
+  position: relative !important;
+  z-index: 100 !important;
+}
+
+.container-lista-comprovantes::-webkit-scrollbar {
+  width: 10px !important;
+  /* largura solicitada */
+  display: block !important;
+}
+
+.container-lista-comprovantes::-webkit-scrollbar-thumb {
+  background-color: #ffffff !important;
+  /* cor branca */
+  border-radius: 6px !important;
+  border: 3px solid #111 !important;
+}
+
+/* Garantir que a trilha da barra permaneça visível em fundos escuros */
+.container-lista-comprovantes::-webkit-scrollbar-track {
+  background: #111 !important;
+}
+
+.container-lista-comprovantes::-webkit-scrollbar-track {
+  background: #111 !important;
+  /* Cor do fundo da trilha */
+}
+
+.container-lista-comprovantes::-webkit-scrollbar-thumb {
+  background-color: #ffffff !important;
+  /* Cor BRANCA para o "dedo" da barra */
+  border-radius: 6px;
+  border: 3px solid #111;
+  /* Cria um contraste nas bordas */
+}
+
+/* Ações (baixar / whatsapp) — padronização e tamanho igual */
+.comprovantes-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.comprovantes-actions .btn-primary,
+.comprovantes-actions .btn-whatsapp {
+  flex: 1;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.btn-whatsapp {
+  background: #25D366 !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+.btn-whatsapp:hover {
+  filter: brightness(0.95);
+}
+
+
+.comprovantes-drawer {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 45%;
+  background: #fff;
+  z-index: 9999;
+  padding: 16px;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+}
+
+.comprovantes-drawer-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.comprovantes-drawer-img {
+  width: 100%;
+  max-height: calc(100vh - 120px);
+  object-fit: contain;
+  border-radius: 8px;
+  background-color: #fff;
+  min-height: 300px;
+  border: 1px solid #ddd;
+}
+
+.btn-save {
+  background: #16a34a;
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-weight: 700;
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  margin-top: 12px;
+}
+
+/* Comprovantes: search + preview modal */
+.comprovantes-search {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  color: #fff;
+}
+
+.btn-preview {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: #fff;
+}
+
+.preview-modal-overlay {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.preview-modal-content {
+  background: #111;
+  padding: 16px;
+  border-radius: 10px;
+  max-width: 92vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.preview-modal-img {
+  max-width: 90vw;
+  max-height: 76vh;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .status-panel {

@@ -22,7 +22,7 @@ const containerStyle = {
 const centroPadrao = { lat: -27.6608, lng: -48.7087 };
 
 // Valor padrão caso a tabela `configuracoes` não exista ou ocorra erro no fetch
-const DEFAULT_GESTOR_PHONE = '+5511999999999';
+
 
 // Ícone SVG Pulsante
 const pulsingMotoSvg = (color = '#3b82f6') => {
@@ -61,24 +61,32 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
     useEffect(() => {
         (async () => {
             try {
+                // Prefer localStorage value if present
+                try {
+                    if (typeof window !== 'undefined' && window.localStorage) {
+                        const ls = window.localStorage.getItem('gestor_phone');
+                        if (ls) { setGestorPhone(String(ls)); return; }
+                    }
+                } catch (e) { /* ignore localStorage */ }
+
                 const { data, error } = await supabase.from('configuracoes').select('*').eq('chave', 'gestor_phone').limit(1);
 
                 // Se o Supabase devolveu erro (ex.: tabela não existe), definimos valor padrão e não travamos a UI
                 if (error) {
                     console.warn('Erro ao buscar configuração gestor_phone (usando padrão):', error?.message || error);
-                    setGestorPhone(DEFAULT_GESTOR_PHONE);
+                    setGestorPhone('');
                     return;
                 }
 
                 if (data && data[0] && data[0].valor) {
                     setGestorPhone(String(data[0].valor));
                 } else {
-                    // garante que sempre haverá um valor utilizável
-                    setGestorPhone(DEFAULT_GESTOR_PHONE);
+                    // garante que sempre haverá um valor utilizável (vazio se não encontrado)
+                    setGestorPhone('');
                 }
             } catch (e) {
                 console.warn('Exceção ao buscar configuração gestor_phone (usando padrão):', e);
-                setGestorPhone(DEFAULT_GESTOR_PHONE);
+                setGestorPhone('');
             }
         })();
     }, []);
@@ -101,6 +109,14 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 if (typeof window !== 'undefined' && window.alert) window.alert('Erro ao salvar número do gestor.');
                 return;
             }
+
+            // Persistir no localStorage sem formatação (apenas dígitos já aplicados)
+            try {
+                if (typeof window !== 'undefined' && window.localStorage) {
+                    window.localStorage.setItem('gestor_phone', numeroFinal);
+                    console.log('Número do gestor salvo com sucesso:', numeroFinal);
+                }
+            } catch (e) { console.warn('Não foi possível salvar gestor_phone no localStorage:', e); }
 
             if (typeof window !== 'undefined' && window.alert) window.alert('✅ WhatsApp do Gestor atualizado! Motoristas já estão sincronizados');
             setGearModalOpen(false);
@@ -281,10 +297,15 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     setTotalEntregasHoje(totalCount || 0);
                 }
 
-                // assinaturas hoje: apenas registros com assinatura não nula
-                const { count: assinCount, error: assinErr } = await supabase.from('entregas').select('*', { count: 'exact', head: true }).gte('criado_em', dataISO).not('assinatura', 'is', null);
+                // assinaturas hoje: registro com assinatura (campo assinatura OR assinatura_url) não nulo
+                // Sintaxe correta PostgREST: 'col.not.is.null'
+                // Queremos linhas >= dataISO e (assinatura IS NOT NULL OR assinatura_url IS NOT NULL)
+                const { count: assinCount, error: assinErr } = await supabase.from('entregas')
+                    .select('*', { count: 'exact', head: true })
+                    .gte('criado_em', dataISO)
+                    .or('assinatura.not.is.null,assinatura_url.not.is.null');
                 if (assinErr) {
-                    console.error('Erro detalhado:', assinErr.message);
+                    console.error('Erro detalhado (assinaturas):', assinErr, assinErr?.message || 'sem mensagem');
                 } else {
                     setAssinaturasConcluidas(assinCount || 0);
                 }
@@ -428,7 +449,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                         try {
                             // evita duplicata
                             if (prev.some(p => Number(p.id) === Number(novo.id))) return prev;
-                            return [novo, ...prev].slice(0, 20);
+                            return [novo, ...prev];
                         } catch (e) { return prev; }
                     });
 
@@ -438,7 +459,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                         const dispatched = String(novo.status || '').toLowerCase() !== 'pendente';
                         if (dispatched) setTotalEntregasHoje(t => t + 1);
                         // incremento de assinaturas somente se assinatura não for nula/empty
-                        const hasAssin = (novo.assinatura != null && novo.assinatura !== '');
+                        const hasAssin = ((novo.assinatura != null && novo.assinatura !== '') || (novo.assinatura_url != null && novo.assinatura_url !== ''));
                         if (hasAssin) setAssinaturasConcluidas(s => s + 1);
                     }
                 } catch (err) {
@@ -462,8 +483,8 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                     if (created && isSameUTCDate(created)) {
                         const wasDispatched = String(old.status || '').toLowerCase() !== 'pendente';
                         if (wasDispatched) setTotalEntregasHoje(t => Math.max(0, t - 1));
-                        // decrementa contador de assinaturas somente se assinatura estava presente
-                        const wasAssin = (old.assinatura != null && old.assinatura !== '');
+                        // decrementa contador de assinaturas somente se assinatura (ou assinatura_url) estava presente
+                        const wasAssin = ((old.assinatura != null && old.assinatura !== '') || (old.assinatura_url != null && old.assinatura_url !== ''));
                         if (wasAssin) setAssinaturasConcluidas(s => Math.max(0, s - 1));
                     }
                 } catch (err) {
@@ -505,9 +526,9 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                         if (wasDispatched && !isDispatchedNow) setTotalEntregasHoje(t => Math.max(0, t - 1));
                     }
 
-                    // Compara apenas presença de assinatura para atualizar contador
-                    const wasAssin = (old.assinatura != null && old.assinatura !== '');
-                    const isNowAssin = (novo.assinatura != null && novo.assinatura !== '');
+                    // Compara apenas presença de assinatura (campo assinatura OR assinatura_url) para atualizar contador
+                    const wasAssin = ((old.assinatura != null && old.assinatura !== '') || (old.assinatura_url != null && old.assinatura_url !== ''));
+                    const isNowAssin = ((novo.assinatura != null && novo.assinatura !== '') || (novo.assinatura_url != null && novo.assinatura_url !== ''));
 
                     // Se o registro pertence ao dia de hoje (antigo ou novo), atualiza o contador de assinaturas
                     if (oldIsToday || newIsToday) {

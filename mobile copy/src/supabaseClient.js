@@ -3,8 +3,8 @@ import Constants from 'expo-constants'
 
 // Prefere valores em app.json -> expo.extra (seguros para builds) e depois usa env vars
 const extras = Constants.expoConfig?.extra || Constants.manifest?.extra || {}
-const supabaseUrl = extras.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://xdsoctyzmsxbhtjehsqd.supabase.co"
-const supabaseKey = extras.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "sb_publishable_h1241fMOb-5_FOoChqERQw_B0VLvAt2"
+const supabaseUrl = extras.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://uqxoadxqcwidxqsfayem.supabase.co"
+const supabaseKey = extras.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxeG9hZHhxY3dpZHhxc2ZheWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0NDUxODksImV4cCI6MjA4NDAyMTE4OX0.q9_RqSx4YfJxlblPS9fwrocx3HDH91ff1zJvPbVGI8w"
 
 if (!supabaseKey) {
     // Em desenvolvimento exibimos erro amigável

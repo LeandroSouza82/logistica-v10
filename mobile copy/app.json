@@ -12,8 +12,8 @@
             "backgroundColor": "#ffffff"
         },
         "extra": {
-            "VITE_SUPABASE_URL": "https://xdsoctyzmsxbhtjehsqd.supabase.co",
-            "VITE_SUPABASE_ANON_KEY": "sb_publishable_h1241fMOb-5_FOoChqERQw_B0VLvAt2",
+            "VITE_SUPABASE_URL": "https://uqxoadxqcwidxqsfayem.supabase.co",
+            "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxeG9hZHhxY3dpZHhxc2ZheWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0NDUxODksImV4cCI6MjA4NDAyMTE4OX0.q9_RqSx4YfJxlblPS9fwrocx3HDH91ff1zJvPbVGI8w",
             "VITE_GOOGLE_MAPS_API_KEY": "AIzaSyBeec8r4DWBdNIEFSEZg1CgRxIHjYMV9dM"
         },
         "android": {

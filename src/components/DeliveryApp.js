@@ -63,10 +63,9 @@ export default function DeliveryApp() {
                 <View style={styles.divisorAba} />
                 <Text style={styles.tituloAba}>Minhas Entregas</Text>
 
-                {/* Exemplo de Pedido */}
+                {/* Mensagem padrão quando não há entregas */}
                 <View style={styles.cardPedido}>
-                    <Text style={styles.textoPedido}>Pedido #001 - Leandro</Text>
-                    <Text style={styles.textoEndereco}>Rua Principal, 10</Text>
+                    <Text style={styles.textoPedido}>Lista Vazia</Text>
                 </View>
             </Animated.View>
         </View>

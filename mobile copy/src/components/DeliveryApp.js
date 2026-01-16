@@ -21,10 +21,7 @@ export default function DeliveryApp(props) {
     // Número padrão do motorista (use seu número real em produção ou carregue via config)
     const MOTORISTA_PHONE = '+5511999999999';
 
-    const [pedidos, setPedidos] = useState([
-        { id: 1, cliente: 'Leandro (Coleta)', status: 'pendente', lat: -27.596, lng: -48.546, driverPhone: '+5511987654321' },
-        { id: 2, cliente: 'João Silva', status: 'pendente', lat: -27.600, lng: -48.550, driverPhone: '+5511976543210' },
-    ]);
+    const [pedidos, setPedidos] = useState([]);
 
     const mapRef = useRef(null); // Referência para controlar a câmera do mapa
 

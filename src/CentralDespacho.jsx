@@ -53,8 +53,11 @@ const CentralDespacho = ({ filter = null, onClearFilter } = {}) => {
 
             if (error) {
                 console.error('Erro ao buscar motoristas:', error);
+                setMotoristas([]);
                 return;
             }
+
+            console.log('Motoristas carregados:', data);
 
             const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
             const normalized = (data || []).map(m => ({
@@ -69,9 +72,17 @@ const CentralDespacho = ({ filter = null, onClearFilter } = {}) => {
                 return bOnline - aOnline;
             });
 
+            console.log('Motoristas ordenados:', ordered);
+            // Checa presença de 'Leandro 1' para debug rápido
+            if (!ordered.some(m => String(m.nome || '').includes('Leandro'))) {
+                console.warn("Motorista 'Leandro' não encontrado na lista retornada. Nomes retornados:", ordered.map(m => m.nome));
+            } else {
+                console.log("Motorista 'Leandro' presente na lista.");
+            }
             setMotoristas(ordered);
         } catch (e) {
-            console.error(e);
+            console.error('Erro inesperado ao buscar motoristas:', e);
+            setMotoristas([]);
         }
     };
 

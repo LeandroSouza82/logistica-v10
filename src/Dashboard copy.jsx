@@ -223,7 +223,7 @@ export default function PainelGestor({ abaAtiva, setAbaAtiva }) {
                 }
 
                 // assinaturas hoje: apenas registros com assinatura não nula
-                const { count: assinCount, error: assinErr } = await supabase.from('entregas').select('*', { count: 'exact', head: true }).gte('criado_em', dataISO).not('assinatura', 'is', null);
+                const { count: assinCount, error: assinErr } = await supabase.from('entregas').select('*', { count: 'exact', head: true }).gte('criado_em', dataISO).or('assinatura.not.is.null,assinatura_url.not.is.null');
                 if (assinErr) {
                     console.error('Erro detalhado:', assinErr.message);
                 } else {

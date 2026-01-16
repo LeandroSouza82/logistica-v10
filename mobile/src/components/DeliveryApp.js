@@ -1,23 +1,45 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback, forwardRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+
+// CommandBar: stateless memoized top command bar to avoid re-renders
+const CommandBar = React.memo(function CommandBar({ onRefresh, onCenter, onLogout }) {
+    return (
+        <View style={styles.commandBar} pointerEvents="box-none">
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <TouchableOpacity style={styles.cmdBtnLeft} onPress={onRefresh} accessibilityLabel="Atualizar">
+                    <Text style={styles.cmdBtnText}>⟳</Text>
+                </TouchableOpacity>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity style={[styles.cmdBtn, { marginRight: 8 }]} onPress={onCenter} accessibilityLabel="Centralizar">
+                        <Text style={styles.cmdBtnText}>🎯</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.cmdBtn} onPress={onLogout} accessibilityLabel="Sair">
+                        <Text style={styles.cmdBtnText}>Sair</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </View>
+    );
+});
 import {
-    StyleSheet, Text, View, FlatList, Modal, ScrollView, TextInput, TouchableOpacity, Pressable, Animated, Image, ActivityIndicator, Vibration, KeyboardAvoidingView, Keyboard,
-    Dimensions, Linking, Alert, StatusBar, Platform, UIManager, LayoutAnimation, PanResponder, Easing, ActionSheetIOS
+    StyleSheet, Text, View, TouchableOpacity, Pressable, Animated, Modal, Image, ActivityIndicator, Vibration,
+    Dimensions, Linking, FlatList, TextInput, Alert, StatusBar, Platform, UIManager, LayoutAnimation, PanResponder, Easing, ActionSheetIOS
 } from 'react-native';
-
-
-
 
 // Dynamic imports for optional native modules
 import * as ImagePicker from 'expo-image-picker';
-import { Audio } from 'expo-av';
 let FileSystem; try { FileSystem = require('expo-file-system'); } catch (e) { FileSystem = null; console.warn('expo-file-system não disponível.'); }
 
-// Número do gestor/patrão (substitua pelo número real)
-const BOSS_PHONE = '+5511999999999';
+// Número do gestor/patrão - removed hardcoded default (use Supabase)
+const BOSS_PHONE = null;
 import MapView, { Marker } from 'react-native-maps';
-import SignatureScreen from 'react-native-signature-canvas';
+
 import * as Location from 'expo-location'; // Biblioteca para o GPS
+import Constants from 'expo-constants';
+
 import * as ScreenOrientation from 'expo-screen-orientation';
+
 let AsyncStorage;
 try { AsyncStorage = eval('require')('@react-native-async-storage/async-storage').default; } catch (e) { AsyncStorage = null; console.warn('AsyncStorage não disponível; persitência local desabilitada.'); }
 import { supabase } from '../supabaseClient';
@@ -36,103 +58,69 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 // Altura da status bar para ajustar modals translúcidos no Android
 const STATUSBAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0;
-export default function DeliveryApp(props) {
+function DeliveryApp(props) {
+
     // Número padrão do motorista (use seu número real em produção ou carregue via config)
     const MOTORISTA_PHONE = '+5511999999999';
-    // Telefone do gestor para receber ocorrências (pode ser passado via props)
-    const GESTOR_PHONE = props?.gestorPhone || '+5511999999999';
+    // Telefone do gestor para receber ocorrências (pode ser passado via props). Avoid hardcoded fallbacks; fetch from Supabase when needed.
+    const GESTOR_PHONE = props?.gestorPhone || null;
 
-    // Motorista atual (ID) — usado em filtros realtime
-    const motoristaId = props?.motoristaId ?? 1;
+    // Busca dinâmica do número do gestor diretamente do Supabase (retorna apenas dígitos, com prefixo 55)
+    const fetchGestorPhone = async () => {
+        try {
+            // Query configuracoes.chave = 'gestor_phone'
+            const { data, error } = await supabase.from('configuracoes').select('valor').eq('chave', 'gestor_phone').limit(1);
+            if (error) {
+                console.warn('fetchGestorPhone: erro ao buscar no supabase:', error);
+                return null;
+            }
+            const valor = data && data[0] && data[0].valor ? String(data[0].valor) : null;
+            if (!valor) return undefined;
+            const digits = valor.replace(/\D/g, '');
+            if (!digits) return undefined;
+            return digits.startsWith('55') ? digits : `55${digits}`;
+        } catch (e) {
+            console.warn('fetchGestorPhone: exception:', e);
+            return undefined;
+        }
+    };
 
-    const [pedidos, setPedidos] = useState([]);
-    // Espelho com nome 'entregas' para compatibilidade e facilidade de leitura
     const [entregas, setEntregas] = useState([]);
 
-    // Nome do motorista logado (carregado do Supabase)
-    const [nomeMotorista, setNomeMotorista] = useState('');
-    const [enviando, setEnviando] = useState(false);
-    const [assinaturaErro, setAssinaturaErro] = useState(false);
-    const [assinaturaPreenchida, setAssinaturaPreenchida] = useState(false);
-
-    // Funções essenciais (definidas no topo do componente para evitar erros de escopo)
-    const carregarEntregas = async () => {
-        try {
-            const motoristaId = 1; // ID do Leandro moto 1 (forçado)
-            const { data, error } = await supabase.from('entregas').select('*').eq('motorista_id', motoristaId);
-            if (error) {
-                console.warn('Erro ao carregar entregas:', error);
-                setPedidos([]);
-                setEntregas([]);
-                return;
-            }
-            if (data && data.length > 0) {
-                const normalized = data.map(i => normalizePedido(i));
-                setPedidos(normalized);
-                setEntregas(normalized);
-            } else {
-                setPedidos([]);
-                setEntregas([]);
-            }
-        } catch (e) {
-            console.warn('Exceção ao carregar entregas:', e);
-            setPedidos([]);
-            setEntregas([]);
-        }
-    };
-
-    const abrirMapa = (endereco) => {
-        if (endereco) {
-            Linking.openURL('google.navigation:q=' + encodeURIComponent(endereco));
-        } else {
-            Alert.alert('Erro', 'Endereço não encontrado');
-        }
-    };
-
-    // Chama o carregamento de entregas ao montar
-    useEffect(() => { carregarEntregas(); }, []);
-
-    // Mantém entregas sincronizadas com pedidos (single source: pedidos)
-    useEffect(() => { setEntregas(pedidos); }, [pedidos]);
+    // Debug wrapper to trace where setEntregas is called (temporary for debugging render loop)
+    const debugSetEntregas = setEntregas;
 
     // Contadores dinâmicos do resumo (entregas / recolhas / outros) conforme solicitado
     const totalEntregas = entregas.filter(p => p.tipo?.toLowerCase().includes('entrega')).length;
     const totalRecolhas = entregas.filter(p => p.tipo?.toLowerCase().includes('recolha')).length;
     const totalOutros = entregas.filter(p => !p.tipo?.toLowerCase().includes('entrega') && !p.tipo?.toLowerCase().includes('recolha')).length;
 
-    // Carrega pedidos salvos localmente (se existirem) ou usa fallback para dev
-    useEffect(() => {
-        (async () => {
-            try {
-                if (AsyncStorage) {
-                    const raw = await AsyncStorage.getItem('@rota_pedidos');
-                    if (raw) {
-                        const parsed = JSON.parse(raw);
-                        setPedidos(parsed);
-                        return;
-                    }
-                } else {
-                    console.warn('AsyncStorage não disponível; carregando fallback.');
-                }
-            } catch (e) { console.warn('Erro ao ler pedidos do AsyncStorage:', e); }
 
-            // fallback de dev (somente se não houver nada salvo)
-            setPedidos([
-                { id: 1, cliente: 'Leandro (Coleta)', status: 'pendente', lat: -27.596, lng: -48.546, tipo_servico: 'Recolha', driverPhone: '+5511987654321' },
-                { id: 2, cliente: 'João Silva', status: 'pendente', lat: -27.600, lng: -48.550, tipo_servico: 'Entrega', driverPhone: '+5511976543210' },
-            ]);
-        })();
-    }, []);
 
-    // Persiste a ordem/estado sempre que 'pedidos' mudar
+    // Alias fetchEntregas for clarity and call on mount (single source: Supabase)
+    const fetchEntregas = async () => {
+        try {
+            await carregarEntregas();
+        } catch (e) {
+            console.warn('Falha ao carregar entregas:', e);
+        }
+    };
+
+    // Auto-fetch on mount DISABLED for isolation / debugging of render loop
+    // useEffect(() => {
+    //     fetchEntregas();
+    // }, []);
+
+
+    // Persiste a ordem/estado sempre que 'entregas' mudar
     useEffect(() => {
         (async () => {
             if (!AsyncStorage) return; // sem persistência se não instalado
             try {
-                await AsyncStorage.setItem('@rota_pedidos', JSON.stringify(pedidos));
-            } catch (e) { console.warn('Erro ao salvar pedidos no AsyncStorage:', e); }
+                await AsyncStorage.setItem('@rota_pedidos', JSON.stringify(entregas));
+            } catch (e) { console.warn('Erro ao salvar entregas no AsyncStorage:', e); }
         })();
-    }, [pedidos]);
+    }, [entregas]);
 
     const mapRef = useRef(null); // Referência para controlar a câmera do mapa
 
@@ -140,21 +128,92 @@ export default function DeliveryApp(props) {
     const [modalOcorrencia, setModalOcorrencia] = useState(false);
     const [pedidoSelecionado, setPedidoSelecionado] = useState(null);
     const [textoOcorrencia, setTextoOcorrencia] = useState('');
-    const [selectedReason, setSelectedReason] = useState(null);
-    // removed outroSelected -- now we always show Observações abaixo the list
-
-
+    const [outroSelected, setOutroSelected] = useState(false);
     const inputOcorrenciaRef = useRef(null);
     const [modalProcessing, setModalProcessing] = useState(false);
+    // Loading geral (usado para indicar fetch inicial)
+    const [loading, setLoading] = useState(true);
+    // flag para não repetir o alerta 'Lista Vazia'
+    const fetchedOnceRef = useRef(false);
+    // previne fetchs concorrentes que causam loop e piscadas na UI
+    const fetchInProgressRef = useRef(false);
+
+    // Noutras antigas relacionadas à assinatura removidas: signatureRef, viewShotRef, signatureContainerRef, assinaturaResetKey
+
+    // Novo campo: nome do recebedor e histórico
+    const [recebedor, setRecebedor] = useState('');
+    // Local state para o input do modal (evita efeitos colaterais ao digitar)
+    const [recebedorLocal, setRecebedorLocal] = useState('');
+    const [ultimosRecebedores, setUltimosRecebedores] = useState([]);
+    const recebedorInputRef = useRef(null);
+
+    // Não Entregue flow: flag e motivo local (isolado para evitar re-renders)
+    const [isNaoEntregue, setIsNaoEntregue] = useState(false);
+    const [motivoLocal, setMotivoLocal] = useState('');
+    const motivoInputRef = useRef(null);
+    // Flag para mostrar o input ao escolher 'Outro'
+    const [mostrarInputOutro, setMostrarInputOutro] = useState(false);
+
+    // Motivos rápidos para Não Entregue (botões)
+    const motivosRapidos = useMemo(() => [
+        'Destinatário Ausente',
+        'Endereço não Localizado',
+        'Recusado pelo Cliente',
+        'Local Fechado/Sem Acesso',
+        'Outro (Digitar Motivo)'
+    ], []);
+    // Last selected pedido cache to recover if state is lost
+    const lastSelectedRef = useRef(null);
+
+    // Logging control: set to true for categories you want verbose logs (default off to avoid flooding)
+    const LOG_LEVEL = { signature: false, realtime: false, buttons: false };
+    const debugLog = () => { };
+
+    // keep a ref in sync with pedidoSelecionado
+    useEffect(() => {
+        if (pedidoSelecionado) lastSelectedRef.current = pedidoSelecionado;
+    }, [pedidoSelecionado]);
     // Indica upload em andamento no modal de ocorrência
     const [ocorrenciaUploading, setOcorrenciaUploading] = useState(false);
     // Ref para prevenir concorrência rápida (controle sincrono)
     const uploadingRef = useRef(false);
-    const signatureRef = useRef(null); // ref para controlar o signature pad
-    // Motivo enfileirado para enviar quando upload da foto terminar (ocorrência)
+    // Motivo enfileirado para enviar quando upload terminar (ocorrência)
     const [queuedOcorrenciaMotivo, setQueuedOcorrenciaMotivo] = useState(null);
-    // Guarda a URL pública da foto tirada na ocorrência enquanto o modal estiver aberto
-    const [ocorrenciaPhotoUrl, setOcorrenciaPhotoUrl] = useState(null);
+
+    // Quando o modal de confirmação (antes era assinatura) abrir, carregamos histórico de recebedores
+    useEffect(() => {
+        if (!modalAssinatura) return;
+        (async () => {
+            try {
+                if (!AsyncStorage) return;
+                let raw = null;
+                try { raw = await AsyncStorage.getItem('ultimos_recebedores'); } catch (e) { console.warn('AsyncStorage.getItem falhou ao ler ultimos_recebedores:', e); raw = null; }
+                if (raw) {
+                    try { const parsed = JSON.parse(raw); setUltimosRecebedores(Array.isArray(parsed) ? parsed : []); } catch (e) { setUltimosRecebedores([]); }
+                } else {
+                    setUltimosRecebedores([]);
+                }
+                // If we have a last selected pedido, prefill recebedor to empty
+                if (lastSelectedRef.current && !pedidoSelecionado) {
+                    const recovered = (entregas || []).find(p => p.id === lastSelectedRef.current.id);
+                    if (recovered) setPedidoSelecionado(recovered);
+                }
+
+                // Clear local inputs when modal opens (avoid side effects while typing)
+                try { setRecebedorLocal(''); } catch (e) { /* ignore */ }
+                try { setMotivoLocal(''); } catch (e) { /* ignore */ }
+
+                // Focus the appropriate input when modal opens (helpful in Android/iOS)
+                try {
+                    if (isNaoEntregue) {
+                        motivoInputRef.current && motivoInputRef.current.focus && motivoInputRef.current.focus();
+                    } else {
+                        recebedorInputRef.current && recebedorInputRef.current.focus && recebedorInputRef.current.focus();
+                    }
+                } catch (e) { /* ignore */ }
+            } catch (e) { console.warn('Erro ao carregar ultimos_recebedores:', e); }
+        })();
+    }, [modalAssinatura, isNaoEntregue]);
     // Pequeno contador para forçar refresh do modal (re-mount parcial) e dar foco no Android
     const [modalRefreshKey, setModalRefreshKey] = useState(0);
     // Estado que indica processamento final (enviar ocorrência / abrir WhatsApp)
@@ -162,12 +221,9 @@ export default function DeliveryApp(props) {
     // Estado que guarda link do WhatsApp pendente para abrir a partir da tela principal
     const [linkWhatsAppPendente, setLinkWhatsAppPendente] = useState(null);
 
-
-
-    // Função de carregamento localizada no topo: carregarEntregas()
-
-    // LISTENER REALTIME: atualiza a posição quando o Supabase enviar updates (mesma frequência do banco)
+    // LISTENER REALTIME: temporariamente DESABILITADO — atualiza a posição quando o Supabase enviar updates (desligado para debug)
     useEffect(() => {
+        return; /* realtime disabled for debug */
         (async () => {
             try {
                 await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
@@ -175,60 +231,258 @@ export default function DeliveryApp(props) {
                 console.warn('Falha ao travar orientação:', e);
             }
         })();
-
-        // carrega entregas ao iniciar
-        carregarEntregas();
-
-        // Carrega o nome do motorista logado (uma vez)
-        (async () => {
-            try {
-                const motoristaId = props?.motoristaId ?? 1;
-                const { data, error } = await supabase.from('motoristas').select('nome').eq('id', motoristaId).single();
-                if (!error && data && data.nome) setNomeMotorista(String(data.nome));
-            } catch (e) { console.warn('Erro ao buscar nome do motorista:', e); }
-        })();
-
-        const canal = supabase
-            .channel('central-despacho')
+        const channel = supabase
+            .channel('schema-db-changes')
             .on(
                 'postgres_changes',
                 {
-                    event: 'UPDATE', // O gestor ATUALIZOU o pedido para o seu ID
+                    event: 'UPDATE', // Quando o GPS do celular mudar
                     schema: 'public',
-                    table: 'entregas',
-                    filter: `motorista_id=eq.${motoristaId}` // Só me avise se for para MIM (ID 1)
+                    table: 'motoristas',
                 },
-                async (payload) => {
+                (payload) => {
                     try {
-                        const novo = payload.new || {};
+                        const motoristaId = props?.motoristaId ?? 1;
+                        if (Number(payload.new?.id) !== Number(motoristaId)) return; // Ignore updates for outros motoristas
 
-                        // Insere o payload novo no topo em ambas as listas com cópias profundas para forçar rerender
-                        setEntregas(prev => [{ ...novo }, ...prev.map(p => ({ ...p }))]);
-                        setPedidos(prev => [{ ...novo }, ...prev.map(p => ({ ...p }))]);
+                        console.log('Posição nova chegando do celular!', payload.new);
+                        const latSrc = payload.new?.latitude ?? payload.new?.lat;
+                        const lngSrc = payload.new?.longitude ?? payload.new?.lng;
+                        const lat = Number(latSrc);
+                        const lng = Number(lngSrc);
+                        // Ignora posições inválidas ou (0,0)
+                        if (!isNaN(lat) && !isNaN(lng) && !(lat === 0 && lng === 0)) {
+                            const newPos = { latitude: lat, longitude: lng };
+                            if (payload.new.heading != null) {
+                                const h = Number(payload.new.heading);
+                                if (!isNaN(h)) {
+                                    newPos.heading = h;
+                                    setHeading(h);
+                                }
+                            }
+                            setPosicaoMotorista(newPos);
 
-                        // Feedback: som e vibração
-                        try { await tocarSomAlerta(); } catch (e) { /* ignore */ }
-                        try { Vibration.vibrate([0, 500, 200, 500]); } catch (e) { /* ignore */ }
-
-                        // MUITO IMPORTANTE: força um reload completo das entregas do servidor
-                        try { await carregarEntregas(); } catch (e) { console.warn('Erro ao forçar carregarEntregas:', e?.message || e); }
-
-                        console.log('PEDIDO RECEBIDO via UPDATE e lista recarregada:', novo);
+                            // centraliza a câmera no motorista quando chegar o novo sinal
+                            try {
+                                mapRef.current?.animateToRegion({
+                                    latitude: lat,
+                                    longitude: lng,
+                                    latitudeDelta: 0.01,
+                                    longitudeDelta: 0.01,
+                                }, 500);
+                            } catch (e) { /* silent */ }
+                        } else {
+                            console.warn('Supabase enviou dados de posição inválidos ou (0,0):', payload.new);
+                        }
                     } catch (e) {
-                        console.warn('Erro no canal central-despacho:', e?.message || e);
+                        console.warn('Erro no listener realtime:', e?.message || e);
                     }
                 }
             )
-            .subscribe();
-        console.log('Canal central-despacho criado.');
-
-        // carrega entregas (já executado em useEffect no topo) - mantido como fallback
-        // carregarEntregas();
+            // Realtime para entregas referentes a este motorista — evita receber todo o tráfego do DB
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'entregas',
+                },
+                (payload) => {
+                    try {
+                        const motoristaId = props?.motoristaId ?? 1;
+                        const novo = payload.new || {};
+                        if (Number(novo.motorista_id) !== Number(motoristaId)) return;
+                        console.log('Realtime INSERT entrega para este motorista:', novo);
+                        const normalized = normalizePedido(novo);
+                        // evita duplicata
+                        debugSetEntregas(prev => {
+                            if (prev && prev.some(p => Number(p.id) === Number(normalized.id))) return prev;
+                            return [normalized, ...prev];
+                        });
+                    } catch (e) {
+                        console.warn('Erro ao processar INSERT em entregas (mobile):', e?.message || e);
+                    }
+                }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'entregas',
+                },
+                (payload) => {
+                    try {
+                        const motoristaId = props?.motoristaId ?? 1;
+                        const novo = payload.new || {};
+                        if (Number(novo.motorista_id) !== Number(motoristaId)) return;
+                        console.log('Realtime UPDATE entrega para este motorista:', novo);
+                        const normalized = normalizePedido(novo);
+                        debugSetEntregas(prev => prev.map(p => (Number(p.id) === Number(normalized.id) ? { ...p, ...normalized } : p)));
+                    } catch (e) {
+                        console.warn('Erro ao processar UPDATE em entregas (mobile):', e?.message || e);
+                    }
+                }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'DELETE',
+                    schema: 'public',
+                    table: 'entregas',
+                },
+                (payload) => {
+                    try {
+                        const old = payload.old || {};
+                        const motoristaId = props?.motoristaId ?? 1;
+                        if (Number(old.motorista_id) !== Number(motoristaId)) return;
+                        debugSetEntregas(prev => prev.filter(p => Number(p.id) !== Number(old.id)));
+                    } catch (e) {
+                        console.warn('Erro ao processar DELETE em entregas (mobile):', e?.message || e);
+                    }
+                }
+            )
+            // log da inscrição
+            .subscribe(() => { /* subscribed to realtime events */ });
 
         return () => {
-            try { supabase.removeChannel(canal); } catch (e) { /* ignore */ }
+            try { supabase.removeChannel(channel); } catch (e) { /* ignore */ }
         };
-    }, [props?.motoristaId]);
+    }, []);
+
+
+    // Realtime: novos pedidos (INSERT) — atualiza lista em tempo real e notifica usuário
+    useEffect(() => {
+        let channel = null;
+        (async () => {
+            try {
+                channel = supabase
+                    .channel('realtime-pedidos')
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pedidos' }, (payload) => {
+                        try {
+                            const novoPedido = payload.new;
+                            if (!novoPedido || !novoPedido.id) return;
+                            const normalized = (typeof normalizePedido === 'function') ? normalizePedido(novoPedido) : novoPedido;
+                            setEntregas(prev => {
+                                if (prev && prev.some(p => Number(p.id) === Number(normalized.id))) return prev;
+                                return [normalized, ...prev];
+                            });
+                            try { Alert.alert('Novo pedido recebido!', 'Um novo pedido acabou de chegar.'); } catch (e) { /* ignore */ }
+                        } catch (e) { console.warn('Realtime (pedidos) handler error:', e); }
+                    })
+                    .subscribe();
+            } catch (e) { console.warn('Erro ao iniciar canal realtime (pedidos):', e); }
+        })();
+
+        return () => {
+            try { if (channel) supabase.removeChannel(channel); } catch (e) { /* ignore */ }
+        };
+    }, []);
+
+    // Realtime: novos pedidos (INSERT) — atualiza lista em tempo real e notifica usuário
+    useEffect(() => {
+        let channel = null;
+        (async () => {
+            try {
+                channel = supabase
+                    .channel('realtime-pedidos')
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pedidos' }, (payload) => {
+                        try {
+                            const novoPedido = payload.new;
+                            if (!novoPedido || !novoPedido.id) return;
+                            const normalized = (typeof normalizePedido === 'function') ? normalizePedido(novoPedido) : novoPedido;
+                            setEntregas(prev => {
+                                if (prev && prev.some(p => Number(p.id) === Number(normalized.id))) return prev;
+                                return [normalized, ...prev];
+                            });
+                            try { Alert.alert('Novo pedido recebido!', 'Um novo pedido acabou de chegar.'); } catch (e) { /* ignore */ }
+                        } catch (e) { console.warn('Realtime (pedidos) handler error:', e); }
+                    })
+                    .subscribe();
+            } catch (e) { console.warn('Erro ao iniciar canal realtime (pedidos):', e); }
+        })();
+
+        return () => {
+            try { if (channel) supabase.removeChannel(channel); } catch (e) { /* ignore */ }
+        };
+    }, []);
+
+    const carregarEntregas = useCallback(async () => {
+        // throttle concurrent fetches to avoid loops/alternância de tela
+        if (fetchInProgressRef.current) {
+            return;
+        }
+        fetchInProgressRef.current = true;
+        setLoading(true);
+
+        try {
+            const motoristaId = props?.motoristaId ?? 1;
+            const hoje = new Date();
+            hoje.setUTCHours(0, 0, 0, 0);
+            const dataHoje = hoje.toISOString();
+            // QUERY PARA TESTE: comentamos filtros temporariamente para verificar dados
+            // Obs: .eq('motorista_id', motoristaId) foi comentado para buscar todas as rotas
+            // Obs: .eq('status', 'pendente') foi comentado para testar se há qualquer linha na tabela
+            // const { data: initial, error: initialErr } = await supabase.from('entregas').select('*').eq('status', 'pendente').order('id', { ascending: false }).limit(1000);
+            const { data: initial, error: initialErr } = await supabase.from('entregas').select('*').order('id', { ascending: false }).limit(1000);
+
+            if (initialErr) {
+                console.warn('Erro ao buscar entregas iniciais (mobile):', initialErr.message || initialErr);
+            } else {
+                // normalize tipo_servico and ensure strings
+                let normalized = (initial || []).map(i => normalizePedido(i));
+                // Filtra apenas entregas pendentes - entregas finalizadas não devem aparecer
+
+
+                // Se a busca inicial retornar vazia, alertamos 'Lista Vazia' (apenas na primeira vez)
+                if (!fetchedOnceRef.current && (!normalized || normalized.length === 0)) {
+                    fetchedOnceRef.current = true;
+                    Alert.alert('Lista Vazia');
+                }
+
+                // Se o usuário já reordenou a lista localmente, não destruímos a ordem: apenas atualizamos os itens existentes e anexamos novos
+                debugSetEntregas(prev => {
+                    try {
+                        if (prev && prev.length > 0 && userReorderedRef.current) {
+
+                            const fetchedById = new Map(normalized.map(f => [String(f.id), f]));
+                            const merged = prev.map(p => {
+                                const f = fetchedById.get(String(p.id));
+                                if (f) {
+                                    fetchedById.delete(String(p.id));
+                                    return { ...p, ...f }; // mantém ordem local, atualiza com dados do banco
+                                }
+                                return p;
+                            });
+                            // adicionar novos itens vindos do banco que não existiam localmente
+                            for (const f of fetchedById.values()) merged.push(f);
+                            return merged;
+                        } else {
+                            return normalized;
+                        }
+                    } catch (e) {
+                        console.warn('Erro ao mesclar entregas iniciais:', e);
+                        return normalized;
+                    }
+                });
+            }
+        } catch (err) {
+            console.warn('Erro ao buscar entregas iniciais (mobile):', err?.message || err);
+        } finally {
+            // garante que loading sempre seja liberado e desmarca fetch em andamento
+            try { setLoading(false); } catch (e) { console.error('Erro ao setLoading(false) em carregarEntregas:', e); }
+            try { fetchInProgressRef.current = false; } catch (e) { console.error('Erro ao liberar fetchInProgressRef:', e); }
+        }
+
+
+
+        // exporta a função para uso em realtime handlers
+        // (o channel abaixo chamará carregarEntregas() em INSERT/UPDATE para garantir refresh automático)
+
+        return () => {
+            try { supabase.removeChannel(channel); } catch (e) { /* ignore */ }
+        };
+    }, []);
 
     // (UX) Mapa de Animated.Value para cada card e helper de acesso
     const scalesRef = useRef({});
@@ -237,11 +491,13 @@ export default function DeliveryApp(props) {
         return scalesRef.current[id];
     };
 
+
+
     // Stability improvements: ensure we center map on first pedido once, and center when selection changes
     const centeredOnceRef = useRef(false);
     useEffect(() => {
-        if (!centeredOnceRef.current && pedidos && pedidos.length > 0) {
-            const first = pedidos[0];
+        if (!centeredOnceRef.current && entregas && entregas.length > 0) {
+            const first = entregas[0];
             if (first?.lat && first?.lng) {
                 const lat = Number(first.lat);
                 const lng = Number(first.lng);
@@ -249,7 +505,7 @@ export default function DeliveryApp(props) {
             }
             centeredOnceRef.current = true;
         }
-    }, [pedidos]);
+    }, [entregas]);
 
     // Marca se o usuário já reordenou manualmente os pedidos — usado para preservar ordem local ao mesclar dados do servidor
     const userReorderedRef = useRef(false);
@@ -267,11 +523,24 @@ export default function DeliveryApp(props) {
     // ESTADO PARA A POSIÇÃO DA MOTO (MOTORISTA) E HEADING
     const [posicaoMotorista, setPosicaoMotorista] = useState({ latitude: -23.5505, longitude: -46.6333, latitudeDelta: 0.05, longitudeDelta: 0.05 });
     const [heading, setHeading] = useState(0);
+
+
     const prevPosRef = useRef(null);
-    // evita enviar atualizações ao Supabase mais de 1 vez por segundo
+    // evita enviar atualizações ao Supabase mais de 1 vez por segundo (usado para outros fluxos)
     const lastUpdateRef = useRef(0);
+    // último timestamp (ms) que atualizamos a posição no UI (debounce)
+    const lastPosUpdateRef = useRef(0);
+    // UseRef para armazenar a posição do motorista sem causar re-renders
+    const driverLocationRef = useRef(null);
+    // ref para controlar uploads ao backend (throttle de 10s)
+    const lastUploadRef = useRef(0);
     // referência para a subscription do Location.watchPositionAsync
     const locationSubscriptionRef = useRef(null);
+    // indicador que a localização já foi inicializada (garante apenas um watcher)
+    const locationStartedRef = useRef(false);
+    // refs que garantem certos setState rodem apenas 1 vez (proteção contra loops)
+    const headingSetOnceRef = useRef(false);
+    const posicaoSetOnceRef = useRef(false);
     // timer para limpar posição após logout
     const logoutTimerRef = useRef(null);
     // marca se componente está montado
@@ -323,26 +592,7 @@ export default function DeliveryApp(props) {
         Animated.timing(rotateAnim, { toValue: heading, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
     }, [heading]);
 
-    // Teste de conexão com Supabase: atualiza motorista id=1 (apenas para teste)
-    useEffect(() => {
-        const testarConexao = async () => {
-            try {
-                const motoristaId = props?.motoristaId ?? 1;
-                const { data, error } = await supabase
-                    .from('motoristas')
-                    .update({ nome: `Leandro - Moto ${motoristaId}` })
-                    .eq('id', motoristaId);
 
-                if (error) {
-                    // Erro tratado silenciosamente em produção
-                }
-            } catch (e) {
-                // Exception capturada (sem log para reduzir ruído)
-            }
-        };
-
-        testarConexao();
-    }, []);
 
     // calcula o bearing entre duas coordenadas (em graus)
     const calculateBearing = (lat1, lon1, lat2, lon2) => {
@@ -375,7 +625,7 @@ export default function DeliveryApp(props) {
             },
         });
 
-        setPedidos(prev => {
+        debugSetEntregas(prev => {
             const novaLista = [...prev];
             const [removido] = novaLista.splice(index, 1);
             novaLista.unshift(removido);
@@ -397,34 +647,6 @@ export default function DeliveryApp(props) {
     const callMotorista = (phone) => {
         const tel = phone || MOTORISTA_PHONE;
         Linking.openURL(`tel:${tel}`);
-    };
-
-    // Toca som de alerta para nova entrega e vibra
-    const tocarSomAlerta = async () => {
-        try {
-            const primary = 'https://raw.githubusercontent.com/rafael-claro/public-assets/main/cash-register.mp3';
-            const fallback = 'https://www.soundjay.com/buttons/beep-07a.mp3';
-            let sound = null;
-            try {
-                const res = await Audio.Sound.createAsync({ uri: primary }, { shouldPlay: true });
-                sound = res.sound;
-            } catch (e) {
-                try {
-                    const res2 = await Audio.Sound.createAsync({ uri: fallback }, { shouldPlay: true });
-                    sound = res2.sound;
-                } catch (e2) {
-                    // give up silently
-                }
-            }
-            try { Vibration.vibrate([0, 400, 200, 400]); } catch (e) { /* ignore */ }
-            if (sound) {
-                sound.setOnPlaybackStatusUpdate((status) => {
-                    if (status?.didJustFinish) {
-                        try { sound.unloadAsync(); } catch (e) { /* ignore */ }
-                    }
-                });
-            }
-        } catch (e) { /* ignore */ }
     };
 
     // Logout controlador: confirma e delega a limpeza da posição para o container (App)
@@ -473,347 +695,287 @@ export default function DeliveryApp(props) {
         return Promise.race([promise, timeout]);
     };
 
+
+    // Reescrita segura de confirmarEntrega para evitar erros de escopo com await
     const confirmarEntrega = async (item = null) => {
-        const target = item || pedidoSelecionado;
-        if (!target) return;
-
-        const lat = posicaoMotorista && posicaoMotorista.latitude != null ? Number(posicaoMotorista.latitude) : null;
-        const lng = posicaoMotorista && posicaoMotorista.longitude != null ? Number(posicaoMotorista.longitude) : null;
-
-        // Ativa indicador de envio
-        try { setEnviando(true); } catch (e) { }
-
-        // 1º: Remove o card da tela imediatamente (optimistic UI) — usa target.id
+        const target = item || pedidoSelecionado || lastSelectedRef.current;
         try {
-            setPedidos(prevPedidos => prevPedidos.filter(p => Number(p.id) !== Number(target.id)));
-        } catch (e) { /* ignore */ }
-
-        // 2º: Se houver assinatura em base64, tente enviar para o Storage do Supabase
-        try {
-            let publicUrl = target.assinatura_url || target.assinatura || null;
-
-            if (publicUrl && String(publicUrl).startsWith('data:')) {
-                try {
-                    const res = await fetch(publicUrl);
-                    const blob = await res.blob();
-                    const path = `assinaturas/assinatura_${target.id}_${Date.now()}.png`;
-                    const { data: uploadData, error: uploadError } = await supabase.storage.from('assinaturas').upload(path, blob, { contentType: 'image/png' });
-                    if (!uploadError && uploadData) {
-                        const { data: publicData } = supabase.storage.from('assinaturas').getPublicUrl(path);
-                        publicUrl = publicData?.publicUrl || publicUrl;
-                    }
-                } catch (e) {
-                    // upload falhou; manteremos o base64 em assinatura_url como fallback
-                }
+            if (!target) {
+                // Garante UI consistente caso não haja target
+                try { setModalAssinatura(false); } catch (e) { console.error('confirmarEntrega: erro ao fechar modal (nenhum target):', e); }
+                try { await carregarEntregas(); } catch (e) { console.error('confirmarEntrega: carregarEntregas erro (nenhum target):', e); }
+                return;
             }
 
-            // Atualiza status para 'Entregue' conforme solicitado e inclui a URL pública ou base64
+            // Valida ID
+            if (target.id == null || target.id === '') {
+                console.error('confirmarEntrega: ID inválido:', target.id);
+                try { await carregarEntregas(); } catch (e) { console.error('confirmarEntrega: carregarEntregas (ID inválido):', e); }
+                return;
+            }
+
+            // Delega para handleFinalizar que já implementa a lógica segura (inclui recebedor, AsyncStorage e WhatsApp)
             try {
-                const { data, error } = await callWithTimeout(
-                    supabase
-                        .from('entregas')
-                        .update({ status: 'Entregue', assinatura_url: publicUrl, lat_entrega: lat, lng_entrega: lng })
-                        .eq('id', target.id),
-                    30000
-                );
-
-                if (error) {
-                    // Erro silencioso no servidor
-                }
-            } catch (err) {
-                // Exceção ao atualizar status
+                await handleFinalizar();
+            } catch (e) {
+                console.error('confirmarEntrega: erro ao finalizar via handleFinalizar:', e);
             }
-        } catch (e) {
-            // Exceção geral no processo de envio
-        } finally {
-            try { setEnviando(false); } catch (e) { }
-            try { setModalAssinatura(false); } catch (e) { }
-            try { setAssinaturaPreenchida(false); } catch (e) { }
-            try { if (signatureRef.current && signatureRef.current.clearSignature) signatureRef.current.clearSignature(); } catch (e) { }
-            try { carregarEntregas(); } catch (e) { }
+        } catch (err) {
+            console.error('confirmarEntrega: erro inesperado', err);
+            try { setModalAssinatura(false); } catch (e) { /* ignore */ }
+            try { await carregarEntregas(); } catch (e) { /* ignore */ }
         }
     };
 
     // Handler quando a assinatura foi capturada (img é dataURL)
-    const handleSignatureOk = async (imgDataUrl) => {
-        if (!pedidoSelecionado) {
-            Alert.alert('Erro', 'Nenhum pedido selecionado para receber a assinatura.');
+
+
+
+
+
+
+    // Função de finalização ULTRA-SEGURA conforme instruções: atualiza o DB, remove card local, fecha modal, limpa seleção e abre WhatsApp com delay
+    const handleFinalizar = async () => {
+
+        const target = pedidoSelecionado || lastSelectedRef.current;
+        // nomeRecebedorTrim: valor final a ser usado pelo DB e WhatsApp (evita ReferenceError)
+        const nomeRecebedor = (typeof recebedorLocal === 'string' && String(recebedorLocal).trim() !== '') ? recebedorLocal : ((typeof recebedor === 'string' && String(recebedor).trim() !== '') ? recebedor : null);
+        const nomeRecebedorTrim = nomeRecebedor ? nomeRecebedor.trim() : 'Não informado';
+        const horarioAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        if (!target || !target.id) {
+            console.warn('handleFinalizar: nenhum pedido selecionado');
+            try { setModalAssinatura(false); } catch (e) { /* ignore */ }
+            try { setPedidoSelecionado(null); } catch (e) { /* ignore */ }
             return;
         }
 
         try {
-            // atribui assinatura ao pedido selecionado em memória (salva também em assinatura_url para compatibilidade)
-            const assinaturaBase64 = imgDataUrl;
-            setPedidos(prev => prev.map(p => (p.id === pedidoSelecionado.id ? { ...p, assinatura: assinaturaBase64, assinatura_url: assinaturaBase64 } : p)));
-            // também atualiza o pedido selecionado em memória para refletir a assinatura
-            setPedidoSelecionado(prev => ({ ...(prev || {}), assinatura: assinaturaBase64, assinatura_url: assinaturaBase64 }));
+            // 1) Atualiza o backend e aguarda (status: 'entregue')
+            try {
+                const payload = { status: 'finalizado', recebedor: nomeRecebedorTrim };
+                const { data, error } = await supabase.from('entregas').update(payload).eq('id', target.id).select('*');
+                if (error) {
+                    console.warn('handleFinalizar: erro ao atualizar supabase', error);
+                } else {
+                    // update ok
+                }
+            } catch (e) {
+                console.warn('handleFinalizar: exception ao atualizar supabase', e);
+            }
 
-            // limpa qualquer erro relacionado à assinatura e indica que está pronta
-            try { setAssinaturaErro(false); } catch (e) { }
 
-            // informa o usuário que a assinatura foi capturada e que deve confirmar
-            Alert.alert('Assinatura salva', 'Assinatura capturada. Pressione "CONFIRMAR ENTREGA" para finalizar a entrega.');
+
+            // Persistência do histórico em background (não mais executada no render)
+            try {
+                if (nomeRecebedorTrim) {
+                    (async () => {
+                        try {
+                            let raw = null;
+                            try { raw = await AsyncStorage.getItem('ultimos_recebedores'); } catch (e) { raw = null; }
+                            let list = [];
+                            if (raw) { try { const parsed = JSON.parse(raw); list = Array.isArray(parsed) ? parsed : []; } catch (e) { list = []; } }
+                            const cleaned = nomeRecebedorTrim;
+                            list = [cleaned, ...list.filter(x => x !== cleaned)].slice(0, 20);
+                            try { await AsyncStorage.setItem('ultimos_recebedores', JSON.stringify(list)); } catch (e) { /* ignore */ }
+                            try { setUltimosRecebedores(list); } catch (e) { /* ignore */ }
+                            try { setRecebedor(cleaned); } catch (e) { /* ignore */ }
+                        } catch (e) { console.warn('Erro ao salvar ultimos_recebedores (background):', e); }
+                    })();
+                }
+            } catch (e) { console.warn('handleFinalizar: erro salvando histórico recebedor', e); }
+
+            // 4) Abre WhatsApp com delay (fora da thread principal) e então fecha modal/remova card
+            try {
+                const phoneDigits = await fetchGestorPhone();
+                if (phoneDigits) {
+                    const pedido = target;
+                    const endereco = (pedido && pedido.endereco) ? pedido.endereco : (pedido?.endereco_text || pedido?.address || 'Endereço não disponível');
+                    const mensagem = '*Entrega Realizada!* ✅\n\n*👤 Recebedor:* ' + nomeRecebedorTrim + '\n*📍 Endereço:* ' + endereco + '\n*⏰ Horário:* ' + horarioAtual;
+                    const url = 'whatsapp://send?phone=' + phoneDigits + '&text=' + encodeURIComponent(mensagem);
+                    const idToRemove = target.id;
+                    setTimeout(() => {
+                        Linking.openURL(url)
+                            .catch(e => console.warn('handleFinalizar: erro ao abrir WhatsApp (delayed)', e))
+                            .finally(() => {
+                                try { setModalAssinatura(false); } catch (e) { /* ignore */ }
+                                try { setPedidoSelecionado(null); } catch (e) { /* ignore */ }
+                                try { setEntregas(prev => prev.filter(item => item.id !== idToRemove)); } catch (e) { /* ignore */ }
+                            });
+                    }, 1000);
+                } else {
+                    console.warn('handleFinalizar: número do gestor não encontrado, pulando abertura do WhatsApp');
+                }
+            } catch (e) { console.warn('handleFinalizar: erro preparando WhatsApp', e); }
+
         } catch (err) {
-            console.error('Erro ao salvar assinatura:', err?.message || err);
-            Alert.alert('Erro', 'Não foi possível salvar a assinatura. Tente novamente.');
+            console.error('handleFinalizar: erro inesperado', err);
         }
-        // Não fechamos o modal automaticamente; aguardamos o motorista clicar em CONFIRMAR
     };
 
-    // Function to take photo using ImagePicker (expo)
-    const tirarFoto = async (item) => {
-        if (!ImagePicker) {
-            Alert.alert('Erro', 'Camera não disponível. Instale expo-image-picker.');
-            return { success: false };
-        }
-        if (!item) {
-            Alert.alert('Erro', 'Nenhum pedido informado.');
-            return { success: false };
+
+
+    // FECHAR MODAL E LIMPAR ESTADOS ANTES DE QUALQUER REDIRECIONAMENTO
+
+    // try { setModalAssinatura(false); } catch (e) { /* ignore */ }
+    // try { setPedidoSelecionado(null); } catch (e) { /* ignore */ }
+    // NOTE: Persistência do histórico de recebedores agora é feita apenas no momento de finalização (handleFinalizar)
+    try { uploadingRef.current = false; } catch (e) { /* ignore */ }
+    // try { setLoading(false); } catch (e) { /* ignore */ }
+
+
+
+    const confirmarEntregaFromModal = async () => {
+        debugLog('signature', 'confirmarEntregaFromModal delegando para handleFinalizar. pedidoSelecionado=', pedidoSelecionado);
+        return handleFinalizar();
+    };
+
+    // Confirmar NÃO ENTREGA: atualiza DB com status 'problema', envia WhatsApp com motivo e remove card
+    // Agora aceita motivoOverride para envio imediato a partir do botão rápido
+    const handleConfirmNaoEntregue = async (motivoOverride = null) => {
+        const target = pedidoSelecionado || lastSelectedRef.current;
+        if (!target || !target.id) {
+            console.warn('handleConfirmNaoEntregue: nenhum pedido selecionado');
+            try { setModalAssinatura(false); } catch (e) { /* ignore */ }
+            try { setPedidoSelecionado(null); } catch (e) { /* ignore */ }
+            return;
         }
 
-        // prevent concurrent uploads
-        if (uploadingRef.current) {
-            Alert.alert('Aguarde', 'Upload em andamento.');
-            return { success: false };
-        }
-        uploadingRef.current = true;
-
-        // Scoped references for cleanup
-        let fetched = null; let blob = null; let reader = null; let dataUrl = null;
+        const motivoTrim = (motivoOverride !== null) ? (String(motivoOverride).trim() || 'Não informado') : ((motivoLocal && String(motivoLocal).trim() !== '') ? String(motivoLocal).trim() : 'Não informado');
+        const horarioAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
         try {
-            const perm = await ImagePicker.requestCameraPermissionsAsync();
-            if (perm.status !== 'granted') {
-                Alert.alert('Permissão', 'Permissão de câmera negada.');
-                return { success: false };
-            }
-
-            // Launch camera and wait for result
-            const res = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: false });
-            const cancelled = res.cancelled || res.canceled;
-            if (cancelled) return { success: false };
-
-            const uri = res.uri || (res.assets && res.assets[0] && res.assets[0].uri);
-            if (!uri) {
-                Alert.alert('Erro', 'Não foi possível capturar a foto.');
-                return { success: false };
-            }
-
-            // Small delay to ensure the camera activity has fully unmounted on Android
-            await new Promise(r => setTimeout(r, 600));
-
-            // 1) Prefer fetch -> blob -> FileReader conversion (works on more platforms)
+            // Atualiza status no backend para indicar problema/cancelamento
             try {
-                fetched = await fetch(uri);
-                blob = await fetched.blob();
-                reader = new FileReader();
-                const b64FromBlob = await new Promise((resolve, reject) => {
-                    reader.onerror = reject;
-                    reader.onload = () => resolve(reader.result.split(',')[1]);
-                    reader.readAsDataURL(blob);
-                });
-                dataUrl = `data:${blob.type};base64,${b64FromBlob}`;
+                const payload = { status: 'cancelado', motivo_nao_entrega: motivoTrim };
+                if (error) console.warn('handleConfirmNaoEntregue: erro ao atualizar supabase', error);
             } catch (e) {
-                console.warn('fetch/blob conversion failed:', e);
+                console.warn('handleConfirmNaoEntregue: exception ao atualizar supabase', e);
             }
 
-            // 2) Fallback: FileSystem read as base64 (native)
-            if (!dataUrl && FileSystem) {
-                try {
-                    const normalized = uri.startsWith('file://') ? uri : uri;
-                    const b64 = await FileSystem.readAsStringAsync(normalized, { encoding: 'base64' });
-                    dataUrl = `data:image/jpeg;base64,${b64}`;
-                } catch (e) {
-                    console.warn('FileSystem read failed:', e);
-                }
-            }
-
-            if (!dataUrl) {
-                Alert.alert('Erro', 'Não foi possível processar a foto.');
-                return { success: false };
-            }
-
-            // Attempt to upload to Supabase (save URL to assinatura_url only) and return authoritative link
+            // Prepara e envia WhatsApp
             try {
-                const { data, error } = await supabase.from('entregas').update({ assinatura_url: dataUrl }).eq('id', item.id).select();
-                if (error) throw error;
-                const savedUrl = data && data[0] && data[0].assinatura_url ? data[0].assinatura_url : dataUrl;
-                setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, assinatura_url: savedUrl } : p));
-                // don't show alert here to keep UX smooth for occurrence flow; caller will decide
-                return { success: true, assinatura_url: savedUrl };
-            } catch (e) {
-                console.error('Erro ao enviar foto para Supabase:', e);
-                // keep local copy so user sees the image
-                setPedidos(prev => prev.map(p => p.id === item.id ? { ...p, assinatura_url: dataUrl } : p));
-                Alert.alert('Aviso', `Foto salva localmente, falha ao enviar ao servidor: ${e?.message || e}`);
-                return { success: false };
-            }
-        } catch (err) {
-            console.error('Erro ao tirar foto:', err);
-            Alert.alert('Erro', `Não foi possível tirar a foto: ${err?.message || String(err)}`);
-            return { success: false };
-        } finally {
-            // Cleanup big references to help GC and clear uploading flag
-            try { uploadingRef.current = false; } catch (e) { }
-            try { if (reader) { reader.onerror = null; reader.onload = null; } } catch (e) { }
-            try { fetched = null; } catch (e) { }
-            try { blob = null; } catch (e) { }
-            try { reader = null; } catch (e) { }
-            try { dataUrl = null; } catch (e) { }
-        }
-    };
-
-    // Captura foto na modal de assinatura, faz upload/convert com await, atualiza Supabase e finaliza o pedido (removendo localmente)
-    const capturePhotoAndConfirm = async (item) => {
-        if (!item) { Alert.alert('Erro', 'Nenhum pedido selecionado.'); return; }
-        if (!ImagePicker) { Alert.alert('Erro', 'Camera não disponível.'); return; }
-        setModalProcessing(true);
-        try {
-            const perm = await ImagePicker.requestCameraPermissionsAsync();
-            if (perm.status !== 'granted') { Alert.alert('Permissão', 'Permissão de câmera negada.'); setModalProcessing(false); return; }
-
-            const res = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: false });
-            const cancelled = res.cancelled || res.canceled;
-            if (cancelled) { setModalProcessing(false); return; }
-
-            const uri = res.uri || (res.assets && res.assets[0] && res.assets[0].uri);
-            const assetBase64 = res.base64 || (res.assets && res.assets[0] && res.assets[0].base64);
-            if (!uri && !assetBase64) { Alert.alert('Erro', 'Não foi possível capturar a foto.'); setModalProcessing(false); return; }
-
-            // Normaliza uri (remove file:// se presente)
-            let normalizedUri = uri;
-            if (normalizedUri && normalizedUri.startsWith('file://')) normalizedUri = normalizedUri.replace('file://', '');
-
-            // Converte para dataURL: prioriza FileSystem leitura por base64 (mais robusto no native)
-            let dataUrl = null;
-            if (FileSystem && uri) {
-                try {
-                    const b64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
-                    dataUrl = `data:image/jpeg;base64,${b64}`;
-                } catch (e) {
-                    console.warn('Falha ao ler via FileSystem:', e);
+                const phoneDigits = await fetchGestorPhone();
+                if (phoneDigits) {
+                    const endereco = (target && target.endereco) ? target.endereco : (target?.endereco_text || target?.address || 'Endereço não disponível');
+                    // Mensagem conforme solicitado (motivo primeiro, negrito e horário)
+                    const mensagem = '*Entrega NÃO Realizada!* ❌\n\n*👤 Motivo:* ' + motivoTrim + '\n*📍 Endereço:* ' + endereco + '\n*⏰ Horário:* ' + horarioAtual;
+                    const url = 'whatsapp://send?phone=' + phoneDigits + '&text=' + encodeURIComponent(mensagem);
+                    const idToRemove = target.id;
+                    setTimeout(() => {
+                        Linking.openURL(url)
+                            .catch(e => console.warn('handleConfirmNaoEntregue: erro ao abrir WhatsApp (delayed)', e))
+                            .finally(() => {
+                                try { setModalAssinatura(false); } catch (e) { /* ignore */ }
+                                try { setPedidoSelecionado(null); } catch (e) { /* ignore */ }
+                                try { setEntregas(prev => prev.filter(item => item.id !== idToRemove)); } catch (e) { /* ignore */ }
+                                setIsNaoEntregue(false);
+                                setMotivoLocal('');
+                                setMostrarInputOutro(false);
+                            });
+                    }, 1000);
+                } else {
+                    console.warn('handleConfirmNaoEntregue: número do gestor não encontrado, pulando abertura do WhatsApp');
                 }
-            }
+            } catch (e) { console.warn('handleConfirmNaoEntregue: erro preparando WhatsApp', e); }
 
-            if (!dataUrl && assetBase64) {
-                dataUrl = `data:image/jpeg;base64,${assetBase64}`;
-            }
-
-            if (!dataUrl && uri) {
-                try {
-                    const fetched = await fetch(uri);
-                    const blob = await fetched.blob();
-                    const reader = new FileReader();
-                    const b64FromBlob = await new Promise((resolve, reject) => {
-                        reader.onerror = reject;
-                        reader.onload = () => resolve(reader.result.split(',')[1]);
-                        reader.readAsDataURL(blob);
-                    });
-                    dataUrl = `data:${blob.type};base64,${b64FromBlob}`;
-                } catch (e) {
-                    console.warn('Erro ao converter uri para base64 via fetch/blob:', e);
-                }
-            }
-
-            if (!dataUrl) { Alert.alert('Erro', 'Não foi possível processar a foto.'); setModalProcessing(false); return; }
-
-            // Captura coords no momento do envio
-            let coords = null;
-            try { const l = await Location.getCurrentPositionAsync(); coords = { latitude: l.coords.latitude, longitude: l.coords.longitude }; } catch (e) { /* ignore */ }
-
-            // Tenta atualizar no Supabase (apenas assinatura_url + status)
-            try {
-                const { data, error } = await supabase.from('entregas').update({ assinatura_url: dataUrl, status: 'concluido', lat_entrega: coords?.latitude ?? item.lat, lng_entrega: coords?.longitude ?? item.lng }).eq('id', item.id);
-                if (error) console.warn('Erro ao enviar foto para Supabase:', error);
-            } catch (err) { console.warn('Exceção ao enviar foto ao Supabase:', err); }
-
-            // Remove localmente para atualização imediata do resumo
-            setPedidos(prev => prev.filter(p => Number(p.id) !== Number(item.id)));
-            setModalProcessing(false);
-            setModalAssinatura(false);
-            setPedidoSelecionado(null);
         } catch (err) {
-            console.error('Erro ao capturar/enviar foto:', err);
-            Alert.alert('Erro', 'Não foi possível capturar/enviar a foto.');
-            setModalProcessing(false);
+            console.error('handleConfirmNaoEntregue: erro inesperado', err);
         }
     };
 
 
-    // LOGICA PARA PEGAR A LOCALIZAÇÃO REAL EM TEMPO REAL
+
+
+
+
+
+
+
+    // LOGICA DE LOCALIZAÇÃO (WATCH OPCIONAL, CONTROLADO)
+    // Leitura inicial única (mantida)
     useEffect(() => {
-        mountedRef.current = true;
+        let cancelled = false;
         (async () => {
-            let { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                Alert.alert('Erro', 'Precisamos da permissão de localização para rastrear!');
-                return;
-            }
-
-            // 'watchPositionAsync' atualiza a moto conforme o motorista se move
-            const subscription = await Location.watchPositionAsync(
-                {
-                    accuracy: Location.Accuracy.High,
-                    timeInterval: 5000,
-                    distanceInterval: 1,
-                },
-                (location) => {
-                    const coords = {
-                        latitude: location.coords.latitude,
-                        longitude: location.coords.longitude,
-                    };
-
-                    // Preferir o heading fornecido pelo dispositivo (se existir), senão calcular pelo bearing
-                    const deviceHeading = (typeof location.coords.heading === 'number') ? location.coords.heading : null;
-                    let finalHeading = deviceHeading;
-
-                    if (finalHeading === null && prevPosRef.current) {
-                        const b = calculateBearing(prevPosRef.current.latitude, prevPosRef.current.longitude, coords.latitude, coords.longitude);
-                        finalHeading = b;
-                    }
-
-                    if (finalHeading !== null) {
-                        setHeading(finalHeading);
-                    }
-
-                    prevPosRef.current = coords;
-                    // Armazenamos também o heading na posição para usos futuros
-                    setPosicaoMotorista({ ...coords, heading: finalHeading });
-
-                    // FAZ O MAPA SEMPRE CENTRALIZAR NO MOTORISTA
-                    try {
-                        mapRef.current?.animateToRegion({
-                            latitude: coords.latitude,
-                            longitude: coords.longitude,
-                            latitudeDelta: 0.01,
-                            longitudeDelta: 0.01,
-                        }, 1000);
-                    } catch (e) {
-                        // falha silenciosa se a ref não existir
-                    }
-
-                    // Envia posição ao Supabase (forçando id=1)
-                    enviarPosicao(location.coords);
+            try {
+                let { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                    Alert.alert('Erro', 'Precisamos da permissão de localização para rastrear!');
+                    return;
                 }
-            );
 
-            locationSubscriptionRef.current = subscription;
-            setTrackingActive(true);
+                // Leitura única da posição (getCurrentPositionAsync)
+                try {
+                    const l = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+                    const coords = { latitude: l.coords.latitude, longitude: l.coords.longitude, heading: (typeof l.coords.heading === 'number' ? l.coords.heading : null) };
+                    driverLocationRef.current = coords;
+                    lastUpdateRef.current = Date.now();
+                    // envia posição ao backend (fire-and-forget)
+                    enviarPosicao(coords).catch(e => console.warn('enviarPosicao falhou (initial):', e));
+                } catch (e) {
+                    console.warn('Erro ao obter localização inicial:', e);
+                }
+
+            } catch (e) {
+                console.warn('Erro ao inicializar localização:', e);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, []);
+
+    // WATCHER CONTROLADO: reativa o Location.watchPositionAsync quando trackingActive = true
+    useEffect(() => {
+        if (!trackingActive) return; // só ativa quando o usuário habilitar
+        if (locationStartedRef.current) return; // evita múltiplos watchers
+        locationStartedRef.current = true;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const subscription = await Location.watchPositionAsync(
+                    {
+                        accuracy: Location.Accuracy.Balanced,
+                        timeInterval: 5000, // 5s
+                        distanceInterval: 1,
+                    },
+                    (location) => {
+                        try {
+                            const coords = { latitude: location.coords.latitude, longitude: location.coords.longitude, heading: (typeof location.coords.heading === 'number' ? location.coords.heading : null) };
+
+                            // Atualiza apenas a ref (sem setState) para evitar re-renders
+                            driverLocationRef.current = coords;
+
+                            // Throttle de upload: apenas a cada 10s
+                            const now = Date.now();
+                            if (now - lastUploadRef.current > 10000) {
+                                lastUploadRef.current = now;
+                                enviarPosicao(coords).catch(e => console.warn('enviarPosicao falhou (watch):', e));
+                            }
+                        } catch (e) {
+                            console.warn('Erro no callback de localização (watch):', e);
+                        }
+                    }
+                );
+
+                locationSubscriptionRef.current = subscription;
+            } catch (e) {
+                console.warn('Erro ao iniciar watchPositionAsync:', e);
+                locationStartedRef.current = false;
+            }
         })();
 
         return () => {
-            mountedRef.current = false;
-            // remove listener se existir
+            // cleanup
             try { locationSubscriptionRef.current?.remove?.(); } catch (e) { /* ignore */ }
             locationSubscriptionRef.current = null;
-            // limpa timer agendado de logout se houver
-            if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+            locationStartedRef.current = false;
+            cancelled = true;
         };
-    }, []);
+    }, [trackingActive]);
 
     // Estado para controle manual de rastreio (botão)
-    // Forçando rastreio ativo por padrão para testes
-    const [trackingActive, setTrackingActive] = useState(true);
+    const [trackingActive, setTrackingActive] = useState(false); // desligado por padrão enquanto isolamos o watch
 
     // Bottom sheet (manual) positions
     const TOP_Y = SCREEN_HEIGHT * 0.10; // 90% height visible
@@ -876,7 +1038,49 @@ export default function DeliveryApp(props) {
         setModalOcorrencia(true);
     };
 
-    const handleOcorrenciaChoice = async (motivo, item, observacao = '') => {
+    // Handler leve para abrir a finalização (abre modal de assinatura e marca pedido)
+    const handleAbrirFinalizacao = (item) => {
+        try {
+            lastSelectedRef.current = item;
+            setPedidoSelecionado(item);
+            setIsNaoEntregue(false);
+            setModalAssinatura(true);
+            setModalRefreshKey(k => k + 1);
+        } catch (e) {
+            console.warn('handleAbrirFinalizacao: erro', e);
+        }
+    };
+
+    // Abre modal de NÃO ENTREGA com modo apropriado
+    const handleNaoEntregue = (item) => {
+        try {
+            lastSelectedRef.current = item;
+            setPedidoSelecionado(item);
+            setIsNaoEntregue(true);
+            setMotivoLocal('');
+            setModalAssinatura(true);
+            setModalRefreshKey(k => k + 1);
+            // focus will be attempted in the modal useEffect through motivoInputRef
+        } catch (e) {
+            console.warn('handleNaoEntregue: erro ao abrir modal de não entrega', e);
+        }
+    };
+
+    // Centraliza o mapa na posição atual conhecida do motorista (usa driverLocationRef sem provocar re-render)
+    const handleCentralizarMapa = () => {
+        try {
+            const pos = driverLocationRef.current || posicaoMotorista;
+            if (!pos || pos.latitude == null || pos.longitude == null) {
+                Alert.alert('Posição indisponível', 'Posição do motorista ainda não disponível.');
+                return;
+            }
+            mapRef.current?.animateToRegion({ latitude: Number(pos.latitude), longitude: Number(pos.longitude), latitudeDelta: 0.01, longitudeDelta: 0.01 }, 600);
+        } catch (e) {
+            console.warn('handleCentralizarMapa erro:', e);
+        }
+    };
+
+    const handleOcorrenciaChoice = async (motivo, item) => {
         // bloqueia interações e mostra spinner durante o processamento final
         if (ocorrenciaUploading || ocorrenciaProcessing) {
             Alert.alert('Aguarde', 'Operação em progresso.');
@@ -885,173 +1089,195 @@ export default function DeliveryApp(props) {
 
         setOcorrenciaProcessing(true);
         try {
-            // exige que uma foto já tenha sido salva para prosseguir
-            const photoUrl = ocorrenciaPhotoUrl || item?.assinatura_url || pedidoSelecionado?.assinatura_url;
-            if (!photoUrl) {
-                Alert.alert('Atenção', 'Por favor, tire e salve a foto primeiro.');
-                setOcorrenciaProcessing(false);
-                return;
-            }
-
             // pega coords atuais no momento do envio
             let coords = null;
             try { const l = await Location.getCurrentPositionAsync(); coords = { latitude: l.coords.latitude, longitude: l.coords.longitude }; } catch (e) { /* ignore */ }
 
             // Remove o pedido localmente (optimistic) para atualizar contadores imediatamente
-            try { setPedidos(prev => prev.filter(p => Number(p.id) !== Number(item?.id))); } catch (e) { /* ignore */ }
+            try {
+                if (item && item.id != null) {
 
-            // 1. Salva no banco primeiro (mantendo comportamento anterior)
+                    debugSetEntregas(prev => prev.filter(p => Number(p.id) !== Number(item.id)));
+                } else {
+                    console.warn('Não removeu pedido localmente (ocorrencia): item indefinido', item);
+                }
+            } catch (e) { console.warn('Erro ao remover pedido localmente (ocorrencia):', e); }
+
+            // Tenta atualizar o servidor com a ocorrência (inclui assinatura_url apenas se existir)
             try {
                 if (item?.id) {
-                    const ocorrenciaComObs = observacao ? `${motivo} — ${observacao}` : motivo;
-                    await supabase.from('entregas').update({ status: 'nao_entregue', ocorrencia: ocorrenciaComObs, lat_entrega: coords?.latitude ?? item.lat, lng_entrega: coords?.longitude ?? item.lng, assinatura_url: photoUrl }).eq('id', item.id);
+                    const payload = { status: 'nao_entregue', ocorrencia: motivo, lat_entrega: coords?.latitude ?? item.lat, lng_entrega: coords?.longitude ?? item.lng };
+                    const photoUrl = item?.assinatura_url || pedidoSelecionado?.assinatura_url || null;
+                    if (photoUrl) payload.assinatura_url = photoUrl;
+                    await supabase.from('entregas').update(payload).eq('id', item.id);
                 }
             } catch (err) {
                 console.warn('Erro ao reportar ocorrência ao servidor:', err?.message || err);
-                // não interrompe o fluxo — vamos tentar abrir o WhatsApp mesmo sem sucesso no update
+                // não interrompe o fluxo — vamos tentar enviar o WhatsApp mesmo sem sucesso no update
             }
 
-            // 2. Fecha o modal primeiro para liberar recursos no Android
-            setModalOcorrencia(false);
-            setOcorrenciaProcessing(false);
+            // Build WA link but don't open it here — set it as pending and close modal immediately
+            try {
+                // Fetch gestor phone
+                const phoneDigits = await fetchGestorPhone();
+                if (!phoneDigits) {
+                    Alert.alert('Erro', 'Número do gestor não configurado no sistema.');
+                    // close modal and cleanup
+                    setModalOcorrencia(false);
+                } else {
+                    const fotoLine = photoUrl ? `\nFoto: ${photoUrl}` : '';
+                    const motorName = item?.motorista || item?.motorista_nome || (item?.motorista_id ? `Motorista ${item.motorista_id}` : (`Motorista ${props?.motoristaId ?? ''}`));
+                    const text = `🚨 Motorista: ${motorName}\n👤 Cliente: ${item?.cliente}\n📍 Local: ${coords ? `https://www.google.com/maps/search/?api=1&query=${coords.latitude},${coords.longitude}` : 'Localização não disponível'}\nMotivo: ${motivo}${fotoLine}`;
+                    const webUrl = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(text)}`;
 
-            // 3. Espera 1 segundo antes de abrir o WhatsApp para evitar travamentos em alguns dispositivos
-            setTimeout(() => { abrirWhatsappOcorrencia(item, motivo, observacao); }, 1000);
+                    // Close modal immediately and mark link as pending; main component will open it when safe
+                    setModalOcorrencia(false);
+                    setLinkWhatsAppPendente({ url: webUrl, motivo, photoUrl, coords });
+                }
+            } catch (err) {
+                console.warn('Erro ao preparar WhatsApp:', err);
+                Alert.alert('Erro', 'Não foi possível preparar o envio pelo WhatsApp.');
+                // still close modal to unblock UI
+                setModalOcorrencia(false);
+            }
 
-            // cleanup local state
+            // cleanup local state (modal closed, waiting for main to open WhatsApp)
             setTextoOcorrencia('');
-            setSelectedReason(null);
+            setOutroSelected(false);
             setPedidoSelecionado(null);
-            // clear persisted photo url as it's no longer needed here
-            setOcorrenciaPhotoUrl(null);
+            // cleanup: no photo persistence needed in this flow
         } catch (e) {
             console.warn('Erro ao processar ocorrência rápida:', e);
-            setOcorrenciaProcessing(false);
             Alert.alert('Erro', 'Falha ao processar a ocorrência.');
+        } finally {
+            setOcorrenciaProcessing(false);
         }
     };
 
-    // Helper: external camera flow triggered from modal button
-    // New behavior: close modal immediately, open system camera after modal unmounts, upload, then reopen modal showing confirmation
-    const tirarFotoOcorrencia = useCallback(async () => {
-        if (!pedidoSelecionado) { Alert.alert('Erro', 'Nenhum pedido selecionado.'); return; }
-        if (ocorrenciaUploading || ocorrenciaProcessing || uploadingRef.current) { Alert.alert('Aguarde', 'Uma operação já está em andamento.'); return; }
 
-        // Close modal immediately to avoid camera/modal activity conflicts
-        try { setModalOcorrencia(false); } catch (e) { /* ignore */ }
 
-        // Wait for modal to unmount and OS to stabilize
-        await new Promise(r => setTimeout(r, 500));
 
-        setOcorrenciaUploading(true);
+    // Helper: upload an image URI to Supabase storage using Expo FileSystem for base64 conversion
+    const uploadUriToStorage = async (uri, filenameBase, silent = false) => {
         try {
-            // Launch camera now (outside modal)
-            const res = await tirarFoto(pedidoSelecionado);
+            if (!uri) throw new Error('URI inválida');
+            // Normalize
+            let normalized = uri;
 
-            if (res?.success && res?.assinatura_url) {
-                // update local pedido with link
-                setPedidoSelecionado(prev => ({ ...(prev || {}), assinatura_url: res.assinatura_url }));
-                setOcorrenciaPhotoUrl(res.assinatura_url);
-
-                // Reopen modal and force a small refresh so confirmation shows and Android regains focus
-                setModalOcorrencia(true);
-                setModalRefreshKey(k => k + 1);
-                await new Promise(r => setTimeout(r, 250));
-            } else if (res?.success === false) {
-                Alert.alert('Erro', 'Falha ao salvar a foto.');
-                // Reopen modal so driver can retry
-                setModalOcorrencia(true);
-            } else {
-                // res undefined in case of cancel: reopen modal silently
-                setModalOcorrencia(true);
+            // If data URL, extract base64 directly
+            let base64 = null;
+            if (typeof normalized === 'string' && normalized.startsWith('data:')) {
+                base64 = normalized.split(',')[1] || null;
             }
-        } catch (e) {
-            console.warn('Erro no fluxo de câmera externa (ocorrência):', e);
-            Alert.alert('Erro', 'Não foi possível completar a operação de foto.');
-            setModalOcorrencia(true);
-        } finally {
-            setOcorrenciaUploading(false);
-        }
-    }, [pedidoSelecionado]);
 
-    // Inicia fluxo cirúrgico de NÃO ENTREGUE: câmera -> tela de transição -> vibração -> menu de motivos
-    const iniciarFluxoNaoEntregue = useCallback(async (item) => {
-        if (!item) { Alert.alert('Erro', 'Nenhum pedido informado.'); return; }
-        if (ocorrenciaUploading || ocorrenciaProcessing || uploadingRef.current) { Alert.alert('Aguarde', 'Uma operação já está em andamento.'); return; }
-
-        // Define o pedido selecionado para uso posterior
-        setPedidoSelecionado(item);
-
-        if (!ImagePicker) { Alert.alert('Erro', 'Camera não disponível.'); return; }
-
-        try {
-            const perm = await ImagePicker.requestCameraPermissionsAsync();
-            if (perm.status !== 'granted') { Alert.alert('Permissão', 'Permissão de câmera negada.'); return; }
-
-            // Abre a câmera direto
-            const res = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: false });
-            const cancelled = res.cancelled || res.canceled;
-            if (cancelled) return; // usuário cancelou
-
-            const uri = res.uri || (res.assets && res.assets[0] && res.assets[0].uri);
-            if (!uri) { Alert.alert('Erro', 'Não foi possível capturar a foto.'); return; }
-
-            // Mostra a tela de transição enquanto processamos e enviamos a foto
-            setOcorrenciaProcessing(true);
-
-            // Converte a imagem para dataURL (primeiro via fetch/blob, fallback FileSystem)
-            let dataUrl = null;
-            try {
-                const fetched = await fetch(uri);
-                const blob = await fetched.blob();
-                const reader = new FileReader();
-                const b64FromBlob = await new Promise((resolve, reject) => {
-                    reader.onerror = reject;
-                    reader.onload = () => resolve(reader.result.split(',')[1]);
-                    reader.readAsDataURL(blob);
-                });
-                dataUrl = `data:${blob.type};base64,${b64FromBlob}`;
-            } catch (e) {
-                console.warn('fetch/blob conversion falhou (ocorrência):', e);
-            }
-            if (!dataUrl && FileSystem) {
+            // If it's a local file, read via FileSystem
+            if (!base64 && FileSystem && (normalized.startsWith('file://') || normalized.startsWith(FileSystem.cacheDirectory) || normalized.startsWith('/'))) {
                 try {
-                    const normalized = uri.startsWith('file://') ? uri : uri;
-                    const b64 = await FileSystem.readAsStringAsync(normalized, { encoding: 'base64' });
-                    dataUrl = `data:image/jpeg;base64,${b64}`;
-                } catch (e) { console.warn('FileSystem read falhou (ocorrência):', e); }
+                    base64 = await FileSystem.readAsStringAsync(normalized, { encoding: 'base64' });
+                } catch (e) {
+                    console.warn('uploadUriToStorage: readAsStringAsync failed, will fallback to fetch:', e);
+                    base64 = null;
+                }
             }
 
-            if (!dataUrl) { Alert.alert('Erro', 'Não foi possível processar a foto.'); setOcorrenciaProcessing(false); return; }
+            // If still no base64, try fetching the resource and converting to base64 via dataURL
+            if (!base64) {
+                try {
+                    const fetched = await fetch(normalized);
+                    const arrBuf = await fetched.arrayBuffer();
+                    // Try to construct a blob and then read via FileReader (browser) or fallback to base64 via btoa
+                    let b64 = null;
+                    try {
+                        const blob = await fetched.blob();
+                        const reader = new FileReader();
+                        b64 = await new Promise((resolve, reject) => {
+                            reader.onerror = reject;
+                            reader.onload = () => resolve(reader.result.split(',')[1]);
+                            reader.readAsDataURL(blob);
+                        });
+                    } catch (e) {
+                        // Fallback: if atob/btoa available
+                        if (typeof btoa === 'function') {
+                            const bytes = new Uint8Array(arrBuf);
+                            let binary = '';
+                            for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+                            b64 = btoa(binary);
+                        }
+                    }
+                    base64 = b64;
+                } catch (e) {
+                    console.warn('uploadUriToStorage: fetch fallback failed:', e);
+                    base64 = null;
+                }
+            }
 
-            // Upload no Supabase (grava em assinatura_url)
+            if (!base64) throw new Error('Não foi possível obter base64 da URI para upload');
+
+            // Ensure base64 came from FileSystem write/read path to comply with requirement
+            const tmpFile = `${FileSystem.cacheDirectory}upload_${Date.now()}.png`;
             try {
-                const { data, error } = await supabase.from('entregas').update({ assinatura_url: dataUrl }).eq('id', item.id).select();
-                if (error) throw error;
-                const savedUrl = data && data[0] && data[0].assinatura_url ? data[0].assinatura_url : dataUrl;
+                await FileSystem.writeAsStringAsync(tmpFile, base64, { encoding: 'base64' });
+                const base64FromFs = await FileSystem.readAsStringAsync(tmpFile, { encoding: 'base64' });
+                const dataUrl = `data:image/png;base64,${base64FromFs}`;
+                const resp = await fetch(dataUrl);
+                const blob = await resp.blob();
 
-                // Atualiza pedido local e estado de foto de ocorrência
-                setPedidos(prev => prev.map(p => Number(p.id) === Number(item.id) ? { ...p, assinatura_url: savedUrl } : p));
-                setPedidoSelecionado(prev => ({ ...(prev || {}), assinatura_url: savedUrl }));
-                setOcorrenciaPhotoUrl(savedUrl);
+                // Sanitize filename
+                const rawName = `${filenameBase}_${Date.now()}.png`;
+                const filename = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const contentType = blob.type || 'image/png';
 
-                // Feedback tátil/sônico: vibração curta
-                try { Vibration.vibrate(100); } catch (e) { /* ignore */ }
 
-                // Abrir menu de motivos AGORA que foto foi salva (menu rápido com opções)
-                showOcorrenciaMotivoMenu(item);
-                setModalRefreshKey(k => k + 1);
+
+                const { data, error } = await supabase.storage.from('assinaturas').upload(filename, blob, { contentType, upsert: true, cacheControl: '3600' });
+                if (error) {
+                    console.error('Erro no upload para storage (assinaturas):', error, 'message:', error?.message);
+                    if (!silent) {
+                        try { Alert.alert('Upload error', error?.message || JSON.stringify(error)); } catch (e) { /* ignore */ }
+                    }
+                    throw error;
+                }
+
+                try { await FileSystem.deleteAsync(tmpFile, { idempotent: true }); } catch (e) { /* ignore */ }
+
+                return filename;
             } catch (e) {
-                console.error('Erro ao enviar foto para Supabase (ocorrência):', e);
-                Alert.alert('Erro', 'Falha ao salvar a foto. Tente novamente.');
+                try { await FileSystem.deleteAsync(tmpFile, { idempotent: true }); } catch (_) { /* ignore */ }
+                throw e;
             }
         } catch (err) {
-            console.error('Erro no fluxo de Não Entregue:', err);
-            Alert.alert('Erro', 'Não foi possível completar a operação de foto.');
-        } finally {
-            setOcorrenciaProcessing(false);
+            console.error('Erro uploadUriToStorage:', err);
+            throw err;
         }
-    }, [ocorrenciaProcessing, ocorrenciaUploading]);
+    };
+
+    // Tocar alerta sonoro alto (usado quando chega nova entrega via Realtime)
+    const tocarAlertaSonoro = useCallback(async () => {
+        try {
+            // ensure audio will play even in silent mode on iOS
+            try { await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: false, allowsRecordingIOS: false }); } catch (e) { /* ignore */ }
+
+            const { sound } = await Audio.Sound.createAsync(
+                { uri: 'https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg' },
+                { shouldPlay: true, volume: 1.0 }
+            );
+            if (sound) {
+                await sound.playAsync();
+                sound.setOnPlaybackStatusUpdate((status) => {
+                    if (status.didJustFinish) {
+                        try { sound.unloadAsync(); } catch (e) { /* ignore */ }
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('Erro ao tocar alerta sonoro:', e);
+        }
+    }, []);
+
+
+
+
+
 
     // Effect: quando houver um link pendente, aguarda o modal fechar e abre o WhatsApp a partir da tela principal
     useEffect(() => {
@@ -1070,30 +1296,20 @@ export default function DeliveryApp(props) {
 
                 if (cancelled) return;
 
-                // Attempt to open the wa.me link; if it cannot be opened, fallback to api.whatsapp.com
-                try {
-                    const url = linkWhatsAppPendente.url;
-                    const phoneDigits = linkWhatsAppPendente.phoneDigits;
-                    const text = linkWhatsAppPendente.text || '';
-                    const podeAbrir = await Linking.canOpenURL(url);
-                    if (podeAbrir) {
-                        await Linking.openURL(url);
-                    } else {
-                        // fallback to web API endpoint
-                        await Linking.openURL(`https://api.whatsapp.com/send?phone=${phoneDigits}&text=${encodeURIComponent(text)}`);
-                    }
-                } catch (err) {
-                    console.warn('Erro ao abrir WhatsApp (deferred):', err);
-                    Alert.alert('Erro', 'Não foi possível abrir o WhatsApp. Tente novamente.');
+                // Verify WhatsApp is installed
+                const canOpenWhatsApp = await Linking.canOpenURL('whatsapp://send');
+                if (!canOpenWhatsApp) {
+                    Alert.alert('Erro', 'WhatsApp não está instalado no dispositivo.');
                     return;
                 }
+
+                // Finally open the URL
+                await Linking.openURL(linkWhatsAppPendente.url);
             } catch (err) {
                 console.warn('Erro ao abrir WhatsApp (deferred):', err);
                 Alert.alert('Erro', 'Não foi possível abrir o WhatsApp.');
             } finally {
                 setLinkWhatsAppPendente(null);
-                // clear the persisted photo URL as well
-                setOcorrenciaPhotoUrl(null);
             }
         })();
         return () => { cancelled = true; };
@@ -1104,80 +1320,61 @@ export default function DeliveryApp(props) {
             Alert.alert('Erro', 'Nenhum pedido selecionado para reportar.');
             return;
         }
-        const phone = (phoneOverride || GESTOR_PHONE || BOSS_PHONE || '').replace(/[^0-9]/g, '');
+
+        // Busca o número do gestor (do Supabase)
+        let phoneDigits = null;
+        try { phoneDigits = await fetchGestorPhone(); } catch (e) { console.warn('abrirWhatsApp: falha ao buscar número do gestor:', e); phoneDigits = null; }
+        if (!phoneDigits) {
+            Alert.alert('Erro', 'Número do gestor não configurado no sistema.');
+            return;
+        }
+
         const lat = coords?.latitude ?? pedido.lat ?? '';
         const lng = coords?.longitude ?? pedido.lng ?? '';
         const maps = (lat && lng) ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : 'Localização não disponível';
         // Mensagem com emojis conforme pedido (inclui foto se houver)
         const fotoLine = pedido?.assinatura_url ? `\nFoto: ${pedido.assinatura_url}` : '';
-        const text = `🚨 Motorista: Leandro\n👤 Cliente: ${pedido.cliente}\n📍 Local: ${maps}\nMotivo: ${motivo}${fotoLine}`;
-        // Ensure phone is in international format beginning with country code 55
-        let phoneDigits = phone.replace(/[^0-9]/g, '');
-        if (!phoneDigits.startsWith('55')) phoneDigits = `55${phoneDigits}`;
+        const motorName = pedido?.motorista || pedido?.motorista_nome || (pedido?.motorista_id ? `Motorista ${pedido.motorista_id}` : (`Motorista ${props?.motoristaId ?? ''}`));
+        const text = `🚨 Motorista: ${motorName}\n👤 Cliente: ${pedido.cliente}\n📍 Local: ${maps}\nMotivo: ${motivo}${fotoLine}`;
 
         // Use https://wa.me/ format for better stability on Android
         const webUrl = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(text)}`;
 
         try {
-            const podeAbrir = await Linking.canOpenURL(webUrl);
-            if (podeAbrir) {
-                await Linking.openURL(webUrl);
-            } else {
-                // fallback to web API endpoint
-                await Linking.openURL(`https://api.whatsapp.com/send?phone=${phoneDigits}&text=${encodeURIComponent(text)}`);
+            // Verify WhatsApp is installed (avoid silent failures)
+            const canOpenWhatsApp = await Linking.canOpenURL('whatsapp://send');
+            if (!canOpenWhatsApp) {
+                Alert.alert('Erro', 'WhatsApp não está instalado no dispositivo.');
+                return;
             }
+
+            // Open the wa.me link (browser/OS will redirect to WhatsApp app)
+            await Linking.openURL(webUrl);
         } catch (err) {
             console.warn('Erro ao abrir WhatsApp:', err);
             Alert.alert('Erro', 'Não foi possível abrir o WhatsApp. Tente novamente.');
         }
     };
 
-    const abrirWhatsappOcorrencia = async (item, motivo, observacao = '') => {
-        try {
-            // 1. Busca o número ATUALIZADO que você salvou no Dashboard
-            const { data } = await supabase
-                .from('configuracoes')
-                .select('valor')
-                .eq('chave', 'gestor_phone')
-                .single();
-
-            // 2. Limpeza Cirúrgica (Remove tudo que não for número)
-            const apenasNumeros = String(data?.valor || GESTOR_PHONE || BOSS_PHONE || '').replace(/\D/g, '');
-            const numeroLimpo = (apenasNumeros.startsWith('55') ? apenasNumeros : `55${apenasNumeros}`) || '55489XXXXXXXX'; // Seu número real de backup aqui
-
-            // 3. Monta a URL oficial do WhatsApp com a mensagem pedida (formatada com negrito preciso sem duplicação)
-            const motivoSelecionado = motivo;
-            const textoObservacao = observacao ? String(observacao) : '';
-            const nomeMotoristaExibido = nomeMotorista || 'Leandro moto 1';
-            const endereco = item?.endereco || 'Endereço não disponível';
-
-            const mensagem = `*🚨 ALERTA: NÃO ENTREGA 🚨*\n\n` +
-                `*👤 Motorista:* ${nomeMotoristaExibido}\n` +
-                `*👥 Cliente:* ${item?.cliente || ''}\n` +
-                `*📍 Local:* ${endereco}\n` +
-                `*⚠️ Motivo:* ${motivoSelecionado}\n` +
-                `*📝 Obs:* ${textoObservacao}`;
-
-            const url = `https://wa.me/${numeroLimpo}?text=${encodeURIComponent(mensagem)}`;
-
-            try {
-                await Linking.openURL(url);
-            } catch (err) {
-                // fallback
-                await Linking.openURL(`https://api.whatsapp.com/send?phone=${numeroLimpo}&text=${encodeURIComponent(mensagem)}`);
-            }
-        } catch (error) {
-            Alert.alert("Erro", "Não foi possível abrir o WhatsApp.");
+    // Abre o mapa por endereço (fallback quando não há coordenadas)
+    const abrirMapa = (endereco) => {
+        if (!endereco || String(endereco).trim() === '') {
+            Alert.alert('Endereço indisponível', 'Este pedido não tem um endereço cadastrado.');
+            return;
         }
-    };
-
-    // Abre o modal de motivos (substitui o antigo Alert)
-    const showOcorrenciaMotivoMenu = (item) => {
-        setPedidoSelecionado(item);
-        setSelectedReason(null);
-        setTextoOcorrencia('');
-        setModalOcorrencia(true);
-        setModalRefreshKey(k => k + 1);
+        const encoded = encodeURIComponent(endereco);
+        const url = Platform.select({
+            ios: `maps:0,0?q=${encoded}`,
+            android: `geo:0,0?q=${encoded}`,
+        });
+        Linking.openURL(url)
+            .catch(() => {
+                // fallback web
+                Linking.openURL('https://www.google.com/maps/search/?api=1&query=' + encoded).catch(err => {
+                    console.warn('abrirMapa: erro ao abrir mapa', err);
+                    Alert.alert('Erro', 'Não foi possível abrir o aplicativo de mapas.');
+                });
+            });
     };
 
     const openExternalNavigation = async (item) => {
@@ -1197,9 +1394,9 @@ export default function DeliveryApp(props) {
         const appleUrl = `http://maps.apple.com/?daddr=${latNum},${lngNum}`;
         const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latNum},${lngNum}`;
 
+
+
         try {
-
-
             // Build available options
             const options = [];
             const handlers = [];
@@ -1240,7 +1437,7 @@ export default function DeliveryApp(props) {
     const moverPedido = (fromIndex, toIndex) => {
         // Marca que o usuário reordenou a lista manualmente
         userReorderedRef.current = true;
-        setEntregas(prev => {
+        debugSetEntregas(prev => {
             const novoRoteiro = [...prev]; // cria novo array para forçar rerender
             if (toIndex < 0 || toIndex >= novoRoteiro.length) return prev;
             const [removido] = novoRoteiro.splice(fromIndex, 1);
@@ -1252,9 +1449,7 @@ export default function DeliveryApp(props) {
                 setPedidoSelecionado(sel || null);
             }
 
-            // Mantém `pedidos` sincronizado com a nova ordem
-            setPedidos(novoRoteiro);
-
+            // Update summary counters (will be recalculated from entregas state)
             return novoRoteiro;
         });
     };
@@ -1262,7 +1457,7 @@ export default function DeliveryApp(props) {
     // centralizar automaticamente quando o primeiro pedido mudar (ex.: reorder)
     const prevFirstRef = useRef(null);
     useEffect(() => {
-        const first = pedidos && pedidos[0];
+        const first = entregas && entregas[0];
         const id = first?.id;
         if (!id) return;
         if (prevFirstRef.current !== id) {
@@ -1273,12 +1468,26 @@ export default function DeliveryApp(props) {
                 } catch (e) { /* ignore */ }
             }
         }
-    }, [pedidos]);
+    }, [entregas]);
+
+    // useEffect(() => {
+    //     try {
+
+    //     } catch (e) { /* ignore */ }
+    // }, [entregas]);
+    // ❌ LOG DE DEBUG desabilitado para evitar logs/ações no mount
 
     const normalizePedido = (it) => {
         const item = { ...(it || {}) };
+        // Map client name from possible DB columns
+        item.cliente = item.cliente || item.nome || item.nome_cliente || item.destinatario || item.customer_name || '';
+
+        // Map address from common DB columns
+        item.endereco = item.endereco || item.endereco_entrega || item.logradouro || item.address || '';
+        if (!item.endereco && item.rua) item.endereco = `${item.rua}${item.numero ? ', ' + item.numero : ''}${item.bairro ? ' - ' + item.bairro : ''}`;
+
         // Normalize tipo_servico: ensure string 'Entrega'|'Recolha'|'Outros'
-        const t = item.tipo_servico;
+        const t = item.tipo_servico || item.tipo || item.categoria;
         if (typeof t === 'string') {
             const tr = t.trim().toLowerCase();
             if (tr === 'entrega') item.tipo_servico = 'Entrega';
@@ -1289,9 +1498,10 @@ export default function DeliveryApp(props) {
             // common numeric mapping (best-effort)
             if (t === 1) item.tipo_servico = 'Entrega';
             else if (t === 2) item.tipo_servico = 'Recolha';
-            else item.tipo_servico = 'Outros';
+            else item.tipo_servico = String(t);
         } else {
-            item.tipo_servico = item.tipo_servico || 'Outros';
+            // Do not inject 'Outros' by default; prefer to keep DB value or empty to reflect authoritative data
+            item.tipo_servico = item.tipo_servico || item.tipo || '';
         }
         return item;
     };
@@ -1311,97 +1521,17 @@ export default function DeliveryApp(props) {
         return { backgroundColor: corFundo };
     };
 
-    /*
-    Copied Prompt (Ajuste Final):
-    "Copilot, estamos no erro final de TextImpl. Para o app abrir agora, vamos simplificar o renderItem do DraggableFlatList:
-
-    Remova qualquer uso de Animated.Text ou componentes de texto customizados dentro do item da lista.
-
-    Use apenas o Text comum importado de 'react-native'.
-
-    Certifique-se de que a função drag está apenas no onLongPress da TouchableOpacity ou View que envolve o card todo.
-
-    Não mexa no nome 'Leandro moto 1', no WhatsApp em negrito e no sistema de assinatura.
-
-    Garanta que o item retornado não esteja envolvido por nada que tente animar o texto individualmente."
-    */
-    // --- INÍCIO DA CORREÇÃO COM FORWARDREF ---
-
-    const PedidoCard = React.memo(React.forwardRef(({ item, index, drag, ordinal, isActive }, ref) => {
-        const idxDisplay = ordinal || (index + 1);
-        const rawTipo = String(item.tipo || '').trim().toLowerCase();
-
-        let label = 'Outros';
-        let corCard = 'rgba(175, 82, 222, 0.5)';
-        if (rawTipo.includes('entrega')) {
-            label = 'Entrega';
-            corCard = 'rgba(0, 122, 255, 0.5)';
-        } else if (rawTipo.includes('recolha')) {
-            label = 'Recolha';
-            corCard = 'rgba(255, 149, 0, 0.5)';
-        }
-
-        return (
-            // O ref é passado para a View principal para que o DraggableFlatList possa segurá-la
-            <View ref={ref} style={{ width: '100%' }}>
-                <TouchableOpacity
-                    style={[styles.cardGrande, { backgroundColor: corCard }, (pedidoSelecionado && pedidoSelecionado.id === item.id) ? styles.cardEmDestaque : null]}
-                    activeOpacity={0.9}
-                    onPress={() => {
-                        setPedidoSelecionado(item);
-                        if (item.lat && item.lng) {
-                            mapRef.current?.animateToRegion({ latitude: Number(item.lat), longitude: Number(item.lng), latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500);
-                        }
-                    }}
-                    onLongPress={drag} // O drag vai direto no onLongPress
-                >
-                    <View style={styles.cardHeader}>
-                        <View style={styles.badge}><Text style={styles.badgeTextLarge}>{idxDisplay}º - {label}</Text></View>
-                        <View style={{ marginLeft: 10 }}><Text style={styles.badgeId}>#{item.id}</Text></View>
-                        <View style={styles.cardHeaderRight}>
-                            <TouchableOpacity disabled={idxDisplay === 1} onPress={() => moverPedido(index, index - 1)} style={styles.arrowBtn}><Text style={styles.arrowBtnText}>⬆️</Text></TouchableOpacity>
-                            <TouchableOpacity disabled={idxDisplay === entregas.length} onPress={() => moverPedido(index, index + 1)} style={styles.arrowBtn}><Text style={styles.arrowBtnText}>⬇️</Text></TouchableOpacity>
-                        </View>
-                    </View>
-
-                    {/* Nome do cliente e WhatsApp (Mantidos conforme sua necessidade) */}
-                    <Text style={styles.cardName}>#{item.id} — {item.cliente}</Text>
-                    {item.observacoes ? <Text style={styles.observacoesText} numberOfLines={2}>{item.observacoes}</Text> : null}
-                    <Text style={styles.addressText} numberOfLines={2}>{item.endereco || 'Endereço não disponível'}</Text>
-
-                    <View style={styles.btnRowThree}>
-                        <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#002366', paddingVertical: 14 }]} onPress={() => abrirMapa(item.endereco)}>
-                            <Text style={{ color: '#fff', fontWeight: 'bold' }}>📍 ROTA</Text>
-                        </TouchableOpacity>
-                        <View style={{ flex: 1, marginLeft: 12 }}>
-                            <View style={styles.btnSplitContainer}>
-                                <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#e74c3c', marginRight: 8 }]} onPress={() => iniciarFluxoNaoEntregue(item)}>
-                                    <Text style={{ color: '#fff', fontSize: 11, fontWeight: 'bold' }}>NÃO ENTREGUE</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#28a745', marginLeft: 8 }]} onPress={() => { setPedidoSelecionado(item); setModalAssinatura(true); }}>
-                                    <Text style={{ color: '#fff', fontSize: 11, fontWeight: 'bold' }}>FINALIZAR</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </View>
-                </TouchableOpacity>
-            </View>
-        );
-    }));
-
-    // --- FIM DA CORREÇÃO COM FORWARDREF ---
-
-    function renderPedidoItem(p, idx, opts = {}) {
+    function renderPedidoItem(p, idx) {
         const item = p;
-        const { drag, isActive, getIndex, ordinal } = opts;
-        // Diagnostic statements removed for production to reduce console noise
+        // Diagnostic: mostra exatamente o objeto do card e o valor bruto do tipo
+
 
         // Use a coluna `tipo` explicitamente (mas normalize para evitar problemas de caixa/espaços)
         const rawTipo = String(item.tipo || '').trim();
         const tipoNormalized = rawTipo.toLowerCase();
 
-        let label = 'Outros';
-        let corCard = 'rgba(175, 82, 222, 0.5)'; // Lilás (Outros)
+        let label = (item.tipo_servico || item.tipo || '').trim() || '—';
+        let corCard = 'rgba(200,200,200,0.4)'; // Cinza neutro quando tipo desconhecido
 
         if (tipoNormalized === 'entrega') {
             label = 'Entrega';
@@ -1416,6 +1546,7 @@ export default function DeliveryApp(props) {
             <TouchableOpacity style={[styles.cardGrande, cardStyle, (pedidoSelecionado && pedidoSelecionado.id === item.id) ? styles.cardEmDestaque : null]} key={item.id} onPress={() => {
                 // Seleciona o pedido, centraliza o mapa suavemente e sobe a aba para TOP
                 setPedidoSelecionado(item);
+                lastSelectedRef.current = item;
                 if (item.lat && item.lng) {
                     const lat = Number(item.lat);
                     const lng = Number(item.lng);
@@ -1425,36 +1556,38 @@ export default function DeliveryApp(props) {
                     lastSnapY.current = TOP_Y;
                     setIsAtTop(true);
                 });
-            }} onLongPress={() => { try { if (drag) drag(); } catch (e) { } }} activeOpacity={0.9}>
+            }} activeOpacity={0.9}>
 
                 <View style={styles.cardHeader}>
-                    <View style={styles.badge}><Text style={styles.badgeTextLarge}>{(ordinal || idx + 1)}º - {label}</Text></View>
+                    <View style={styles.badge}><Text style={styles.badgeTextLarge}>{idx + 1}º - {label}</Text></View>
                     <View style={{ marginLeft: 10 }}><Text style={styles.badgeId}>#{item.id}</Text></View>
                     <View style={styles.cardHeaderRight}>
-                        <TouchableOpacity disabled={(ordinal ? (ordinal === 1) : idx === 0)} onPress={() => moverPedido(idx, idx - 1)} style={styles.arrowBtn}><Text style={styles.arrowBtnText}>⬆️</Text></TouchableOpacity>
-                        <TouchableOpacity disabled={(ordinal ? (ordinal === (entregas.length)) : idx === pedidos.length - 1)} onPress={() => moverPedido(idx, idx + 1)} style={styles.arrowBtn}><Text style={styles.arrowBtnText}>⬇️</Text></TouchableOpacity>
+                        <TouchableOpacity disabled={idx === 0} onPress={() => moverPedido(idx, idx - 1)} style={styles.arrowBtn}><Text>⬆️</Text></TouchableOpacity>
+                        <TouchableOpacity disabled={idx === entregas.length - 1} onPress={() => moverPedido(idx, idx + 1)} style={styles.arrowBtn}><Text>⬇️</Text></TouchableOpacity>
                     </View>
                 </View>
 
                 <Text style={styles.cardName}>#{item.id} — {item.cliente}</Text>
                 {item.observacoes ? <Text style={styles.observacoesText} numberOfLines={2}>{item.observacoes}</Text> : null}
-                <Text style={styles.addressText} numberOfLines={2}>{item.endereco || (item.rua ? `${item.rua}, ${item.numero || ''} ${item.bairro || ''}` : 'Endereço não disponível')}</Text>
+                <TouchableOpacity onPress={() => { setPedidoSelecionado(item); lastSelectedRef.current = item; setModalAssinatura(true); setModalRefreshKey(k => k + 1); }} activeOpacity={0.7}>
+                    <Text style={styles.addressText} numberOfLines={2}>{item.endereco || (item.rua ? `${item.rua}, ${item.numero || ''} ${item.bairro || ''}` : 'Endereço não disponível')}</Text>
+                </TouchableOpacity>
 
                 <View style={{ height: 12 }} />
 
                 <View style={styles.btnRowThree}>
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#002366', paddingVertical: 14 }]} onPress={() => abrirMapa(item.endereco)}>
-                        <Text style={[styles.btnIconText, { color: '#fff' }]}>📍 ROTA</Text>
+                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#002366' }]} onPress={() => { if (item?.lat && item?.lng) { openExternalNavigation(item); } else { abrirMapa(item?.endereco); } }}>
+                        <Text style={[styles.btnIconText, { color: '#fff' }]}>ROTA</Text>
                     </TouchableOpacity>
 
                     {/* Split row: NÃO ENTREGUE (vermelho) | FINALIZAR (verde) - mesmos tamanhos, ocupando largura restante */}
                     <View style={{ flex: 1, marginLeft: 12 }}>
                         <View style={styles.btnSplitContainer}>
-                            <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#e74c3c', marginRight: 8 }]} onPress={() => iniciarFluxoNaoEntregue(item)}>
+                            <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#ff8c00', marginRight: 8 }]} onPress={() => { handleNaoEntregue(item); }}>
                                 <Text style={[styles.btnIconText, { color: '#fff' }]}>NÃO ENTREGUE</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#28a745', marginLeft: 8 }]} onPress={() => { setPedidoSelecionado(item); setModalAssinatura(true); }}>
+                            <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#28a745', marginLeft: 8 }]} onPress={() => { handleAbrirFinalizacao(item); }}>
                                 <Text style={[styles.btnIconText, { color: '#fff' }]}>FINALIZAR</Text>
                             </TouchableOpacity>
                         </View>
@@ -1468,74 +1601,76 @@ export default function DeliveryApp(props) {
 
     return (
         <View style={styles.container}>
-            <View style={styles.topBar} pointerEvents="box-none">
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogoutPress} accessibilityLabel="Sair">
-                    <Text style={styles.logoutText}>Sair</Text>
-                </TouchableOpacity>
+            {/* Top command bar (clean professional UI) */}
+            <View style={styles.commandBar} pointerEvents="box-none">
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <TouchableOpacity style={styles.cmdBtnLeft} onPress={() => { try { carregarEntregas(); } catch (e) { console.warn('Atualizar: erro ao chamar carregarEntregas', e); } }} accessibilityLabel="Atualizar">
+                        <Text style={styles.cmdBtnText}>⟳</Text>
+                    </TouchableOpacity>
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity style={[styles.cmdBtn, { marginRight: 8 }]} onPress={() => { try { handleCentralizarMapa(); } catch (e) { console.warn('Erro ao centralizar mapa:', e); } }} accessibilityLabel="Centralizar">
+                            <Text style={styles.cmdBtnText}>🎯</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.cmdBtn} onPress={handleLogoutPress} accessibilityLabel="Sair">
+                            <Text style={styles.cmdBtnText}>Sair</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
             </View>
 
+            {/* Simplified UI for Phase 1 testing: no Map, no modals. */}
+            <View style={{ padding: 12 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+                    <View style={{ alignItems: 'center' }}><Text>Entregas</Text><Text style={{ fontWeight: 'bold' }}>{totalEntregas}</Text></View>
+                    <View style={{ alignItems: 'center' }}><Text>Recolhas</Text><Text style={{ fontWeight: 'bold' }}>{totalRecolhas}</Text></View>
+                    <View style={{ alignItems: 'center' }}><Text>Outros</Text><Text style={{ fontWeight: 'bold' }}>{totalOutros}</Text></View>
+                </View>
+            </View>
 
-
+            {/* Map restored for production use */}
             <MapView
                 ref={mapRef}
                 style={styles.map}
-                // 📍 DESATIVADO: a bolinha azul nativa foi escondida para usar o marcador personalizado
-                showsUserLocation={false}
-                followsUserLocation={true}
-                showsMyLocationButton={false} // Escondemos o nativo para usar o seu botão redondo
+                showsUserLocation={true}
+                showsMyLocationButton={false}
                 initialRegion={{
-                    latitude: -23.5505,
-                    longitude: -46.6333,
+                    latitude: -27.6146,
+                    longitude: -48.6493,
                     latitudeDelta: 0.05,
                     longitudeDelta: 0.05
                 }}
             >
-                {/* MARCADOR PULSANTE DO MOTORISTA (usando animações) */}
+                {/* Driver position marker */}
                 {posicaoMotorista && posicaoMotorista.latitude != null && posicaoMotorista.longitude != null && (
                     <Marker
-                        coordinate={{
-                            latitude: Number(posicaoMotorista.latitude),
-                            longitude: Number(posicaoMotorista.longitude)
-                        }}
+                        coordinate={{ latitude: Number(posicaoMotorista.latitude), longitude: Number(posicaoMotorista.longitude) }}
                         anchor={{ x: 0.5, y: 0.5 }}
                     >
                         <View style={styles.containerPulsante}>
-                            {/* Simples indicador do motorista, sem animação pesada */}
                             <View style={[styles.pulsoVermelhoStatic]} />
-
-                            {/* Bolinha Central Fixa */}
                             <View style={styles.bolinhaVermelhaCentro} />
                         </View>
                     </Marker>
                 )}
 
-                {/* MARKERS DOS PEDIDOS (reflete ordem atual em `entregas`) */}
-                {entregas.map((p, idx) => (
+                {/* Entregas markers */}
+                {entregas.map(p => (
                     (p.lat != null && p.lng != null) ? (
-                        <Marker
-                            key={p.id}
-                            coordinate={{ latitude: Number(p.lat), longitude: Number(p.lng) }}
-                            anchor={{ x: 0.5, y: 1 }}
-                        >
-                            <View style={styles.markerBadge}>
-                                <Text style={styles.markerBadgeText}>{idx + 1}</Text>
-                            </View>
-                        </Marker>
+                        <Marker key={p.id} coordinate={{ latitude: Number(p.lat), longitude: Number(p.lng) }} pinColor={p.status === 'entregue' ? 'green' : 'orange'} />
                     ) : null
                 ))}
 
-                {/* Marker for selected pedido (highlight) */}
-                {pedidoSelecionado && pedidoSelecionado.lat != null && pedidoSelecionado.lng != null && (
+                {/* Selected pedido marker */}
+                {pedidoSelecionado && pedidoSelecionado.lat != null && pedidoSelecionado.lng != null ? (
                     <Marker key={'selected'} coordinate={{ latitude: Number(pedidoSelecionado.lat), longitude: Number(pedidoSelecionado.lng) }}>
                         <View style={styles.selectedMarker}><View style={styles.selectedMarkerDot} /></View>
                     </Marker>
-                )}
+                ) : null}
+
             </MapView>
 
-
-
-
-            {/* Bottom sheet - manual Animated View with PanResponder (glass backdrop) */}
             <Animated.View
                 style={[styles.sheet, { transform: [{ translateY: sheetTranslateY }] }]}
                 {...sheetPanResponder.panHandlers}
@@ -1555,7 +1690,6 @@ export default function DeliveryApp(props) {
                         </TouchableOpacity>
 
                         <View style={styles.sheetContentGlass}>
-                            {/* Resumo do dia */}
                             <View style={styles.resumoRow}>
                                 <View style={styles.resumoBadge}><Text style={[styles.resumoIcon]}>👤</Text><Text style={styles.resumoText}>{totalEntregas}</Text></View>
                                 <View style={styles.resumoBadge}><Text style={[styles.resumoIcon]}>📦</Text><Text style={styles.resumoText}>{totalRecolhas}</Text></View>
@@ -1567,7 +1701,7 @@ export default function DeliveryApp(props) {
                                 extraData={entregas}
                                 renderItem={({ item, index }) => renderPedidoItem(item, index)}
                                 keyExtractor={item => String(item.id)}
-                                contentContainerStyle={{ paddingBottom: 160, paddingTop: 6, paddingHorizontal: 12 }}
+                                contentContainerStyle={{ paddingBottom: 160, paddingTop: 86, paddingHorizontal: 12 }}
                                 scrollEnabled={isAtTop}
                                 showsVerticalScrollIndicator={false}
                             />
@@ -1578,116 +1712,7 @@ export default function DeliveryApp(props) {
 
 
 
-
-            {/* MODAL NÃO ENTREGUE (WHATSAPP) */}
-            <Modal visible={modalOcorrencia} animationType="fade" transparent={true}>
-                <Pressable style={styles.modalOverlayLight} onPress={() => { setModalOcorrencia(false); setSelectedReason(null); setTextoOcorrencia(''); setOcorrenciaPhotoUrl(null); }}>
-                    <Pressable onPress={() => { /* stop propagation */ }} style={[styles.modalOcorrenciaContent, { backgroundColor: '#fff', paddingBottom: 20, borderTopLeftRadius: 16, borderTopRightRadius: 16 }]}>
-
-                        {/* (Câmera removida — fluxo de 'Não Entregue' abre a câmera diretamente) */}
-
-                        {/* Feedback visual durante upload */}
-                        {(ocorrenciaUploading || ocorrenciaProcessing) ? (
-                            <View style={{ alignItems: 'center', marginBottom: 8 }}>
-                                <ActivityIndicator size="large" color="#16a34a" />
-                                <Text style={{ color: '#111', marginTop: 6 }}>{ocorrenciaUploading ? 'Enviando foto...' : 'Enviando ocorrência...'}</Text>
-                            </View>
-                        ) : null}
-
-                        {/* Confirmação de foto salva (permanece no modal) */}
-                        {ocorrenciaPhotoUrl ? (
-                            <View style={{ alignItems: 'center', marginBottom: 8 }}>
-                                <Text style={{ color: '#16a34a', fontWeight: '600' }}>✅ Foto salva!</Text>
-                            </View>
-                        ) : null}
-
-                        {/* Lista de motivos (scrollable) */}
-                        <ScrollView style={{ maxHeight: 260, marginBottom: 8 }} contentContainerStyle={{ paddingVertical: 4 }} keyboardShouldPersistTaps="handled">
-                            {[
-                                { label: '📍 Endereço Não Encontrado', value: 'Endereço Não Encontrado' },
-                                { label: '👤 Cliente Ausente', value: 'Cliente Ausente' },
-                                { label: '🚪 Estabelecimento Fechado', value: 'Estabelecimento Fechado' },
-                                { label: '🙅 Recusado pelo Cliente', value: 'Recusado pelo Cliente' },
-                                { label: '🚛 Problema com o Veículo', value: 'Problema com o Veículo' },
-                                { label: '📦 Carga Danificada', value: 'Carga Danificada' },
-                                { label: '🛠️ Outros', value: 'Outros' }
-                            ].map((m) => (
-                                <TouchableOpacity
-                                    key={m.value}
-                                    style={[styles.btnMotivo, selectedReason === m.value ? styles.btnMotivoSelected : null]}
-                                    onPress={() => {
-                                        if (ocorrenciaUploading || ocorrenciaProcessing) {
-                                            setQueuedOcorrenciaMotivo(m.value);
-                                            Alert.alert('Aguarde', 'Foto em envio ou processamento. A ocorrência será enviada assim que terminar.');
-                                            return;
-                                        }
-                                        setSelectedReason(m.value);
-                                        // fecha teclado caso esteja aberto
-                                        try { Keyboard.dismiss(); } catch (e) { /* ignore */ }
-                                    }}
-                                >
-                                    <Text style={[styles.txtMotivo, selectedReason === m.value ? styles.txtMotivoSelected : null]}>{m.label}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-
-                        {/* Observações adicionais (sempre disponível) */}
-                        <TextInput
-                            ref={inputOcorrenciaRef}
-                            style={[styles.inputOcorrencia, { backgroundColor: '#fff', color: '#000', borderColor: '#e5e7eb', borderWidth: 1 }]}
-                            placeholder="Observações adicionais (opcional)"
-                            placeholderTextColor="#9aa4b2"
-                            value={textoOcorrencia}
-                            onChangeText={setTextoOcorrencia}
-                            multiline
-                            maxLength={100}
-                            blurOnSubmit={true}
-                            returnKeyType="done"
-                            onSubmitEditing={() => { Keyboard.dismiss(); }}
-                        />
-
-                        <View style={styles.modalButtonsRow}>
-                            <TouchableOpacity style={styles.btnCancel} onPress={() => { setModalOcorrencia(false); setTextoOcorrencia(''); setSelectedReason(null); setOcorrenciaPhotoUrl(null); }}>
-                                <Text style={{ color: '#000' }}>CANCELAR</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={[styles.btnSend, (ocorrenciaUploading || ocorrenciaProcessing) ? { opacity: 0.8 } : null]} disabled={ocorrenciaUploading || ocorrenciaProcessing || !selectedReason} onPress={async () => {
-                                // Envia ocorrência com motivo selecionado e observações
-                                try { Keyboard.dismiss(); } catch (e) { /* ignore */ }
-                                const motivo = selectedReason || 'Motivo não informado';
-                                const observacao = String(textoOcorrencia || '').trim();
-                                if (!pedidoSelecionado) {
-                                    Alert.alert('Erro', 'Nenhum pedido selecionado.');
-                                    return;
-                                }
-                                if (!ocorrenciaPhotoUrl && !pedidoSelecionado?.assinatura_url) {
-                                    Alert.alert('Atenção', 'Por favor, tire e salve a foto primeiro.');
-                                    return;
-                                }
-                                try {
-                                    setOcorrenciaProcessing(true);
-                                    await handleOcorrenciaChoice(motivo, pedidoSelecionado, observacao);
-                                } catch (e) {
-                                    console.warn('Erro ao enviar ocorrência via modal:', e);
-                                    Alert.alert('Erro', 'Falha ao enviar ocorrência.');
-                                } finally {
-                                    setOcorrenciaProcessing(false);
-                                }
-                            }}>
-                                {(ocorrenciaProcessing || ocorrenciaUploading) ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={{ color: '#fff', fontWeight: '700' }}>ENVIAR OCORRÊNCIA</Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </Pressable>
-                </Pressable>
-            </Modal>
-
-
-
-            {/* MODAL ASSINATURA (ASSINATURA FULLSCREEN) */}
+            {/* MODAL ASSINATURA (CONFIRMAR ENTREGA) */}
             <Modal
                 visible={modalAssinatura}
                 animationType="slide"
@@ -1698,7 +1723,7 @@ export default function DeliveryApp(props) {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalAssinaturaFull}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                            <Text style={styles.modalTitle}>ASSINATURA DO CLIENTE</Text>
+                            <Text style={styles.modalTitle}>{isNaoEntregue ? 'MOTIVO DA NÃO ENTREGA' : 'CONFIRMAR ENTREGA'}</Text>
                         </View>
 
                         {modalProcessing ? (
@@ -1707,88 +1732,119 @@ export default function DeliveryApp(props) {
                             </View>
                         ) : null}
 
-                        {enviando ? (
-                            <View style={[styles.modalProcessing, { backgroundColor: 'rgba(0,0,0,0.6)' }]} pointerEvents="auto">
-                                <ActivityIndicator size="large" color="#4CAF50" />
-                                <Text style={[styles.modalProcessingText, { color: '#fff' }]}>Enviando assinatura...</Text>
-                            </View>
-                        ) : null}
+                        {/* Campo de texto para o nome do recebedor (substitui assinatura) */}
+                        <View style={[styles.containerAssinatura, { padding: 12 }]}>
+                            {isNaoEntregue ? (
+                                <>
+                                    <Text style={{ fontWeight: 'bold', marginBottom: 8 }}>Motivo da Não Entrega</Text>
 
-                        {/* ✍️ ÁREA DE DESENHO (90% DA CAIXA) */}
-                        <View style={styles.containerAssinatura}>
-                            <SignatureScreen
-                                ref={signatureRef}
-                                onOK={(img) => {
-                                    // img é dataURL (base64). Salvamos assinatura + coords no pedido
-                                    handleSignatureOk(img);
-                                }}
-                                onBegin={() => { try { setAssinaturaErro(false); setAssinaturaPreenchida(true); } catch (e) { } }}
-                                onEmpty={() => { try { setAssinaturaErro(true); setAssinaturaPreenchida(false); } catch (e) { } }}
-                                descriptionText="Assine acima para confirmar"
-                                clearText="Apagar"
-                                confirmText="Enviar"
-                                autoClear={false}
-                                imageType="image/png"
-                                penColor="black" // Risco preto
-                                backgroundColor="white" // Fundo branco
-                            />
+                                    <View style={styles.quickReasonList}>
+                                        {motivosRapidos.map((m, i) => (
+                                            <TouchableOpacity
+                                                key={m + '_' + i}
+                                                style={[styles.quickReasonBtn, m === 'Outro (Digitar Motivo)' ? { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ccc' } : {}]}
+                                                onPress={() => {
+                                                    if (m === 'Outro (Digitar Motivo)') {
+                                                        // habilita input para digitar, sem fechar o modal
+                                                        setMotivoLocal('');
+                                                        setMostrarInputOutro(true);
+                                                        // foco rápido ao mostrar input
+                                                        setTimeout(() => { try { motivoInputRef.current && motivoInputRef.current.focus && motivoInputRef.current.focus(); } catch (e) { /* ignore */ } }, 100);
+                                                    } else {
+                                                        // envio imediato com o motivo selecionado
+                                                        handleConfirmNaoEntregue(m);
+                                                    }
+                                                }}
+                                            >
+                                                <Text style={styles.quickReasonText}>{m}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
 
+                                    {/* input habilitado apenas se escolher "Outro" */}
+                                    {mostrarInputOutro ? (
+                                        <View style={{ marginTop: 12 }}>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                                <TouchableOpacity onPress={() => { setMostrarInputOutro(false); setMotivoLocal(''); }} style={{ padding: 6 }}>
+                                                    <Text style={{ color: '#007bff' }}>← Voltar</Text>
+                                                </TouchableOpacity>
+                                                <Text style={{ fontSize: 12, color: '#666' }}>Digite o motivo</Text>
+                                                <View style={{ width: 60 }} />
+                                            </View>
 
+                                            <TextInput
+                                                ref={motivoInputRef}
+                                                value={motivoLocal}
+                                                onChangeText={setMotivoLocal}
+                                                placeholder="Descreva o motivo da não entrega"
+                                                style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, borderRadius: 6, backgroundColor: '#fff' }}
+                                                returnKeyType="done"
+                                                autoFocus={true}
+                                            />
+
+                                            <View style={{ flexDirection: 'row', marginTop: 12, justifyContent: 'space-between' }}>
+                                                <TouchableOpacity style={[styles.btnConfirmarFull, { flex: 1, backgroundColor: '#ff8c00', marginRight: 8 }]} onPress={() => { handleConfirmNaoEntregue(motivoLocal); }}>
+                                                    <Text style={styles.btnTextGeral}>CONFIRMAR MOTIVO</Text>
+                                                </TouchableOpacity>
+                                            </View>
+
+                                            <Text style={{ marginTop: 10, fontSize: 12, color: '#666' }}>Toque em "CONFIRMAR MOTIVO" para confirmar e notificar o gestor.</Text>
+                                        </View>
+                                    ) : null}
+                                </>
+                            ) : (
+                                <>
+                                    <Text style={{ fontWeight: 'bold', marginBottom: 8 }}>Nome do recebedor</Text>
+                                    <TextInput
+                                        ref={recebedorInputRef}
+                                        value={recebedorLocal}
+                                        onChangeText={setRecebedorLocal}
+                                        placeholder="Digite o nome que recebeu o pedido"
+                                        style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, borderRadius: 6, backgroundColor: '#fff' }}
+                                        returnKeyType="done"
+                                    />
+
+                                    {Array.isArray(ultimosRecebedores) && ultimosRecebedores.length > 0 ? (
+                                        <View style={{ marginTop: 12 }}>
+                                            <Text style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>Sugestões recentes</Text>
+                                            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                                                {ultimosRecebedores.map((r, idx) => (
+                                                    <TouchableOpacity key={r + '_' + idx} onPress={() => setRecebedorLocal(r)} style={{ backgroundColor: '#eee', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 16, marginRight: 8, marginBottom: 8 }}>
+                                                        <Text>{r}</Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </View>
+                                        </View>
+                                    ) : null}
+
+                                    <Text style={{ marginTop: 10, fontSize: 12, color: '#666' }}>Você pode deixar em branco se não houver recebedor.</Text>
+                                </>
+                            )}
                         </View>
-
-                        {/* Mensagem de erro caso confirme sem assinar */}
-                        {assinaturaErro ? (
-                            <View style={{ paddingHorizontal: 12, marginTop: 8 }}>
-                                <Text style={{ color: '#ff3333', fontWeight: '600' }}>Por favor, peça ao cliente para assinar antes de confirmar.</Text>
-                            </View>
-                        ) : null}
 
                         {/* 🔘 BOTÕES DE COMANDO EM BAIXO */}
                         <View style={styles.modalFooterAssina}>
-                            <TouchableOpacity style={styles.btnApagarFull} onPress={() => {
-                                try { if (signatureRef.current && signatureRef.current.clearSignature) signatureRef.current.clearSignature(); } catch (e) { }
-                                try { setAssinaturaPreenchida(false); setAssinaturaErro(false); } catch (e) { }
-                                setModalAssinatura(false);
-                            }}>
+                            <TouchableOpacity style={styles.btnApagarFull} onPress={() => { setModalAssinatura(false); setRecebedorLocal(''); setMotivoLocal(''); setIsNaoEntregue(false); setMostrarInputOutro(false); }}>
                                 <Text style={styles.btnTextGeral}>SAIR / LIMPAR</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={[styles.btnConfirmarFull, (enviando || (!assinaturaPreenchida && !((pedidos.find(p => p.id === pedidoSelecionado?.id) || pedidoSelecionado)?.assinatura) && !((pedidos.find(p => p.id === pedidoSelecionado?.id) || pedidoSelecionado)?.assinatura_url))) ? { opacity: 0.7 } : null]} disabled={enviando || (!assinaturaPreenchida && !((pedidos.find(p => p.id === pedidoSelecionado?.id) || pedidoSelecionado)?.assinatura) && !((pedidos.find(p => p.id === pedidoSelecionado?.id) || pedidoSelecionado)?.assinatura_url))} onPress={async () => {
-                                if (!pedidoSelecionado) {
-                                    Alert.alert('Erro', 'Nenhum pedido selecionado.');
-                                    return;
-                                }
-                                const target = pedidos.find(p => p.id === pedidoSelecionado.id) || pedidoSelecionado;
-                                if (!assinaturaPreenchida && !target?.assinatura && !target?.assinatura_url) {
-                                    try { setAssinaturaErro(true); } catch (e) { }
-                                    return;
-                                }
-                                await confirmarEntrega(target);
-                                setPedidoSelecionado(null);
-                            }}>
-                                {enviando ? (
-                                    <ActivityIndicator color="#4CAF50" />
-                                ) : (
+                            {isNaoEntregue ? (
+                                <TouchableOpacity style={[styles.btnConfirmarFull, { backgroundColor: '#ff8c00' }]} onPress={() => { handleConfirmNaoEntregue(); }}>
+                                    <Text style={styles.btnTextGeral}>ENVIAR MOTIVO</Text>
+                                </TouchableOpacity>
+                            ) : (
+                                <TouchableOpacity style={styles.btnConfirmarFull} onPress={() => { handleFinalizar(); }}>
                                     <Text style={styles.btnTextGeral}>CONFIRMAR ENTREGA</Text>
-                                )}
-                            </TouchableOpacity>
+                                </TouchableOpacity>
+                            )}
                         </View>
                     </View>
                 </View>
             </Modal>
 
-            {/* Tela de Transição centralizada após tirar foto de ocorrência */}
-            {ocorrenciaProcessing ? (
-                <View style={styles.modalTransitionOverlay} pointerEvents="auto">
-                    <ActivityIndicator size="large" color="#fff" />
-                    <Text style={styles.modalTransitionText}>Aguarde, salvando foto e preparando ocorrência...</Text>
-                </View>
-            ) : null}
-
         </View>
     );
 }
-
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
@@ -1805,8 +1861,6 @@ const styles = StyleSheet.create({
     map: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
     markerPin: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 15, borderWidth: 2, borderColor: '#FFF' },
     markerText: { color: '#FFF', fontWeight: 'bold' },
-    markerBadge: { backgroundColor: '#ff6a00', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 16, borderWidth: 2, borderColor: '#fff' },
-    markerBadgeText: { color: '#fff', fontWeight: '700' },
     aba: {
         position: 'absolute',
         left: 0,
@@ -1916,8 +1970,7 @@ const styles = StyleSheet.create({
     btnSplitContainer: { flexDirection: 'row', flex: 1, alignItems: 'center' },
     btnSplit: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     cardHeaderRight: { flexDirection: 'row', alignItems: 'center' },
-    arrowBtn: { width: 36, height: 36, borderRadius: 20, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', marginHorizontal: 6 },
-    arrowBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    arrowBtn: { paddingHorizontal: 8, paddingVertical: 4 },
     selectedMarker: { alignItems: 'center', justifyContent: 'center' },
     selectedMarkerDot: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#3498db', borderWidth: 3, borderColor: '#fff' },
     btnRowThree: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -1932,22 +1985,11 @@ const styles = StyleSheet.create({
     btnIconText: { color: '#111', fontWeight: '700', fontSize: 14, textAlign: 'center' },
     cardGrande: {
         backgroundColor: '#111827',
-        borderRadius: 16,
+        borderRadius: 12,
         padding: 14,
         marginBottom: 10,
-        elevation: 10, // sombra profunda no Android
+        elevation: 3,
         zIndex: 1,
-        // Sombra iOS
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        // Borda inferior mais grossa para efeito de peça física
-        borderBottomWidth: 4,
-        borderBottomColor: 'rgba(0,0,0,0.25)',
-        // Pequeno brilho no topo para simular reflexo
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.08)'
     },
     cardName: {
         color: '#FFF',
@@ -1993,22 +2035,16 @@ const styles = StyleSheet.create({
         zIndex: 9998,
     },
     modalOcorrenciaContent: {
-        width: '100%',
-        maxWidth: 520,
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
-        padding: 16,
+        width: '92%',
+        backgroundColor: '#141414',
+        borderRadius: 16,
+        padding: 20,
         elevation: 12,
-        alignSelf: 'flex-end',
     },
-    modalTitle: { color: '#111', fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
-    btnMotivo: { paddingVertical: 14, paddingHorizontal: 14, backgroundColor: '#f3f4f6', borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: '#e5e7eb' },
-    btnMotivoSelected: { backgroundColor: '#ecfdf5', borderColor: '#10b981' },
-    txtMotivo: { color: '#111', fontSize: 15, fontWeight: '700' },
-    txtMotivoSelected: { color: '#065f46' },
-    inputOcorrencia: { backgroundColor: '#fff', color: '#000', padding: 12, borderRadius: 10, marginTop: 10, marginBottom: 10, borderWidth: 1, borderColor: '#e5e7eb' },
-
+    modalTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
+    btnMotivo: { paddingVertical: 12, paddingHorizontal: 14, backgroundColor: '#222', borderRadius: 12, marginBottom: 8 },
+    txtMotivo: { color: '#fff', fontSize: 14 },
+    inputOcorrencia: { backgroundColor: '#1A1A1A', color: '#fff', padding: 12, borderRadius: 10, marginTop: 10, marginBottom: 10 },
     btnFechar: { paddingVertical: 12, alignItems: 'center', backgroundColor: '#444', borderRadius: 10, marginTop: 8 },
     /* Modal assinatura - versão full */
     modalAssinaturaFull: {
@@ -2020,6 +2056,9 @@ const styles = StyleSheet.create({
         elevation: 30,
         alignItems: 'center',
     },
+    quickReasonList: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+    quickReasonBtn: { backgroundColor: '#f2f2f2', paddingVertical: 12, paddingHorizontal: 10, borderRadius: 8, width: '48%', marginBottom: 10, alignItems: 'center', justifyContent: 'center' },
+    quickReasonText: { color: '#333', fontSize: 14, textAlign: 'center' },
     /* Overlay shown inside the assinatura modal while uploading/processing the photo */
     modalProcessing: {
         position: 'absolute',
@@ -2057,6 +2096,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         textAlign: 'center'
     },
+    /* Radar styles removed */
     containerAssinatura: {
         flex: 1, // Faz a área de assinatura ocupar todo o centro
         width: '100%',
@@ -2180,6 +2220,11 @@ const styles = StyleSheet.create({
     },
 
     /* Top bar e botão de logout */
+    // Top command bar (clean professional UI)
+    commandBar: { position: 'absolute', top: 50, left: 10, right: 10, backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 15, height: 60, paddingHorizontal: 12, justifyContent: 'center', zIndex: 300, elevation: 12, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+    cmdBtn: { backgroundColor: 'transparent', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+    cmdBtnLeft: { backgroundColor: 'transparent', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+    cmdBtnText: { color: '#111', fontWeight: '700', fontSize: 16 },
     topBar: { position: 'absolute', top: STATUSBAR_HEIGHT + 8, right: 12, zIndex: 200, alignItems: 'flex-end' },
     logoutButton: { backgroundColor: '#ef4444', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, elevation: 10 },
     logoutText: { color: '#fff', fontWeight: '700' },
@@ -2377,5 +2422,18 @@ const styles = StyleSheet.create({
         color: '#9aa4b2',
         fontSize: 12,
     },
+    cameraOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.75)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 30000,
+    },
 });
+
+export default DeliveryApp;
 

@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 // Lê configurações (prioriza variáveis de ambiente)
-const supabaseUrl = process.env.SUPABASE_URL || 'https://xdsoctyzmsxbhtjehsqd.supabase.co';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://uqxoadxqcwidxqsfayem.supabase.co';
 const supabaseSecretKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
 
 if (!supabaseSecretKey) {
