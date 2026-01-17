@@ -188,9 +188,10 @@ const MotoristaRestaurado = ({ isLoaded, entregas: entregasIniciais, onConcluir,
       const motoristaId = localStorage.getItem('motoristaId') || localStorage.getItem('mot_v10_id');
       if (!motoristaId) return;
 
+      // CORREÇÃO: Usando apenas colunas existentes no Supabase
       const { data, error } = await supabase
         .from('entregas')
-        .select('*')
+        .select('id, status, cliente, endereco, motorista_id, motorista, observacoes, assinatura, lat, lng, ordem, tipo, created_at')
         .eq('motorista_id', motoristaId)
         .order('ordem', { ascending: true });
 
@@ -606,9 +607,10 @@ function App() {
     // Versão simplificada para destravar o erro 400
     if (view === 'motorista' && motoristaIdLogado) {
       // No celular, busca direto pelo ID do motorista logado
+      // CORREÇÃO: Usando apenas colunas existentes no Supabase
       const { data, error } = await supabase
         .from('entregas')
-        .select('*')
+        .select('id, status, cliente, endereco, motorista_id, motorista, observacoes, assinatura, lat, lng, ordem, tipo, created_at')
         .eq('motorista_id', motoristaIdLogado)
         .order('ordem', { ascending: true });
 
@@ -638,7 +640,10 @@ function App() {
       }
 
       // 2) Buscar entregas filtradas pelo motorista (preferência por motorista_id)
-      let baseQuery = supabase.from('entregas').select('*');
+      // CORREÇÃO: Usando apenas colunas existentes no Supabase (sem cidade)
+      let baseQuery = supabase
+        .from('entregas')
+        .select('id, status, cliente, endereco, motorista_id, motorista, observacoes, assinatura, lat, lng, ordem, tipo, created_at');
       if (motoristaSelecionado) {
         if (motoristaIdSelecionado) {
           baseQuery = baseQuery.eq('motorista_id', motoristaIdSelecionado);
@@ -663,7 +668,13 @@ function App() {
         (err) => console.error(err)
       );
     }
-    const canal = supabase.channel('logistica_v10').on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, () => buscarDados()).subscribe();
+    const canal = supabase
+      .channel('logistica_v10')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, (payload) => {
+        console.log('📡 Dashboard Realtime (logistica_v10) - Evento:', payload.eventType, 'ID:', payload.new?.id || payload.old?.id);
+        buscarDados();
+      })
+      .subscribe();
     return () => supabase.removeChannel(canal);
   }, [entregas.length, motoristaSelecionado]);
 
@@ -727,7 +738,7 @@ function App() {
     const canalUpdates = supabase
       .channel('mudancas-entregas')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'entregas' }, (payload) => {
-        console.log('Mudança detectada!', payload);
+        console.log('📡 Dashboard UPDATE - Entrega #' + (payload.new?.id || '?') + ' Status:', payload.new?.status);
         buscarDados();
       })
       .subscribe();
@@ -742,13 +753,13 @@ function App() {
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'entregas' },
         (payload) => {
-          console.log("Mudança detectada no canal de emergência!", payload);
+          console.log("📡 Dashboard EMERGÊNCIA - Evento:", payload.eventType, 'Entrega #' + (payload.new?.id || payload.old?.id || '?'));
           // Recarrega os dados se houver qualquer mudança na tabela
           buscarDados();
         }
       )
       .subscribe((status) => {
-        console.log("Status da conexão Realtime:", status);
+        console.log("🔌 Status Realtime Dashboard:", status);
       });
 
     return () => { supabase.removeChannel(canalV2); };
@@ -760,7 +771,7 @@ function App() {
       .channel('reparo-envio')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entregas' }, (payload) => {
         // Forçamos a atualização independente de filtros complexos
-        console.log("Nova entrega detectada no banco!");
+        console.log("📡 Dashboard INSERT - Nova entrega #" + (payload.new?.id || '?') + ' criada');
         buscarDados();
       })
       .subscribe();

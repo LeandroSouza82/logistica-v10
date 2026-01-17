@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Motorista App",
+    "slug": "motorista-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "newArchEnabled": false,
+      "supportsTablet": true,
+      "bundleIdentifier": "com.logistica.motorista"
+    },
+    "android": {
+      "newArchEnabled": false,
+      "package": "com.logistica.motorista",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBpU6g0cjqGvzN5r85oy2D-GrfNMjXdx7M"
+        }
+      }
+    },
+    "extra": {
+      "newArchEnabled": false,
+      "eas": {
+        "projectId": "a8c91995-b7d6-41d7-ace4-0ccf4c8150b0"
+      }
+    },
+    "sdkVersion": "54.0.0"
+  }
+}
