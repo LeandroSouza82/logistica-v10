@@ -1,0 +1,9 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^node -e \"const fs=require\\('fs'\\);const s=fs\\.readFileSync\\('src/Dashboard\\.jsx','utf8'\\);let stack=\\[\\];const lines=s\\.split\\('\\\\n'\\);for\\(let i=0;i<lines\\.length;i\\+\\+\\)\\{const l=lines\\[i\\];for\\(let j=0;j<l\\.length;j\\+\\+\\)\\{const ch=l\\[j\\];if\\(ch==='\\{'\\) stack\\.push\\(\\{line:i\\+1,col:j\\+1,preview:lines\\[i\\]\\.trim\\(\\)\\.slice\\(0,80\\)\\}\\); else if\\(ch==='\\}'\\) stack\\.pop\\(\\);\\}\\}if\\(stack\\.length\\) console\\.log\\('Unclosed opening brace at',stack\\[stack\\.length-1\\]\\); else console\\.log\\('All matched'\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "npm run start": true
+    }
+}

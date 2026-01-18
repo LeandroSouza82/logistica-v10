@@ -608,10 +608,12 @@ function App() {
     if (view === 'motorista' && motoristaIdLogado) {
       // No celular, busca direto pelo ID do motorista logado
       // CORREÇÃO: Usando apenas colunas existentes no Supabase
+      // Filtro estrito: apenas 'pendente' ou 'em_rota'
       const { data, error } = await supabase
         .from('entregas')
         .select('id, status, cliente, endereco, motorista_id, motorista, observacoes, assinatura, lat, lng, ordem, tipo, created_at')
         .eq('motorista_id', motoristaIdLogado)
+        .in('status', ['pendente', 'em_rota'])
         .order('ordem', { ascending: true });
 
       if (error) {
@@ -641,9 +643,11 @@ function App() {
 
       // 2) Buscar entregas filtradas pelo motorista (preferência por motorista_id)
       // CORREÇÃO: Usando apenas colunas existentes no Supabase (sem cidade)
+      // Filtro estrito: apenas 'pendente' ou 'em_rota'
       let baseQuery = supabase
         .from('entregas')
-        .select('id, status, cliente, endereco, motorista_id, motorista, observacoes, assinatura, lat, lng, ordem, tipo, created_at');
+        .select('id, status, cliente, endereco, motorista_id, motorista, observacoes, assinatura, lat, lng, ordem, tipo, created_at')
+        .in('status', ['pendente', 'em_rota']);
       if (motoristaSelecionado) {
         if (motoristaIdSelecionado) {
           baseQuery = baseQuery.eq('motorista_id', motoristaIdSelecionado);
@@ -672,6 +676,16 @@ function App() {
       .channel('logistica_v10')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, (payload) => {
         console.log('📡 Dashboard Realtime (logistica_v10) - Evento:', payload.eventType, 'ID:', payload.new?.id || payload.old?.id);
+
+        // Remove da lista se status for 'entregue' ou 'cancelado'
+        if (payload.eventType === 'UPDATE' && payload.new) {
+          const status = payload.new.status;
+          if (status === 'entregue' || status === 'cancelado') {
+            setEntregas(prev => prev.filter(e => e.id !== payload.new.id));
+            return;
+          }
+        }
+
         buscarDados();
       })
       .subscribe();
@@ -694,6 +708,14 @@ function App() {
         },
         (payload) => {
           console.log("Sinal recebido!", payload);
+
+          // Filtro estrito: apenas 'pendente' ou 'em_rota'
+          const status = payload.new?.status;
+          if (status !== 'pendente' && status !== 'em_rota') {
+            console.log('Ignorando entrega com status:', status);
+            return;
+          }
+
           // Usamos == (dois iguais) para comparar 2 com "2" sem dar erro
           if (String(payload.new.motorista_id) === String(motoristaIdLogado)) {
             if (somHabilitado && somNovaEntregaRef.current) {
@@ -933,44 +955,71 @@ function App() {
     if (!autocomplete) return;
     const place = autocomplete.getPlace();
 
+    // Permite entrada manual: se não tiver geometry, usa texto digitado com lat/lng null
+    let novaLat = null;
+    let novaLng = null;
+    let enderecoFormatado = inputEndereco; // Usa o texto digitado como fallback
+
     if (place && place.geometry && place.geometry.location) {
-      const novaLat = place.geometry.location.lat();
-      const novaLng = place.geometry.location.lng();
-      const enderecoFormatado = place.formatted_address;
+      novaLat = place.geometry.location.lat();
+      novaLng = place.geometry.location.lng();
+      enderecoFormatado = place.formatted_address;
+    }
 
-      // Monta o novo ponto com dados do formulário
-      const novoPonto = {
-        id: Date.now(),
-        cliente: inputCliente || 'Cliente a definir',
-        endereco: enderecoFormatado,
-        info: inputInfo || 'Sem observações',
-        tipo: tipoPonto, // Usa o estado tipoPonto (Entrega ou Recolha)
-        status: 'Pendente',
-        lat: novaLat,
-        lng: novaLng,
-      };
+    // Monta o novo ponto com dados do formulário (aceita lat/lng null)
+    const novoPonto = {
+      id: Date.now(),
+      cliente: inputCliente || 'Cliente a definir',
+      endereco: enderecoFormatado,
+      info: inputInfo || 'Sem observações',
+      tipo: tipoPonto, // Usa o estado tipoPonto (Entrega ou Recolha)
+      status: 'Pendente',
+      lat: novaLat,
+      lng: novaLng,
+    };
 
-      // Origem: localização do Gestor (se disponível) ou Palhoça central
+    // Se tem coordenadas, otimiza pela distância; senão, adiciona no final
+    if (novaLat && novaLng) {
       const origem = coordsGestor || { lat: -27.6438, lng: -48.6674 };
       const novaListaBruta = [...rascunho, novoPonto];
       const listaOtimizada = organizarPelaDistancia(origem, novaListaBruta);
-
       setRascunho(listaOtimizada);
-      // Limpa os campos após adicionar
-      setInputCliente('');
-      setInputEndereco('');
-      setInputInfo('');
-      setTempCoords(null);
     } else {
-      alert('Por favor, selecione um endereço da lista que aparece embaixo do texto.');
+      // Sem coordenadas: adiciona no final da lista
+      setRascunho([...rascunho, novoPonto]);
     }
+
+    // Limpa os campos após adicionar
+    setInputCliente('');
+    setInputEndereco('');
+    setInputInfo('');
+    setTempCoords(null);
   };
 
   const adicionarAoRascunho = async () => {
-    // Nota: o Autocomplete já adiciona diretamente ao selecionar.
-    // Este botão serve apenas como fallback ou confirmação manual se necessário.
-    if (!inputEndereco) return alert("Selecione um endereço no campo de busca!");
-    alert('Use o campo de busca e selecione um endereço da lista para adicionar ao mapa.');
+    // Permite adicionar endereço manualmente sem validação do Google Autocomplete
+    if (!inputEndereco.trim()) return alert("Digite um endereço antes de adicionar!");
+
+    // Monta o ponto com o texto digitado (sem coordenadas)
+    const novoPonto = {
+      id: Date.now(),
+      cliente: inputCliente || 'Cliente a definir',
+      endereco: inputEndereco.trim(),
+      info: inputInfo || 'Sem observações',
+      tipo: tipoPonto,
+      status: 'Pendente',
+      lat: null, // Sem coordenadas do Google
+      lng: null,
+    };
+
+    // Adiciona no final da lista (sem otimização de distância)
+    setRascunho([...rascunho, novoPonto]);
+
+    // Limpa os campos
+    setInputCliente('');
+    setInputEndereco('');
+    setInputInfo('');
+    setTempCoords(null);
   };
 
   const removerDoRascunho = (id) => { setRascunho(rascunho.filter(item => item.id !== id)); };
@@ -1178,14 +1227,15 @@ function App() {
     const dadosParaEnviar = rascunho.map((ponto, index) => ({
       cliente: ponto.cliente || "Cliente a definir",
       endereco: ponto.endereco,
-      lat: Number(ponto.lat),
-      lng: Number(ponto.lng),
-      motorista_id: idTeste, // Use o nome exato da coluna no Supabase
+      lat: ponto.lat || null, // Permite null se endereço for manual
+      lng: ponto.lng || null, // Permite null se endereço for manual
+      motorista_id: idTeste,
       motorista: motoristaObj.nome || motoristaObj.motoristas,
-      status: 'Pendente',
-      ordem: index + 1,
-      tipo: ponto.tipo || 'entrega',
-      assinatura: 'NAO'
+      status: 'pendente', // Usa lowercase para compatibilidade com mobile
+      ordem_entrega: index + 1, // Usa ordem_entrega (nome correto da coluna)
+      tipo: ponto.tipo || 'Entrega', // Capitaliza primeira letra
+      observacoes: ponto.info || null // Usa observacoes ao invés de info
+      // Campo 'preço' removido - não existe na tabela entregas
     }));
 
     console.log("Enviando dados:", dadosParaEnviar);

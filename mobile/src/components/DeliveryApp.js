@@ -1,45 +1,28 @@
 ﻿import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-
-// CommandBar: stateless memoized top command bar to avoid re-renders
-const CommandBar = React.memo(function CommandBar({ onRefresh, onCenter, onLogout }) {
-    return (
-        <View style={styles.commandBar} pointerEvents="box-none">
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <TouchableOpacity style={styles.cmdBtnLeft} onPress={onRefresh} accessibilityLabel="Atualizar">
-                    <Text style={styles.cmdBtnText}>⟳</Text>
-                </TouchableOpacity>
-
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <TouchableOpacity style={[styles.cmdBtn, { marginRight: 8 }]} onPress={onCenter} accessibilityLabel="Centralizar">
-                        <Text style={styles.cmdBtnText}>🎯</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.cmdBtn} onPress={onLogout} accessibilityLabel="Sair">
-                        <Text style={styles.cmdBtnText}>Sair</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </View>
-    );
-});
 import {
     StyleSheet, Text, View, TouchableOpacity, Pressable, Animated, Modal, Image, ActivityIndicator, Vibration,
     Dimensions, Linking, FlatList, TextInput, Alert, StatusBar, Platform, UIManager, LayoutAnimation, PanResponder, Easing, ActionSheetIOS
 } from 'react-native';
-
-// Dynamic imports for optional native modules
-import * as ImagePicker from 'expo-image-picker';
-let FileSystem; try { FileSystem = require('expo-file-system'); } catch (e) { FileSystem = null; console.warn('expo-file-system não disponível.'); }
-
-// Número do gestor/patrão - removed hardcoded default (use Supabase)
-const BOSS_PHONE = null;
 import MapView, { Marker } from 'react-native-maps';
-
-import * as Location from 'expo-location'; // Biblioteca para o GPS
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import Constants from 'expo-constants';
 import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
 import { AndroidImportance } from 'expo-notifications';
+import * as ImagePicker from 'expo-image-picker';
+
+// Dynamic imports for optional native modules
+let FileSystem;
+try {
+    FileSystem = require('expo-file-system');
+} catch (e) {
+    FileSystem = null;
+    console.warn('expo-file-system não disponível.');
+}
+
+// Número do gestor/patrão - removed hardcoded default (use Supabase)
+const BOSS_PHONE = null;
 
 // Configuração obrigatória para notificações em foreground
 Notifications.setNotificationHandler({
@@ -70,6 +53,30 @@ if (Platform.OS === 'android' && UIManager?.setLayoutAnimationEnabledExperimenta
 
 // Altura da status bar para ajustar modals translúcidos no Android
 const STATUSBAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0;
+
+// CommandBar: stateless memoized top command bar to avoid re-renders
+const CommandBar = React.memo(function CommandBar({ onRefresh, onCenter, onLogout }) {
+    return (
+        <View style={styles.commandBar} pointerEvents="box-none">
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <TouchableOpacity style={styles.cmdBtnLeft} onPress={onRefresh} accessibilityLabel="Atualizar">
+                    <Text style={styles.cmdBtnText}>⟳</Text>
+                </TouchableOpacity>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity style={[styles.cmdBtn, { marginRight: 8 }]} onPress={onCenter} accessibilityLabel="Centralizar">
+                        <Text style={styles.cmdBtnText}>🎯</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.cmdBtn} onPress={onLogout} accessibilityLabel="Sair">
+                        <Text style={styles.cmdBtnText}>Sair</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </View>
+    );
+});
+
 function DeliveryApp(props) {
 
     // Safety check for supabase connection
@@ -139,25 +146,27 @@ function DeliveryApp(props) {
     const [textoOcorrencia, setTextoOcorrencia] = useState('');
     const [ocorrenciaPhotoUrl, setOcorrenciaPhotoUrl] = useState(null);
 
-    // Recebedor / histórico de recebedores
-    const [recebedor, setRecebedor] = useState('');
-    const [recebedorLocal, setRecebedorLocal] = useState('');
-    const [ultimosRecebedores, setUltimosRecebedores] = useState([]);
-
-    // Busca sugestões de recebedores do histórico (últimos 50)
-    const fetchSugestoesRecebedor = useCallback(async () => {
-        try {
-            setUltimosRecebedores([]);
-        } catch (e) {
-            console.warn('Erro ao buscar sugestões de recebedores:', e);
-        }
-    }, []);
+    // 📦 SISTEMA DE CATEGORIAS V10 (Estados Limpos)
+    const [categoria, setCategoria] = useState('');
+    const [nome, setNome] = useState('');
+    const [apto, setApto] = useState('');
 
     // Último pedido selecionado (cache para fallback)
     const lastSelectedRef = useRef(null);
 
     // Razões rápidas para não-entrega
-    const [motivosRapidos, setMotivosRapidos] = useState(['Cliente Ausente', 'Endereço Não Encontrado', 'Recusado', 'Outros']);
+    const [motivosRapidos, setMotivosRapidos] = useState([
+        'Cliente Ausente',
+        'Endereço não localizado',
+        'Recusado pelo Cliente',
+        'Local Fechado',
+        'Veículo com Problema',
+        'Sem Tempo Hábil',
+        'Mercadoria Avariada',
+        'Falta de Documento',
+        'Área de Risco',
+        'Outros'
+    ]);
 
     // Modal refresh key para forçar re-mounts/parcial refresh
     const [modalRefreshKey, setModalRefreshKey] = useState(0);
@@ -369,14 +378,16 @@ function DeliveryApp(props) {
             // 2. Carrega Histórico (Finalizadas) - Carregamento Automático
             try {
                 const motoristaId = props?.motoristaId ?? 1;
-                // CORREÇÃO: Removida coluna 'cidade' para evitar erro de schema
-                const { data: hist } = await supabase
+                // CORREÇÃO: Usando apenas colunas existentes no schema
+                const { data: hist, error: histError } = await supabase
                     .from('entregas')
-                    .select('id, status, cliente, endereco, assinatura')
+                    .select('id, status, cliente, endereco, observacoes, data_entrega')
                     .eq('motorista_id', motoristaId)
                     .eq('status', 'entregue')
                     .order('id', { ascending: false })
                     .limit(20);
+
+                console.log('LOG SUPABASE (histórico):', hist, histError);
 
                 if (hist) {
                     const normHist = hist.map(x => (typeof normalizePedido === 'function') ? normalizePedido(x) : x);
@@ -392,20 +403,14 @@ function DeliveryApp(props) {
                         try {
                             const novo = payload.new || {};
                             const motoristaId = props?.motoristaId ?? 1;
-                            console.log('📥 Realtime INSERT recebido - motorista_id:', novo.motorista_id, 'meu ID:', motoristaId);
-
-                            if (Number(novo.motorista_id) !== Number(motoristaId)) {
-                                console.log('⏭️ INSERT ignorado - não é para este motorista');
-                                return; // ignore others
-                            }
+                            if (Number(novo.motorista_id) !== Number(motoristaId)) return; // ignore others
 
                             const normalized = (typeof normalizePedido === 'function') ? normalizePedido(novo) : novo;
-                            if ((normalized.status || 'pendente') === 'entregue') {
-                                console.log('⏭️ INSERT ignorado - já está entregue');
-                                return; // ignore already delivered
-                            }
+                            const status = normalized.status || 'pendente';
+                            // Filtro estrito: só aceita pendente ou em_rota
+                            if (status !== 'pendente' && status !== 'em_rota') return;
 
-                            console.log('✅ Realtime INSERT - Entrega #' + normalized.id + ' adicionada');
+                            console.log('Realtime INSERT entrega pendente para este motorista:', normalized);
 
                             setEntregas(prev => {
                                 if (prev && prev.some(p => Number(p.id) === Number(normalized.id))) return prev; // evita duplicata
@@ -419,13 +424,8 @@ function DeliveryApp(props) {
                         try {
                             const novo = payload.new || {};
                             const motoristaId = props?.motoristaId ?? 1;
-                            console.log('📝 Realtime UPDATE recebido - motorista_id:', novo.motorista_id, 'meu ID:', motoristaId);
-
-                            if (Number(novo.motorista_id) !== Number(motoristaId)) {
-                                console.log('⏭️ UPDATE ignorado - não é para este motorista');
-                                return;
-                            }
-                            console.log('✅ Realtime UPDATE entrega para este motorista:', novo);
+                            if (Number(novo.motorista_id) !== Number(motoristaId)) return;
+                            console.log('Realtime UPDATE entrega para este motorista:', novo);
 
                             // Código de alerta de rota removido (agora usando apenas status em_rota)
 
@@ -456,17 +456,21 @@ function DeliveryApp(props) {
                             }
 
                             const normalized = (typeof normalizePedido === 'function') ? normalizePedido(novo) : novo;
-                            if ((normalized.status || 'pendente') === 'entregue') {
-                                // if updated to delivered, remove from local list
+                            const status = normalized.status || 'pendente';
+
+                            // Remove da lista se status for cancelado ou entregue
+                            if (status === 'entregue' || status === 'cancelado') {
                                 setEntregas(prev => (prev || []).filter(p => Number(p.id) !== Number(normalized.id)));
 
-                                // Atualização em Tempo Real: Adiciona ao histórico se virar 'entregue'
-                                setHistorico(prev => {
-                                    if (prev.some(h => String(h.id) === String(normalized.id))) return prev;
-                                    return [normalized, ...prev];
-                                });
-                            } else {
-                                // Update only the matching item immutably (or keep list as-is if not found)
+                                // Adiciona ao histórico se virar 'entregue'
+                                if (status === 'entregue') {
+                                    setHistorico(prev => {
+                                        if (prev.some(h => String(h.id) === String(normalized.id))) return prev;
+                                        return [normalized, ...prev];
+                                    });
+                                }
+                            } else if (status === 'pendente' || status === 'em_rota') {
+                                // Atualiza apenas se for pendente ou em_rota
                                 setEntregas(prev => (prev || []).map(p => (Number(p.id) === Number(normalized.id) ? { ...p, ...normalized } : p)));
                             }
                         } catch (e) {
@@ -477,13 +481,7 @@ function DeliveryApp(props) {
                         try {
                             const old = payload.old || {};
                             const motoristaId = props?.motoristaId ?? 1;
-                            console.log('🗑️ Realtime DELETE recebido - motorista_id:', old.motorista_id, 'meu ID:', motoristaId);
-
-                            if (Number(old.motorista_id) !== Number(motoristaId)) {
-                                console.log('⏭️ DELETE ignorado - não é para este motorista');
-                                return;
-                            }
-                            console.log('✅ Realtime DELETE removendo entrega ID:', old.id);
+                            if (Number(old.motorista_id) !== Number(motoristaId)) return;
                             setEntregas(prev => (prev || []).filter(p => Number(p.id) !== Number(old.id)));
                         } catch (e) {
                             console.warn('Erro ao processar DELETE em entregas (mobile):', e);
@@ -558,6 +556,7 @@ function DeliveryApp(props) {
     }, []);
 
     const carregarEntregas = useCallback(async () => {
+        console.log('Iniciando busca de entregas');
         // throttle concurrent fetches to avoid loops/alternância de tela
         if (fetchInProgressRef?.current) {
             setLoading(false);
@@ -568,28 +567,32 @@ function DeliveryApp(props) {
 
         try {
             const motoristaId = props?.motoristaId ?? 1;
-            console.log('🔍 Buscando entregas para motorista ID:', motoristaId);
             const hoje = new Date();
             hoje.setUTCHours(0, 0, 0, 0);
             const dataHoje = hoje.toISOString();
 
-            // Busca APENAS pedidos 'pendente' ou 'em_rota' (exclui 'cancelado' e 'entregue')
-            // CORREÇÃO: Removida coluna 'cidade' para evitar erro PGRST204/42703
+            // Busca APENAS pedidos com status 'pendente' ou 'em_rota'
+            console.log('🔍 LOG SUPABASE (carregarEntregas) - Buscando entregas...');
             const { data: initial, error: initialErr } = await supabase
                 .from('entregas')
-                .select('id, status, cliente, endereco, assinatura, observacoes')
+                .select('*')
                 .in('status', ['pendente', 'em_rota'])
                 .order('id', { ascending: false })
                 .limit(1000);
 
+            console.log('🔍 LOG SUPABASE (carregarEntregas) - Resultado:', initial, initialErr);
+
             if (initialErr) {
-                console.error('Erro ao buscar entregas pendentes (mobile):', initialErr);
+                console.error('🔴 ERRO SUPABASE:', initialErr.message);
                 debugSetEntregas([]);
             } else {
                 // normalize tipo_servico and ensure strings
                 let normalized = (initial || []).map(i => normalizePedido(i));
-
-                console.log('📋 LOG: Lista de entregas atualizada (' + normalized.length + ' itens)');
+                // Filtro estrito: apenas pendente ou em_rota
+                normalized = normalized.filter(x => {
+                    const status = x.status || 'pendente';
+                    return status === 'pendente' || status === 'em_rota';
+                });
 
                 // Se a busca inicial retornar vazia, alertamos 'Lista Vazia' (apenas na primeira vez)
                 if (!fetchedOnceRef.current && (!normalized || normalized.length === 0)) {
@@ -655,28 +658,30 @@ function DeliveryApp(props) {
 
     // Stability improvements: ensure we center map on first pedido once, and center when selection changes
     const centeredOnceRef = useRef(false);
-    useEffect(() => {
-        if (!centeredOnceRef.current && entregas && entregas.length > 0) {
-            const first = entregas[0];
-            if (first?.lat && first?.lng) {
-                const lat = Number(first.lat);
-                const lng = Number(first.lng);
-                try { mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 600); } catch (e) { /* ignore */ }
-            }
-            centeredOnceRef.current = true;
-        }
-    }, [entregas]);
+    // REMOVIDO: Centralização de mapa comentada pois colunas lat/lng não existem no schema
+    // useEffect(() => {
+    //     if (!centeredOnceRef.current && entregas && entregas.length > 0) {
+    //         const first = entregas[0];
+    //         if (first?.lat && first?.lng) {
+    //             const lat = Number(first.lat);
+    //             const lng = Number(first.lng);
+    //             try { mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 600); } catch (e) { /* ignore */ }
+    //         }
+    //         centeredOnceRef.current = true;
+    //     }
+    // }, [entregas]);
 
     // Marca se o usuário já reordenou manualmente os pedidos — usado para preservar ordem local ao mesclar dados do servidor
     const userReorderedRef = useRef(false);
 
-    useEffect(() => {
-        if (pedidoSelecionado?.lat && pedidoSelecionado?.lng) {
-            const lat = Number(pedidoSelecionado?.lat);
-            const lng = Number(pedidoSelecionado?.lng);
-            try { mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500); } catch (e) { /* ignore */ }
-        }
-    }, [pedidoSelecionado]);
+    // REMOVIDO: Centralização ao selecionar pedido comentada
+    // useEffect(() => {
+    //     if (pedidoSelecionado?.lat && pedidoSelecionado?.lng) {
+    //         const lat = Number(pedidoSelecionado?.lat);
+    //         const lng = Number(pedidoSelecionado?.lng);
+    //         try { mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500); } catch (e) { /* ignore */ }
+    //     }
+    // }, [pedidoSelecionado]);
 
 
 
@@ -854,13 +859,14 @@ function DeliveryApp(props) {
 
                         // Feedback: permite remover a posição imediatamente através de um botão
                         try {
-                            Alert.alert('Sair', 'Sua posição será removida em 10s.', [
+                            Alert.alert('Sair', 'Você está saindo do sistema.', [
                                 { text: 'Cancelar', style: 'cancel' },
                                 {
-                                    text: 'Remover agora', onPress: async () => {
+                                    text: 'Confirmar', onPress: async () => {
                                         try {
-                                            const motoristaId = props?.motoristaId ?? 1;
-                                            await supabase.from('motoristas').update({ lat: null, lng: null, ultimo_sinal: null }).eq('id', motoristaId);
+                                            // REMOVIDO: Update de lat/lng comentado (colunas não existem na tabela motoristas)
+                                            // const motoristaId = props?.motoristaId ?? 1;
+                                            // await supabase.from('motoristas').update({ lat: null, lng: null, ultimo_sinal: null }).eq('id', motoristaId);
                                             if (mountedRef.current) setPosicaoMotorista(null);
                                         } catch (err) {
                                             console.warn('Erro ao remover posição agora:', err?.message || err);
@@ -942,28 +948,102 @@ function DeliveryApp(props) {
         }
 
         try {
-            // 1) Atualiza o backend e aguarda (status: 'entregue')
+            // ✅ VALIDAÇÃO: Categoria + Nome obrigatórios
+            if (!categoria || categoria.trim() === '') {
+                Alert.alert('Atenção', 'Por favor, selecione uma categoria (Porteiro, Zelador, etc)!');
+                return;
+            }
+            if (!nome || nome.trim() === '') {
+                Alert.alert('Atenção', 'Por favor, digite o nome de quem recebeu!');
+                return;
+            }
+            if (categoria === 'Morador' && (!apto || apto.trim() === '')) {
+                Alert.alert('Atenção', 'Por favor, informe o número do apartamento!');
+                return;
+            }
+
+            // 📦 MONTAGEM DO NOME FINAL: [CATEGORIA]: [NOME] - [APTO]
+            let infoRecebedor;
+            if (categoria === 'Morador' && apto) {
+                infoRecebedor = `[${categoria.toUpperCase()}]: ${nome.trim()} - ${apto.trim()}`;
+            } else {
+                infoRecebedor = `[${categoria.toUpperCase()}]: ${nome.trim()}`;
+            }
+
+            // 📍 CAPTURA AUTOMÁTICA DE GPS (Prova de Presença no Local)
+            let lat_conclusao = null;
+            let lng_conclusao = null;
+
             try {
-                const payload = { status: 'entregue' };
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                    console.warn('handleFinalizar: permissão de localização negada');
+                } else {
+                    const location = await Location.getCurrentPositionAsync({
+                        accuracy: Location.Accuracy.High,
+                        timeout: 10000,
+                        maximumAge: 5000
+                    });
+                    lat_conclusao = location.coords.latitude;
+                    lng_conclusao = location.coords.longitude;
+                    console.log('✅ GPS capturado:', { lat_conclusao, lng_conclusao });
+                }
+            } catch (gpsError) {
+                console.warn('handleFinalizar: erro ao capturar GPS', gpsError);
+                // Continua mesmo sem GPS
+            }
+
+            // 1) Atualiza o backend
+            try {
+                const payload = {
+                    status: 'entregue',
+                    recebedor: infoRecebedor,
+                    horario_conclusao: new Date().toISOString()
+                };
+
+                // 📍 Adiciona GPS se foi capturado
+                if (lat_conclusao !== null && lng_conclusao !== null) {
+                    payload.lat_conclusao = lat_conclusao;
+                    payload.lng_conclusao = lng_conclusao;
+                }
+                console.log('🔍 LOG SUPABASE (handleFinalizar) - Payload:', payload);
                 const { data, error } = await supabase.from('entregas').update(payload).eq('id', target.id).select('*');
+                console.log('🔍 LOG SUPABASE (handleFinalizar) - Resultado:', data, error);
                 if (error) {
-                    console.error('handleFinalizar: erro ao atualizar supabase', error);
+                    console.error('🔴 ERRO SUPABASE:', error.message);
                     Alert.alert('Erro', 'Não foi possível finalizar a entrega. Tente novamente.');
                 } else {
-                    // update ok — remove imediatamente da lista local
+                    // ✅ REMOVE IMEDIATAMENTE DA LISTA LOCAL (STOP FETCHING)
                     try { setEntregas(prev => prev.filter(item => item.id !== target.id)); } catch (err) { console.warn('handleFinalizar: falha ao remover pedido localmente:', err); }
 
-                    // Fluxo de Confirmação: Atualize o estado local do histórico
+                    // Atualiza histórico
                     try {
-                        const itemAtualizado = { ...target, status: 'entregue' };
+                        const itemAtualizado = { ...target, status: 'entregue', recebedor: infoRecebedor };
                         setHistorico(prev => {
-                            // Evita duplicatas se o realtime já inseriu
                             if (prev.some(x => String(x.id) === String(target.id))) return prev;
                             return [itemAtualizado, ...prev];
                         });
-                        // CORREÇÃO: Força o histórico a ficar oculto imediatamente após o sucesso
                         setExibirHistorico(false);
                     } catch (err) { console.warn('handleFinalizar: erro ao atualizar historico:', err); }
+
+                    // 📱 WHATSAPP: Enviar mensagem com nome final
+                    try {
+                        const phoneDigits = await fetchGestorPhone();
+                        if (phoneDigits) {
+                            const endereco = target?.endereco || 'Endereço não disponível';
+                            const horario = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                            const mensagem = `✅ *Entrega Concluída!*\n\n*👤 Recebedor:* ${infoRecebedor}\n*📍 Endereço:* ${endereco}\n*⏰ Horário:* ${horario}`;
+                            const url = 'whatsapp://send?phone=' + phoneDigits + '&text=' + encodeURIComponent(mensagem);
+
+                            setTimeout(() => {
+                                Linking.openURL(url).catch(() => {
+                                    console.warn('Não foi possível abrir WhatsApp');
+                                });
+                            }, 500);
+                        }
+                    } catch (whatsErr) {
+                        console.warn('Erro ao enviar WhatsApp:', whatsErr);
+                    }
                 }
             } catch (error) {
                 console.error('handleFinalizar: exception ao atualizar supabase', error);
@@ -1063,39 +1143,38 @@ function DeliveryApp(props) {
         const horarioAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
         try {
-            // Atualiza status e motivo no backend para indicar problema/cancelamento
-            // CORREÇÃO CIRÚRGICA: Usando apenas colunas existentes no Supabase
+            // Atualiza status para 'falha' e salva motivo em observacoes
             try {
                 const payload = {
-                    status: 'cancelado',
+                    status: 'falha',
                     observacoes: motivoTrim
                 };
-                console.log('📝 Atualizando entrega #' + target.id + ' para cancelado');
+                console.log('🔍 LOG SUPABASE (handleConfirmNaoEntregue) - Payload:', payload);
                 const { data: updated, error: supabaseError } = await supabase
                     .from('entregas')
                     .update(payload)
                     .eq('id', target.id)
                     .select('*');
 
+                console.log('🔍 LOG SUPABASE (handleConfirmNaoEntregue) - Resultado:', updated, supabaseError);
+
                 if (supabaseError) {
-                    console.log('ERRO_NOME_COLUNA:', supabaseError.message);
-                    console.warn('Erro ao atualizar não entrega:', supabaseError);
+                    console.error('🔴 ERRO SUPABASE:', supabaseError.message);
                     Alert.alert('Erro', 'Não foi possível salvar o motivo de não entrega. Tente novamente.');
-                    return; // interrompe fluxo para não enviar WhatsApp nem remover card
+                    return;
                 }
 
-                console.log('Motivo atualizado:', updated);
+                console.log('✅ Motivo atualizado com sucesso');
 
-                // Atualiza localmente o item na lista para refletir o motivo sem recarregar tudo
+                // Atualiza localmente
                 try {
-                    setEntregas(prev => (prev || []).map(p => (Number(p.id) === Number(target.id) ? { ...p, observacoes: motivoTrim, status: 'cancelado' } : p)));
-                } catch (e) { console.warn('handleConfirmNaoEntregue: falha ao atualizar estado local do motivo:', e); }
+                    setEntregas(prev => (prev || []).map(p => (Number(p.id) === Number(target.id) ? { ...p, observacoes: motivoTrim, status: 'falha' } : p)));
+                } catch (e) { console.warn('handleConfirmNaoEntregue: falha ao atualizar estado local:', e); }
 
             } catch (error) {
-                console.log('ERRO_NOME_COLUNA:', error.message);
-                console.warn('handleConfirmNaoEntregue: exception ao atualizar supabase', error);
+                console.error('🔴 ERRO SUPABASE:', error.message);
                 Alert.alert('Erro', 'Erro ao atualizar o motivo no servidor. Tente novamente.');
-                return; // garante resiliência
+                return;
             }
 
             // Prepara e envia WhatsApp
@@ -1291,11 +1370,13 @@ function DeliveryApp(props) {
         setModalOcorrencia(true);
     };
 
-    // Handler leve para abrir a finalização (abre modal de assinatura e marca pedido)
+    // Handler leve para abrir a finalização (abre modal de registro rápido e marca pedido)
     const handleAbrirFinalizacao = (item) => {
         try {
-            // Carrega sugestões de recebedores do backend (apenas ao abrir)
-            fetchSugestoesRecebedor();
+            // Limpa estados do sistema de categorias
+            setCategoria('');
+            setNome('');
+            setApto('');
 
             // Usa selectPedido para centralizar comportamento
             selectPedido(item, { openModal: true });
@@ -1325,12 +1406,12 @@ function DeliveryApp(props) {
             lastSelectedRef.current = item;
             setPedidoSelecionado(item);
 
-            // centraliza no mapa se houver coordenadas
-            if (item?.lat && item?.lng) {
-                const lat = Number(item.lat);
-                const lng = Number(item.lng);
-                try { mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500); } catch (e) { /* ignore */ }
-            }
+            // REMOVIDO: centralização de mapa comentada (colunas lat/lng não existem)
+            // if (item?.lat && item?.lng) {
+            //     const lat = Number(item.lat);
+            //     const lng = Number(item.lng);
+            //     try { mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500); } catch (e) { /* ignore */ }
+            // }
 
             // sobe a aba/sheet para o topo, se desejado
             if (opts.openTop) {
@@ -1389,17 +1470,22 @@ function DeliveryApp(props) {
                 }
             } catch (e) { console.warn('Erro ao remover pedido localmente (ocorrencia):', e); }
 
-            // Tenta atualizar o servidor com a ocorrência (inclui assinatura_url apenas se existir)
+            // Tenta atualizar o servidor com a ocorrência
             try {
                 if (item?.id) {
-                    const payload = { status: 'nao_entregue', ocorrencia: motivo, lat_entrega: coords?.latitude ?? item.lat, lng_entrega: coords?.longitude ?? item.lng };
-                    const photoUrl = item?.assinatura_url || pedidoSelecionado?.assinatura_url || null;
-                    if (photoUrl) payload.assinatura_url = photoUrl;
+                    const payload = {
+                        status: 'falha',
+                        observacoes: motivo
+                    };
+                    console.log('🔍 LOG SUPABASE (ocorrência) - Payload:', payload);
                     const { data: updateData, error: updateError } = await supabase.from('entregas').update(payload).eq('id', item.id);
-                    if (updateError) console.warn('Erro ao atualizar entrega (ocorrencia) no supabase:', updateError);
+                    console.log('🔍 LOG SUPABASE (ocorrência) - Resultado:', updateData, updateError);
+                    if (updateError) {
+                        console.error('🔴 ERRO SUPABASE:', updateError.message);
+                    }
                 }
             } catch (err) {
-                console.warn('Erro ao reportar ocorrência ao servidor:', err?.message || err);
+                console.error('❌ Exception ao reportar ocorrência:', err?.message || err);
                 // não interrompe o fluxo — vamos tentar enviar o WhatsApp mesmo sem sucesso no update
             }
 
@@ -1729,19 +1815,20 @@ function DeliveryApp(props) {
 
     // centralizar automaticamente quando o primeiro pedido mudar (ex.: reorder)
     const prevFirstRef = useRef(null);
-    useEffect(() => {
-        const first = entregas && entregas[0];
-        const id = first?.id;
-        if (!id) return;
-        if (prevFirstRef.current !== id) {
-            prevFirstRef.current = id;
-            if (first.lat && first.lng) {
-                try {
-                    mapRef.current?.animateToRegion({ latitude: Number(first.lat), longitude: Number(first.lng), latitudeDelta: 0.05, longitudeDelta: 0.05 }, 500);
-                } catch (e) { /* ignore */ }
-            }
-        }
-    }, [entregas]);
+    // REMOVIDO: Centralização comentada (colunas lat/lng não existem)
+    // useEffect(() => {
+    //     const first = entregas && entregas[0];
+    //     const id = first?.id;
+    //     if (!id) return;
+    //     if (prevFirstRef.current !== id) {
+    //         prevFirstRef.current = id;
+    //         if (first.lat && first.lng) {
+    //             try {
+    //                 mapRef.current?.animateToRegion({ latitude: Number(first.lat), longitude: Number(first.lng), latitudeDelta: 0.05, longitudeDelta: 0.05 }, 500);
+    //             } catch (e) { /* ignore */ }
+    //         }
+    //     }
+    // }, [entregas]);
 
     // useEffect(() => {
     //     try {
@@ -1798,65 +1885,140 @@ function DeliveryApp(props) {
 
     function renderPedidoItem(p, idx) {
         const item = p;
-        const rawTipo = String(item.tipo || '').trim();
-        const tipoNormalized = rawTipo.toLowerCase();
 
-        let label = '';
-        let corCard = 'rgba(150,150,150,0.3)';
-        let corIcone = '#808080';
+        // 1. Normalização dos dados com fallback para Entrega
+        const tipoBruto = item.tipo || 'Entrega';
+        const tipoLimpo = tipoBruto.toLowerCase().trim();
 
-        if (tipoNormalized === 'entrega') {
-            label = 'ENTREGA';
-            corCard = 'rgba(0, 122, 255, 0.15)';
-            corIcone = '#007AFF';
-        } else if (tipoNormalized === 'recolha') {
-            label = 'RECOLHA';
-            corCard = 'rgba(255, 149, 0, 0.15)';
-            corIcone = '#FF9500';
-        } else {
-            label = 'OUTRO';
+        // 2. Definição da Identidade Visual (Cores Sólidas Premium)
+        let config = {
+            corFundo: '#4A148C', // Lilás/Roxo Profundo
+            corDestaque: '#6A1B9A',
+            label: 'OUTROS',
+            icone: 'cube-outline',
+            iconeLib: 'Ionicons'
+        };
+
+        if (tipoLimpo.includes('entrega')) {
+            config = {
+                corFundo: '#0D47A1', // Azul Profundo
+                corDestaque: '#1565C0',
+                label: 'ENTREGA',
+                icone: 'truck-delivery-outline',
+                iconeLib: 'MaterialCommunityIcons'
+            };
+        } else if (tipoLimpo.includes('recolha') || tipoLimpo.includes('coleta')) {
+            config = {
+                corFundo: '#E65100', // Laranja Vibrante
+                corDestaque: '#F57C00',
+                label: 'RECOLHA',
+                icone: 'archive-outline',
+                iconeLib: 'Ionicons'
+            };
         }
 
         const numeroExibicao = item.ordem_entrega || (idx + 1);
 
+        // Estrutura FLAT: TouchableOpacity como raiz para estabilidade
         return (
-            <TouchableOpacity style={[styles.cardGrande, { backgroundColor: corCard }, (pedidoSelecionado?.id === item.id) ? styles.cardEmDestaque : null]} key={item.id} onPress={() => {
-                selectPedido(item);
-            }} activeOpacity={0.9}>
+            <TouchableOpacity
+                key={item.id}
+                activeOpacity={0.85}
+                style={[
+                    styles.cardModernV10,
+                    { backgroundColor: config.corFundo },
+                    (pedidoSelecionado?.id === item.id) ? styles.cardSelecionadoV10 : null
+                ]}
+                onPress={() => selectPedido(item)}
+            >
+                {/* Camada de Brilho Interno (Simula Vidro) */}
+                <View style={styles.innerGlowV10} />
 
-                <View style={styles.cardHeader}>
-                    <View style={[styles.badge, { backgroundColor: corIcone }]}><Text style={styles.badgeTextLarge}>{numeroExibicao}º</Text></View>
-                    <View style={{ marginLeft: 10 }}><Text style={[styles.badgeId, { color: corIcone, fontWeight: 'bold' }]}>{label}</Text></View>
-                    <View style={{ marginLeft: 10 }}><Text style={styles.badgeId}>#{item.id}</Text></View>
-                    <View style={styles.cardHeaderRight}>
-                        <TouchableOpacity disabled={idx === 0} onPress={() => moverPedido(idx, idx - 1)} style={styles.arrowBtn}><Text>⬆️</Text></TouchableOpacity>
-                        <TouchableOpacity disabled={idx === entregas.length - 1} onPress={() => moverPedido(idx, idx + 1)} style={styles.arrowBtn}><Text>⬇️</Text></TouchableOpacity>
+                {/* Cabeçalho do Card */}
+                <View style={styles.headerRowV10}>
+                    <View style={styles.headerLeftV10}>
+                        <View style={[styles.typeBadgeV10, { backgroundColor: config.corDestaque }]}>
+                            {config.iconeLib === 'MaterialCommunityIcons' ? (
+                                <MaterialCommunityIcons name={config.icone} size={14} color="#FFF" />
+                            ) : (
+                                <Ionicons name={config.icone} size={14} color="#FFF" />
+                            )}
+                            <Text style={styles.typeLabelV10}>{config.label}</Text>
+                        </View>
+                        <View style={styles.numeroBadgeV10}>
+                            <Text style={styles.numeroTextV10}>{numeroExibicao}º</Text>
+                        </View>
+                    </View>
+                    <View style={styles.headerRightV10}>
+                        <Text style={styles.idLabelV10}>#{item.id}</Text>
+                        <TouchableOpacity
+                            disabled={idx === 0}
+                            onPress={() => moverPedido(idx, idx - 1)}
+                            style={styles.arrowBtnV10}
+                        >
+                            <Text style={styles.arrowTextV10}>⬆️</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            disabled={idx === entregas.length - 1}
+                            onPress={() => moverPedido(idx, idx + 1)}
+                            style={styles.arrowBtnV10}
+                        >
+                            <Text style={styles.arrowTextV10}>⬇️</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
 
-                <Text style={styles.cardName}>#{item.id} — {item.cliente}</Text>
-                {item.observacoes ? <Text style={styles.observacoesText} numberOfLines={2}>{item.observacoes}</Text> : null}
-                <TouchableOpacity onPress={() => { selectPedido(item, { openModal: true }); }} activeOpacity={0.7}>
-                    <Text style={styles.addressText} numberOfLines={2}>{item.endereco || (item.rua ? `${item.rua}, ${item.numero || ''} ${item.bairro || ''}` : 'Endereço não disponível')}</Text>
-                </TouchableOpacity>
+                {/* Nome do Cliente - Destaque Absoluto */}
+                <Text style={styles.clientTitleV10}>{item.cliente}</Text>
 
-                <View style={{ height: 12 }} />
+                {/* Observações (se existirem) */}
+                {item.observacoes ? (
+                    <View style={styles.observacoesIslandV10}>
+                        <Ionicons name="information-circle" size={16} color="#FFD580" />
+                        <Text style={styles.observacoesTextV10} numberOfLines={2}>
+                            {item.observacoes}
+                        </Text>
+                    </View>
+                ) : null}
 
-                <View style={styles.btnRowThree}>
-                    <TouchableOpacity style={[styles.btnSmall, { backgroundColor: '#002366' }]} onPress={() => { if (item?.lat && item?.lng) { openExternalNavigation(item); } else { abrirMapa(item?.endereco); } }}>
-                        <Text style={[styles.btnIconText, { color: '#fff' }]}>ROTA</Text>
+                {/* Container de Endereço (Ilha de Leitura) */}
+                <View style={styles.addressIslandV10}>
+                    <Ionicons name="location" size={16} color="rgba(255,255,255,0.6)" />
+                    <Text style={styles.addressTextV10} numberOfLines={2}>
+                        {item.endereco || (item.rua ? `${item.rua}, ${item.numero || ''} ${item.bairro || ''}` : 'Endereço não disponível')}
+                    </Text>
+                </View>
+
+                {/* Botões de Ação */}
+                <View style={styles.actionContainerV10}>
+                    {/* Botão de Navegação (GPS) - Circular e Destacado */}
+                    <TouchableOpacity
+                        style={styles.routeBtnV10}
+                        onPress={() => {
+                            // REMOVIDO: Verifica\u00e7\u00e3o de lat/lng comentada (colunas n\u00e3o existem)
+                            // Abre navega\u00e7\u00e3o apenas pelo endere\u00e7o
+                            abrirMapa(item?.endereco);
+                        }}
+                    >
+                        <Ionicons name="navigate" size={24} color="#FFFFFF" />
                     </TouchableOpacity>
 
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                        <View style={styles.btnSplitContainer}>
-                            <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#ff8c00', marginRight: 8 }]} onPress={() => { handleNaoEntregue(item); }}>
-                                <Text style={[styles.btnIconText, { color: '#fff' }]}>🚫NÃO ENTREGUE</Text>
-                            </TouchableOpacity>
+                    {/* Botões de Ação - Simetria Total */}
+                    <View style={styles.actionRowV10}>
+                        <TouchableOpacity
+                            style={styles.confirmBtnV10}
+                            onPress={() => handleAbrirFinalizacao(item)}
+                        >
+                            <Text style={styles.confirmBtnTextV10}>CONCLUIR</Text>
+                        </TouchableOpacity>
 
-                            <TouchableOpacity style={[styles.btnSplit, { backgroundColor: '#28a745', marginLeft: 8 }]} onPress={() => { handleAbrirFinalizacao(item); }}>
-                                <Text style={[styles.btnIconText, { color: '#fff' }]}>✅FINALIZAR</Text>
-                            </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity
+                            style={styles.errorBtnV10}
+                            onPress={() => handleNaoEntregue(item)}
+                        >
+                            <Ionicons name="alert-circle" size={20} color="#FFFFFF" />
+                            <Text style={styles.errorBtnTextV10}>FALHA</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </TouchableOpacity>
@@ -1906,49 +2068,11 @@ function DeliveryApp(props) {
                 </View>
             </View>
 
-            {/* Map temporariamente desativado para Development Build - Aguardando configuração de API key nativa */}
-            {/* <MapView
-                ref={mapRef}
-                style={styles.map}
-                showsUserLocation={true}
-                showsMyLocationButton={false}
-                initialRegion={{
-                    latitude: -27.6146,
-                    longitude: -48.6493,
-                    latitudeDelta: 0.05,
-                    longitudeDelta: 0.05
-                }}
-            >
-                {posicaoMotorista && posicaoMotorista.latitude != null && posicaoMotorista.longitude != null && (
-                    <Marker
-                        coordinate={{ latitude: Number(posicaoMotorista.latitude), longitude: Number(posicaoMotorista.longitude) }}
-                        anchor={{ x: 0.5, y: 0.5 }}
-                    >
-                        <View style={styles.containerPulsante}>
-                            <View style={[styles.pulsoVermelhoStatic]} />
-                            <View style={styles.bolinhaVermelhaCentro} />
-                        </View>
-                    </Marker>
-                )}
-
-                {entregas.map(p => (
-                    (p.lat != null && p.lng != null) ? (
-                        <Marker key={p.id} coordinate={{ latitude: Number(p.lat), longitude: Number(p.lng) }} pinColor={p.status === 'entregue' ? 'green' : 'orange'} />
-                    ) : null
-                ))}
-
-                {pedidoSelecionado?.lat != null && pedidoSelecionado?.lng != null ? (
-                    <Marker key={'selected'} coordinate={{ latitude: Number(pedidoSelecionado?.lat), longitude: Number(pedidoSelecionado?.lng) }}>
-                        <View style={styles.selectedMarker}><View style={styles.selectedMarkerDot} /></View>
-                    </Marker>
-                ) : null}
-
-            </MapView> */}
-
+            {/* Map temporariamente desativado - colunas lat/lng não existem no schema */}
             {/* Placeholder temporário para testes sem Google Maps */}
             <View style={[styles.map, { backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }]}>
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>📍 Mapa desativado para teste</Text>
-                <Text style={{ color: '#aaa', fontSize: 12, marginTop: 8 }}>Configure a API Key do Google Maps</Text>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>📍 Mapa desativado</Text>
+                <Text style={{ color: '#aaa', fontSize: 12, marginTop: 8 }}>Configure coordenadas no banco de dados</Text>
             </View>
 
             <Animated.View
@@ -2016,126 +2140,191 @@ function DeliveryApp(props) {
                         <View style={[styles.containerAssinatura, { padding: 12 }]}>
                             {isNaoEntregue ? (
                                 <>
-                                    <Text style={{ fontWeight: 'bold', marginBottom: 8 }}>Motivo da Não Entrega</Text>
+                                    {/* 🔽 ARQUITETURA UX PREMIUM - MODAL DE FALHA */}
 
-                                    <View style={styles.quickReasonList}>
-                                        {motivosRapidos.map((m, i) => (
-                                            <TouchableOpacity
-                                                key={m + '_' + i}
-                                                style={[styles.quickReasonBtn, m === 'Outro (Digitar Motivo)' ? { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ccc' } : {}]}
-                                                onPress={() => {
-                                                    if (String(m || '').toLowerCase().includes('outro')) {
-                                                        // habilita input para digitar, sem fechar o modal
-                                                        setMotivoLocal('');
-                                                        setMostrarInputOutro(true);
-                                                        // foco rápido ao mostrar input
-                                                        setTimeout(() => { try { motivoInputRef.current && motivoInputRef.current.focus && motivoInputRef.current.focus(); } catch (e) { /* ignore */ } }, 100);
-                                                    } else {
-                                                        // envio imediato com o motivo selecionado
-                                                        handleConfirmNaoEntregue(m);
-                                                    }
-                                                }}
-                                            >
-                                                <Text style={styles.quickReasonText}>{m}</Text>
-                                            </TouchableOpacity>
-                                        ))}
+                                    {/* TOPO: TextInput para entrada manual */}
+                                    <Text style={styles.failureModalLabel}>Motivo da Falha</Text>
+                                    <TextInput
+                                        ref={motivoInputRef}
+                                        value={motivoLocal}
+                                        onChangeText={setMotivoLocal}
+                                        placeholder="Digite ou selecione um motivo abaixo..."
+                                        placeholderTextColor="rgba(255,255,255,0.5)"
+                                        style={styles.failureInputField}
+                                        multiline
+                                        numberOfLines={3}
+                                        returnKeyType="done"
+                                        autoFocus={false}
+                                    />
+
+                                    {/* MEIO: Opções Rápidas (Chips) */}
+                                    <Text style={styles.failureChipsLabel}>Seleção Rápida</Text>
+                                    <View style={styles.failureChipsContainer}>
+                                        {motivosRapidos.map((motivo, index) => {
+                                            const isSelected = motivoLocal === motivo;
+                                            return (
+                                                <TouchableOpacity
+                                                    key={motivo + '_' + index}
+                                                    style={[
+                                                        styles.failureChipBtn,
+                                                        isSelected && styles.failureChipBtnSelected
+                                                    ]}
+                                                    onPress={() => {
+                                                        setMotivoLocal(motivo);
+                                                    }}
+                                                >
+                                                    <Text style={[
+                                                        styles.failureChipText,
+                                                        isSelected && styles.failureChipTextSelected
+                                                    ]}>
+                                                        {motivo}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
                                     </View>
 
-                                    {/* input habilitado apenas se escolher "Outro" */}
-                                    {mostrarInputOutro ? (
-                                        <View style={{ marginTop: 12 }}>
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                                <TouchableOpacity onPress={() => { setMostrarInputOutro(false); setMotivoLocal(''); }} style={{ padding: 6 }}>
-                                                    <Text style={{ color: '#007bff' }}>← Voltar</Text>
-                                                </TouchableOpacity>
-                                                <Text style={{ fontSize: 12, color: '#666' }}>Digite o motivo</Text>
-                                                <View style={{ width: 60 }} />
-                                            </View>
+                                    {/* BASE: Botões de Ação */}
+                                    <View style={styles.failureActionsRow}>
+                                        <TouchableOpacity
+                                            style={styles.failureBtnCancel}
+                                            onPress={() => {
+                                                setModalAssinatura(false);
+                                                setMotivoLocal('');
+                                                setIsNaoEntregue(false);
+                                            }}
+                                        >
+                                            <Text style={styles.failureBtnCancelText}>VOLTAR</Text>
+                                        </TouchableOpacity>
 
-                                            <TextInput
-                                                ref={motivoInputRef}
-                                                value={motivoLocal}
-                                                onChangeText={setMotivoLocal}
-                                                placeholder="Descreva o motivo da não entrega"
-                                                style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, borderRadius: 6, backgroundColor: '#fff' }}
-                                                returnKeyType="done"
-                                                autoFocus={true}
-                                            />
-
-                                            <View style={{ flexDirection: 'row', marginTop: 12, justifyContent: 'space-between' }}>
-                                                <TouchableOpacity style={[styles.btnConfirmarFull, { flex: 1, backgroundColor: '#ff8c00', marginRight: 8 }]} onPress={() => { handleConfirmNaoEntregue(motivoLocal); }}>
-                                                    <Text style={styles.btnTextGeral}>CONFIRMAR MOTIVO</Text>
-                                                </TouchableOpacity>
-                                            </View>
-
-                                            <Text style={{ marginTop: 10, fontSize: 12, color: '#666' }}>Toque em "CONFIRMAR MOTIVO" para confirmar e notificar o gestor.</Text>
-                                        </View>
-                                    ) : null}
+                                        <TouchableOpacity
+                                            style={styles.failureBtnConfirm}
+                                            onPress={() => {
+                                                if (!motivoLocal.trim()) {
+                                                    alert('Por favor, digite ou selecione um motivo!');
+                                                    return;
+                                                }
+                                                handleConfirmNaoEntregue(motivoLocal);
+                                            }}
+                                        >
+                                            <Text style={styles.failureBtnConfirmText}>CONFIRMAR</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </>
                             ) : (
                                 <>
-                                    <Text style={{ fontWeight: 'bold', marginBottom: 8 }}>Nome do recebedor</Text>
-                                    <TextInput
-                                        ref={recebedorInputRef}
-                                        value={recebedorLocal}
-                                        onChangeText={setRecebedorLocal}
-                                        placeholder="Digite o nome que recebeu o pedido"
-                                        style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, borderRadius: 6, backgroundColor: '#fff' }}
-                                        returnKeyType="done"
-                                    />
+                                    {/* � REGISTRO RÁPIDO V10 - CAMPO DE RECEBEDOR COM AUTOCOMPLETE */}
+                                    <View style={styles.categoryContainer}>
+                                        <Text style={styles.categoryLabel}>QUEM ESTÁ RECEBENDO?</Text>
 
-                                    {/* Sugestões filtradas (Input Inteligente) */}
-                                    {Array.isArray(ultimosRecebedores) && ultimosRecebedores.length > 0 && (
-                                        <View style={{ marginTop: 12, height: 50 }}>
-                                            <FlatList
-                                                data={ultimosRecebedores.filter(r =>
-                                                    !recebedorLocal || (r && r.toLowerCase().startsWith(recebedorLocal.toLowerCase()))
-                                                )}
-                                                horizontal
-                                                keyboardShouldPersistTaps="handled"
-                                                showsHorizontalScrollIndicator={false}
-                                                keyExtractor={(item, index) => item + '_' + index}
-                                                renderItem={({ item }) => (
-                                                    <TouchableOpacity
-                                                        onPress={() => setRecebedorLocal(item)}
-                                                        style={{
-                                                            backgroundColor: '#e0f7fa',
-                                                            paddingVertical: 8,
-                                                            paddingHorizontal: 16,
-                                                            borderRadius: 20,
-                                                            marginRight: 8,
-                                                            borderWidth: 1,
-                                                            borderColor: '#4dd0e1',
-                                                            justifyContent: 'center'
-                                                        }}
-                                                    >
-                                                        <Text style={{ color: '#006064', fontWeight: '600' }}>{item}</Text>
-                                                    </TouchableOpacity>
-                                                )}
-                                                ListEmptyComponent={null}
-                                            />
+                                        {/* GRADE DE CATEGORIAS (4 botões) */}
+                                        <View style={styles.categoryChipsContainer}>
+                                            {['Porteiro', 'Zelador', 'Faxineira', 'Morador'].map((cat) => (
+                                                <TouchableOpacity
+                                                    key={cat}
+                                                    style={[
+                                                        styles.categoryChipBtn,
+                                                        categoria === cat && styles.categoryChipBtnSelected
+                                                    ]}
+                                                    onPress={() => setCategoria(cat)}
+                                                >
+                                                    <Text style={[
+                                                        styles.categoryChipText,
+                                                        categoria === cat && styles.categoryChipTextSelected
+                                                    ]}>
+                                                        {cat.toUpperCase()}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
                                         </View>
-                                    )}
 
-                                    <Text style={{ marginTop: 10, fontSize: 12, color: '#666' }}>Você pode deixar em branco se não houver recebedor.</Text>
+                                        {/* INPUT DE NOME (ESCURO) */}
+                                        <TextInput
+                                            value={nome}
+                                            onChangeText={(t) => setNome(t)}
+                                            placeholder="Nome de quem recebeu"
+                                            placeholderTextColor="#666"
+                                            style={styles.categoryInputNome}
+                                            returnKeyType="done"
+                                            autoCapitalize="words"
+                                            autoFocus={true}
+                                        />
+
+                                        {/* CAMPO APARTAMENTO (CONDICIONAL - SÓ MORADOR) */}
+                                        {categoria === 'Morador' && (
+                                            <TextInput
+                                                value={apto}
+                                                onChangeText={(t) => setApto(t)}
+                                                placeholder="Número do Apartamento"
+                                                placeholderTextColor="#666"
+                                                keyboardType="numeric"
+                                                style={styles.categoryInputApto}
+                                                returnKeyType="done"
+                                            />
+                                        )}
+
+                                        {/* INFORMAÇÃO DE GPS */}
+                                        <View style={styles.gpsInfoContainer}>
+                                            <Ionicons name="location" size={16} color="#1B5E20" />
+                                            <Text style={styles.gpsInfoText}>
+                                                Ao confirmar, sua localização será registrada automaticamente
+                                            </Text>
+                                        </View>
+                                    </View>
                                 </>
                             )}
                         </View>
 
-                        {/* 🔘 BOTÕES DE COMANDO EM BAIXO */}
-                        <View style={styles.modalFooterAssina}>
-                            <TouchableOpacity style={styles.btnApagarFull} onPress={() => { setModalAssinatura(false); setRecebedorLocal(''); setMotivoLocal(''); setIsNaoEntregue(false); setMostrarInputOutro(false); }}>
-                                <Text style={styles.btnTextGeral}>SAIR / LIMPAR</Text>
-                            </TouchableOpacity>
-
+                        {/* 🔘 BOTÕES PREMIUM - BASE DO MODAL */}
+                        <View style={styles.modalFooterPremium}>
                             {isNaoEntregue ? (
-                                <TouchableOpacity style={[styles.btnConfirmarFull, { backgroundColor: '#ff8c00' }]} onPress={() => { handleConfirmNaoEntregue(); }}>
-                                    <Text style={styles.btnTextGeral}>ENVIAR MOTIVO</Text>
-                                </TouchableOpacity>
+                                <>
+                                    <TouchableOpacity
+                                        style={styles.btnModalVoltar}
+                                        onPress={() => {
+                                            setModalAssinatura(false);
+                                            setCategoria('');
+                                            setNome('');
+                                            setApto('');
+                                            setMotivoLocal('');
+                                            setIsNaoEntregue(false);
+                                            setMostrarInputOutro(false);
+                                        }}
+                                    >
+                                        <Text style={styles.btnModalVoltarText}>VOLTAR</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.btnModalFinalizar}
+                                        onPress={() => { handleConfirmNaoEntregue(); }}
+                                    >
+                                        <Ionicons name="alert-circle" size={22} color="#FFF" />
+                                        <Text style={styles.btnModalFinalizarText}>ENVIAR MOTIVO</Text>
+                                    </TouchableOpacity>
+                                </>
                             ) : (
-                                <TouchableOpacity style={styles.btnConfirmarFull} onPress={() => { handleFinalizar(); }}>
-                                    <Text style={styles.btnTextGeral}>CONFIRMAR ENTREGA</Text>
-                                </TouchableOpacity>
+                                <>
+                                    <TouchableOpacity
+                                        style={styles.btnModalVoltar}
+                                        onPress={() => {
+                                            setModalAssinatura(false);
+                                            setCategoria('');
+                                            setNome('');
+                                            setApto('');
+                                            setMotivoLocal('');
+                                            setIsNaoEntregue(false);
+                                            setMostrarInputOutro(false);
+                                        }}
+                                    >
+                                        <Text style={styles.btnModalVoltarText}>VOLTAR</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.btnModalFinalizar}
+                                        onPress={() => { handleFinalizar(); }}
+                                    >
+                                        <Ionicons name="checkmark-circle" size={22} color="#FFF" />
+                                        <Text style={styles.btnModalFinalizarText}>FINALIZAR</Text>
+                                    </TouchableOpacity>
+                                </>
                             )}
                         </View>
                     </View>
@@ -2375,17 +2564,339 @@ const styles = StyleSheet.create({
     btnFechar: { paddingVertical: 12, alignItems: 'center', backgroundColor: '#444', borderRadius: 10, marginTop: 8 },
     /* Modal assinatura - versão full */
     modalAssinaturaFull: {
-        width: '95%', // Quase a largura toda
-        height: '90%', // 90% da altura da tela
+        width: '95%',
+        height: '90%',
         backgroundColor: '#FFF',
         borderRadius: 25,
         padding: 15,
-        elevation: 30,
+        borderWidth: 1.5, // ✅ Borda para profundidade
+        borderColor: 'rgba(0, 0, 0, 0.15)',
+        elevation: 20, // ✅ Elevação máxima (destaque total)
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
         alignItems: 'center',
     },
     quickReasonList: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
     quickReasonBtn: { backgroundColor: '#f2f2f2', paddingVertical: 12, paddingHorizontal: 10, borderRadius: 8, width: '48%', marginBottom: 10, alignItems: 'center', justifyContent: 'center' },
     quickReasonText: { color: '#333', fontSize: 14, textAlign: 'center' },
+
+    // 🎨 MODAL DE FALHA - LAYOUT EM CAIXA COM PROFUNDIDADE
+    failureModalLabel: {
+        color: '#FFFFFF', // ✅ Branco puro
+        fontSize: 15,
+        fontWeight: '900', // ✅ Negrito (ultra bold)
+        marginBottom: 10,
+        letterSpacing: 1.2,
+        textTransform: 'uppercase',
+    },
+    failureInputField: {
+        backgroundColor: '#000000', // ✅ Preto sólido (máximo contraste)
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.2)', // ✅ Borda de vidro visível
+        borderRadius: 12,
+        padding: 14,
+        color: '#FFFFFF', // ✅ Texto branco
+        fontSize: 15,
+        fontWeight: '500',
+        minHeight: 85,
+        textAlignVertical: 'top',
+        marginBottom: 22,
+    },
+    failureChipsLabel: {
+        color: '#B0B0B0', // ✅ Cinza claro visível
+        fontSize: 13,
+        fontWeight: '700',
+        marginBottom: 12,
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+    },
+    failureChipsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between', // ✅ Alinhamento nas bordas
+        marginBottom: 24,
+    },
+    failureChipBtn: {
+        backgroundColor: '#333333', // ✅ Grafite (aceso)
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.5)', // ✅ Borda branca MUITO visível
+        borderRadius: 10,
+        paddingVertical: 13,
+        paddingHorizontal: 12,
+        width: '48%', // ✅ Duas colunas exatas
+        minHeight: 48, // ✅ Altura mínima para estabilidade
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 10, // ✅ Espaçamento vertical entre linhas
+        elevation: 3, // ✅ Profundidade nos chips inativos
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.4,
+        shadowRadius: 3,
+    },
+    failureChipBtnSelected: {
+        backgroundColor: '#D32F2F', // ✅ Vermelho vibrante V10
+        borderColor: '#FFFFFF', // ✅ Borda branca pura (brilho)
+        borderWidth: 2, // ✅ Borda mais grossa quando selecionado
+        elevation: 6, // ✅ Profundidade máxima quando ativo
+        shadowOpacity: 0.6,
+        shadowRadius: 5,
+    },
+    failureChipText: {
+        color: '#FFFFFF', // ✅ Branco puro
+        fontSize: 13, // ✅ Ajustado para caber em 2 colunas
+        fontWeight: '700', // ✅ Bold para contraste
+        textAlign: 'center',
+        lineHeight: 18, // ✅ Permite múltiplas linhas sem corte
+        letterSpacing: 0.2,
+        flexShrink: 1, // ✅ Permite compressão do texto
+    },
+    failureChipTextSelected: {
+        color: '#FFFFFF', // ✅ Permanece branco (já tem contraste pelo fundo vermelho)
+        fontWeight: '700',
+    },
+    failureActionsRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 8,
+    },
+    failureBtnCancel: {
+        flex: 1,
+        backgroundColor: '#2C2C2C', // ✅ Cinza escuro (visível)
+        borderRadius: 12,
+        paddingVertical: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+    },
+    failureBtnCancelText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '700',
+        letterSpacing: 1.2,
+    },
+    failureBtnConfirm: {
+        flex: 1,
+        backgroundColor: '#D32F2F', // ✅ Vermelho vibrante V10
+        borderRadius: 12,
+        paddingVertical: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 6, // ✅ Profundidade para botão primário
+        shadowColor: '#D32F2F',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.5,
+        shadowRadius: 6,
+    },
+    failureBtnConfirmText: {
+        color: '#FFF',
+        fontSize: 14,
+        fontWeight: '900',
+        letterSpacing: 1,
+    },
+
+    // � REGISTRO RÁPIDO V10 - CAMPO DE RECEBEDOR COM AUTOCOMPLETE
+    // 📦 SISTEMA DE CATEGORIAS V10
+    categoryContainer: {
+        width: '100%',
+        paddingTop: 8,
+    },
+    categoryLabel: {
+        color: '#1B5E20',
+        fontSize: 16,
+        fontWeight: '900',
+        marginBottom: 12,
+        letterSpacing: 1.5,
+        textTransform: 'uppercase',
+    },
+    categoryInputNome: {
+        backgroundColor: '#1A1A1A',
+        borderWidth: 2,
+        borderColor: '#444',
+        borderRadius: 12,
+        padding: 16,
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#FFFFFF',
+        marginBottom: 12,
+    },
+    categoryChipsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+        marginBottom: 16,
+    },
+    categoryChipBtn: {
+        width: '48%',
+        backgroundColor: '#333',
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
+        borderRadius: 10,
+        paddingVertical: 13,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    categoryChipBtnSelected: {
+        backgroundColor: '#1B5E20',
+        borderColor: '#FFFFFF',
+    },
+    categoryChipText: {
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontWeight: '700',
+        letterSpacing: 1,
+    },
+    categoryChipTextSelected: {
+        color: '#FFFFFF',
+        fontWeight: '900',
+    },
+    categoryInputApto: {
+        backgroundColor: '#1A1A1A',
+        borderWidth: 2,
+        borderColor: '#444',
+        borderRadius: 12,
+        padding: 14,
+        fontSize: 15,
+        color: '#FFFFFF',
+        marginBottom: 12,
+    },
+
+    gpsInfoContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 16,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        backgroundColor: 'rgba(27, 94, 32, 0.08)',
+        borderRadius: 10,
+        borderLeftWidth: 4,
+        borderLeftColor: '#1B5E20',
+    },
+    gpsInfoText: {
+        flex: 1,
+        color: '#1B5E20',
+        fontSize: 12,
+        fontWeight: '600',
+        lineHeight: 18,
+    },
+
+    // 🔘 BOTÕES PREMIUM DO MODAL - V10
+    modalFooterPremium: {
+        flexDirection: 'row',
+        gap: 12,
+        width: '100%',
+        paddingTop: 20,
+    },
+    btnModalVoltar: {
+        flex: 1,
+        backgroundColor: '#6B6B6B',
+        borderRadius: 14,
+        paddingVertical: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.4,
+        shadowRadius: 5,
+    },
+    btnModalVoltarText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '900',
+        letterSpacing: 1.5,
+    },
+    btnModalFinalizar: {
+        flex: 2,
+        flexDirection: 'row',
+        gap: 10,
+        backgroundColor: '#1B5E20',
+        borderRadius: 14,
+        paddingVertical: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 8,
+        shadowColor: '#1B5E20',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 6,
+    },
+    btnModalFinalizarText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '900',
+        letterSpacing: 1.5,
+    },
+
+    // 🔘 BOTÕES DE CONCLUSÃO DE ENTREGA V10 (LEGADO)
+    deliveryBtnCancel: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: '#6B6B6B', // Cinza
+        borderRadius: 14,
+        paddingVertical: 16,
+        marginRight: 8,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+    },
+    deliveryBtnCancelText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '700',
+        letterSpacing: 1,
+    },
+    deliveryBtnConfirm: {
+        flex: 2,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: '#1B5E20', // ✅ Verde V10
+        borderRadius: 14,
+        paddingVertical: 16,
+        elevation: 6,
+        shadowColor: '#1B5E20',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.5,
+        shadowRadius: 6,
+    },
+    deliveryBtnFailure: {
+        flex: 2,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: '#D32F2F', // Vermelho
+        borderRadius: 14,
+        paddingVertical: 16,
+        elevation: 6,
+        shadowColor: '#D32F2F',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.5,
+        shadowRadius: 6,
+    },
+    deliveryBtnText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '900',
+        letterSpacing: 1.2,
+    },
+
     /* Overlay shown inside the assinatura modal while uploading/processing the photo */
     modalProcessing: {
         position: 'absolute',
@@ -2759,6 +3270,203 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 30000,
+    },
+
+    // ========== ESTILOS V10 ULTRA-MODERNOS (ESTRUTURA FLAT ESTÁVEL) ==========
+    cardModernV10: {
+        marginHorizontal: 16,
+        marginVertical: 12,
+        borderRadius: 28,
+        padding: 22,
+        overflow: 'hidden',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.15)', // Borda de vidro
+        // Elevação profunda Android
+        elevation: 12,
+        // Sombra profunda iOS
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 10,
+    },
+    cardSelecionadoV10: {
+        elevation: 16,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.5,
+        shadowRadius: 14,
+        transform: [{ scale: 1.02 }],
+        borderColor: 'rgba(255, 255, 255, 0.25)',
+    },
+    innerGlowV10: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '40%',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)', // Brilho interno sutil
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+    },
+    headerRowV10: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 18,
+        zIndex: 1,
+    },
+    headerLeftV10: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    headerRightV10: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    typeBadgeV10: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        gap: 6,
+    },
+    typeLabelV10: {
+        color: '#FFF',
+        fontSize: 11,
+        fontWeight: '900',
+        letterSpacing: 1.2,
+    },
+    numeroBadgeV10: {
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        paddingVertical: 4,
+        paddingHorizontal: 10,
+        borderRadius: 10,
+    },
+    numeroTextV10: {
+        color: '#FFF',
+        fontSize: 13,
+        fontWeight: '800',
+    },
+    idLabelV10: {
+        color: 'rgba(255, 255, 255, 0.35)',
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    arrowBtnV10: {
+        paddingHorizontal: 4,
+        paddingVertical: 2,
+    },
+    arrowTextV10: {
+        fontSize: 16,
+    },
+    clientTitleV10: {
+        color: '#FFF',
+        fontSize: 24,
+        fontWeight: '800',
+        marginBottom: 14,
+        letterSpacing: -0.8,
+        zIndex: 1,
+    },
+    observacoesIslandV10: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 213, 128, 0.15)',
+        padding: 12,
+        borderRadius: 16,
+        marginBottom: 12,
+        gap: 8,
+        zIndex: 1,
+    },
+    observacoesTextV10: {
+        color: '#FFD580',
+        fontSize: 13,
+        lineHeight: 19,
+        flex: 1,
+        fontStyle: 'italic',
+    },
+    addressIslandV10: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.25)', // Ilha de leitura mais escura
+        padding: 14,
+        borderRadius: 20,
+        marginBottom: 22,
+        gap: 10,
+        zIndex: 1,
+    },
+    addressTextV10: {
+        color: 'rgba(255, 255, 255, 0.75)',
+        fontSize: 14,
+        lineHeight: 20,
+        flex: 1,
+        fontWeight: '500',
+    },
+    actionContainerV10: {
+        flexDirection: 'column',
+        gap: 12,
+        zIndex: 1,
+    },
+    actionRowV10: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        zIndex: 1,
+    },
+    routeBtnV10: {
+        width: 64,
+        height: 64,
+        backgroundColor: '#007AFF', // Azul Royal
+        borderRadius: 32, // Circular perfeito
+        justifyContent: 'center',
+        alignItems: 'center',
+        alignSelf: 'center', // Centraliza o botão
+        elevation: 8,
+        shadowColor: '#007AFF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 10,
+    },
+    confirmBtnV10: {
+        backgroundColor: '#FFFFFF', // Branco sólido
+        flex: 1, // Simetria total
+        height: 56,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+    },
+    confirmBtnTextV10: {
+        color: '#000', // Texto preto
+        fontWeight: '900',
+        fontSize: 14,
+        letterSpacing: 1,
+    },
+    errorBtnV10: {
+        backgroundColor: '#D32F2F', // Vermelho sólido
+        flex: 1, // Simetria total
+        height: 56,
+        borderRadius: 18,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 6,
+        elevation: 6,
+        shadowColor: '#D32F2F',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+    },
+    errorBtnTextV10: {
+        color: '#FFFFFF', // Texto branco
+        fontWeight: '900',
+        fontSize: 14,
+        letterSpacing: 1,
     },
 });
 
